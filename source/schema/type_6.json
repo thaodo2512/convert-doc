@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Sensor Auxiliary Names PDR Schema (DSP0248 1.3.0, Clause 28.9)",
+  "type": "object",
+  "additionalProperties": false,
+  "binaryOrder": [
+    "PLDMTerminusHandle",
+    "sensorID",
+    "numberOfStringEntries",
+    "sensorNames"
+  ],
+  "properties": {
+    "pdrHeader": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "recordHandle": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          ],
+          "binaryFormat": "I",
+          "description": "uint32; opaque handle (TBD or auto-generated)"
+        },
+        "PDRHeaderVersion": {
+          "type": "integer",
+          "const": 1,
+          "binaryFormat": "B",
+          "description": "uint8; must be 1"
+        },
+        "PDRType": {
+          "type": "integer",
+          "const": 6,
+          "binaryFormat": "B",
+          "description": "uint8; Sensor Auxiliary Names PDR = 6"
+        },
+        "recordChangeNumber": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535,
+          "default": 0,
+          "binaryFormat": "H",
+          "description": "uint16; incremented on changes (default 0)"
+        },
+        "dataLength": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            }
+          ],
+          "binaryFormat": "H",
+          "description": "uint16; calculated data length (TBD)"
+        }
+      },
+      "required": [
+        "recordHandle",
+        "PDRHeaderVersion",
+        "PDRType",
+        "recordChangeNumber",
+        "dataLength"
+      ]
+    },
+    "PLDMTerminusHandle": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "default": 0,
+      "binaryFormat": "H",
+      "description": "uint16; terminus handle"
+    },
+    "sensorID": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; unique sensor ID"
+    },
+    "numberOfStringEntries": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 8,
+      "binaryFormat": "B",
+      "description": "uint8; number of auxiliary name strings (1 for non-composite, up to 8 for composite sensors)"
+    },
+    "sensorNames": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "binaryOrder": [
+          "stringType",
+          "stringLength",
+          "sensorName"
+        ],
+        "properties": {
+          "stringType": {
+            "type": "integer",
+            "enum": [
+              0,
+              1,
+              2,
+              3,
+              4
+            ],
+            "binaryFormat": "B",
+            "description": "enum8: 0=ASCII, 1=UTF-8, 2=UTF-16, 3=UTF-16LE, 4=UTF-16BE"
+          },
+          "stringLength": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535,
+            "binaryFormat": "H",
+            "description": "uint16; number of characters in the string"
+          },
+          "sensorName": {
+            "type": "string",
+            "binaryFormat": "variable",
+            "description": "Variable; auxiliary sensor name string, encoding based on stringType"
+          }
+        },
+        "required": [
+          "stringType",
+          "stringLength",
+          "sensorName"
+        ]
+      },
+      "minItems": 1,
+      "maxItems": 8,
+      "description": "Array of auxiliary names, one per sub-sensor in composite sensors"
+    }
+  },
+  "required": [
+    "pdrHeader",
+    "PLDMTerminusHandle",
+    "sensorID",
+    "numberOfStringEntries",
+    "sensorNames"
+  ]
+}

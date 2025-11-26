@@ -1,0 +1,11 @@
+pdrHeader:
+  recordHandle: TBD
+  PDRHeaderVersion: 1
+  PDRType: 0
+  dataLength: TBD
+containerID: 1
+hysteresis:
+  value: 5
+  comment: |
+    The amount of hysteresis associated with the sensor thresholds. See :ref:`17.9` for more info.
+    Value: 1 or greater; 0 = no hysteresis.
