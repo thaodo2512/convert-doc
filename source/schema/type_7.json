@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OEM Unit PDR Schema (DSP0248 1.3.0, Clause 28.9)",
+  "type": "object",
+  "additionalProperties": false,
+  "binaryOrder": [
+    "PLDMTerminusHandle",
+    "OEMUnitHandle",
+    "vendorIANA",
+    "OEMUnitID",
+    "nameStringCount"
+  ],
+  "properties": {
+    "pdrHeader": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "recordHandle": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          ],
+          "binaryFormat": "I",
+          "description": "uint32; opaque handle (TBD or auto-generated)"
+        },
+        "PDRHeaderVersion": {
+          "type": "integer",
+          "const": 1,
+          "binaryFormat": "B",
+          "description": "uint8; must be 1"
+        },
+        "PDRType": {
+          "type": "integer",
+          "const": 7,
+          "binaryFormat": "B",
+          "description": "uint8; OEM Unit PDR = 7"
+        },
+        "recordChangeNumber": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535,
+          "default": 0,
+          "binaryFormat": "H",
+          "description": "uint16; incremented on changes (default 0)"
+        },
+        "dataLength": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            }
+          ],
+          "binaryFormat": "H",
+          "description": "uint16; calculated data length (TBD)"
+        }
+      },
+      "required": [
+        "recordHandle",
+        "PDRHeaderVersion",
+        "PDRType",
+        "recordChangeNumber",
+        "dataLength"
+      ]
+    },
+    "PLDMTerminusHandle": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; Handle identifying PDRs for a specific PLDM terminus"
+    },
+    "OEMUnitHandle": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "uint8; Unique handle for this OEM unit within the PDR Repository"
+    },
+    "vendorIANA": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295,
+      "binaryFormat": "I",
+      "description": "uint32; Enterprise Number (IANA) for the vendor defining the OEM Unit"
+    },
+    "OEMUnitID": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; Vendor-defined value identifying the type of OEM unit"
+    },
+    "nameStringCount": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "uint8; Number of following pairs [0..N] of unitLanguageTag + unitName fields"
+    },
+    "unitNames": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "binaryOrder": [
+          "unitLanguageTag",
+          "unitName"
+        ],
+        "properties": {
+          "unitLanguageTag": {
+            "type": "string",
+            "binaryFormat": "variable",
+            "description": "strASCII; Null-terminated language tag per RFC4646 (e.g., 'en'). Special: empty = unspecified"
+          },
+          "unitName": {
+            "type": "string",
+            "binaryFormat": "variable",
+            "description": "strUTF-16BE; Null-terminated unicode string for the OEM unit name. Special: empty = not provided"
+          }
+        },
+        "required": [
+          "unitLanguageTag",
+          "unitName"
+        ]
+      },
+      "description": "Array of unit name pairs, length = nameStringCount"
+    }
+  },
+  "required": [
+    "pdrHeader",
+    "PLDMTerminusHandle",
+    "OEMUnitHandle",
+    "vendorIANA",
+    "OEMUnitID",
+    "nameStringCount",
+    "unitNames"
+  ]
+}

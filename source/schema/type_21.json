@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Compact Numeric Sensor PDR Schema (DSP0248 1.3.0, Clause 28.25)",
+  "type": "object",
+  "additionalProperties": false,
+  "binaryOrder": [
+    "PLDMTerminusHandle",
+    "sensorID",
+    "entityType",
+    "entityInstanceNumber",
+    "containerID"
+  ],
+  "properties": {
+    "pdrHeader": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "recordHandle": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          ],
+          "binaryFormat": "I",
+          "description": "uint32; opaque handle (TBD or auto-generated)"
+        },
+        "PDRHeaderVersion": {
+          "type": "integer",
+          "const": 1,
+          "binaryFormat": "B",
+          "description": "uint8; must be 1"
+        },
+        "PDRType": {
+          "type": "integer",
+          "const": 21,
+          "binaryFormat": "B",
+          "description": "uint8; Compact Numeric Sensor PDR = 21"
+        },
+        "recordChangeNumber": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535,
+          "default": 0,
+          "binaryFormat": "H",
+          "description": "uint16; incremented on changes (default 0)"
+        },
+        "dataLength": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            }
+          ],
+          "binaryFormat": "H",
+          "description": "uint16; calculated data length (TBD)"
+        }
+      },
+      "required": [
+        "recordHandle",
+        "PDRHeaderVersion",
+        "PDRType",
+        "recordChangeNumber",
+        "dataLength"
+      ]
+    },
+    "PLDMTerminusHandle": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; A handle that identifies PDRs that belong to a particular PLDM terminus."
+    },
+    "sensorID": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; ID of the sensor relative to the given PLDM Terminus ID."
+    },
+    "entityType": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; The Type value for the entity that is associated with this sensor. See 9.1 for more information."
+    },
+    "entityInstanceNumber": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; The Instance Number for the entity that is associated with this sensor. See 9.1 for more information."
+    },
+    "containerID": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; The containerID for the containing entity that is associated with this sensor. See 9.1 for more information."
+    }
+  },
+  "required": [
+    "pdrHeader",
+    "PLDMTerminusHandle",
+    "sensorID",
+    "entityType",
+    "entityInstanceNumber",
+    "containerID"
+  ]
+}

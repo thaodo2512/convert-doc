@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "File Descriptor PDR Schema (DSP0248 1.3.0, Clause 28.30)",
+  "type": "object",
+  "additionalProperties": false,
+  "binaryOrder": [
+    "PLDMTerminusHandle",
+    "FileIdentifier",
+    "EntityType",
+    "EntityInstanceNumber",
+    "ContainerID",
+    "SuperiorDirectoryFileIdentifier",
+    "FileClassification",
+    "OemFileClassification",
+    "oemFileClassificationNameLength",
+    "oemFileClassificationName"
+  ],
+  "properties": {
+    "pdrHeader": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "recordHandle": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          ],
+          "binaryFormat": "I",
+          "description": "uint32; opaque handle (TBD or auto-generated)"
+        },
+        "PDRHeaderVersion": {
+          "type": "integer",
+          "const": 1,
+          "binaryFormat": "B",
+          "description": "uint8; must be 1"
+        },
+        "PDRType": {
+          "type": "integer",
+          "const": 30,
+          "binaryFormat": "B",
+          "description": "uint8; File Descriptor PDR = 30"
+        },
+        "recordChangeNumber": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535,
+          "default": 0,
+          "binaryFormat": "H",
+          "description": "uint16; incremented on changes (default 0)"
+        },
+        "dataLength": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            }
+          ],
+          "binaryFormat": "H",
+          "description": "uint16; calculated data length (TBD)"
+        }
+      },
+      "required": [
+        "recordHandle",
+        "PDRHeaderVersion",
+        "PDRType",
+        "recordChangeNumber",
+        "dataLength"
+      ]
+    },
+    "PLDMTerminusHandle": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; A handle that identifies PDRs that belong to a particular PLDM terminus."
+    },
+    "FileIdentifier": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; A unique numeric file identifier relative to the given PLDM Terminus ID. The file identifer represents the file name and the topology (which is represented by EntityType / EntityInstanceNumber / ContainerID)."
+    },
+    "EntityType": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; The Type value for the entity that is associated with this file or directory. For the File Descriptor PDR format, the entity type shall be Device File or Device File Directory and may be either a Physical or Logical entity. Directories should be a logical entity as a directory, as a file type object, do not have a size."
+    },
+    "EntityInstanceNumber": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; The Instance Number for the entity that is associated with this file or directory. Every file within a ContainerID shall have a unique EntityInstanceNumber."
+    },
+    "ContainerID": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; The containerID for the containing entity that instantiates the entity that is measured by this sensor."
+    },
+    "SuperiorDirectoryFileIdentifier": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; The SuperiorDirectoryFileIdentifier field allows a file or directory to be directly placed into a hierarchy without being placed in an Entity Association PDR (EAR). This field shall be the value of the FileIdentifier of a PDR whose EntityType value is set to Device File Directory and is the parent (object) to this file or directory. Special Values: 0x0000 : This field is not used to establish file or directory hierarchy. There shall be an EAR containing this PDR if contained in a hierarchial data model. 0xFFFF : If the EntityType is a Device File, then this PDR is not part of any hierarchy or if the EntityType is a Device File Directory, then this PDR is a top most element of the hierarchy."
+    },
+    "FileClassification": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "enum8; This indicates the classification of this file. This specificaton will have standard file enumerations but OEM enumerations are permitted as well. Value {OEM, BootLog, SerialTxFIFO, SerialRxFIFO, DiagnosticLog, CrashDumpFile, SecurityLog, FRUDataFile, TelemetryDataFile, TelemetryDataLog, OtherLog=0xFD, OtherFile=0xFE, FileDirectory = 0xFF} If the FileClassificaiton is set to OEM, then the OEMFileClassification in this PDR shall not be the special value: 0x00"
+    },
+    "OemFileClassification": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "enum8; OEM Specific and enumeration provided by the OEM. Special Value: 0x00 is no oemFileClassification. This cannot be zero if FileClassification is equal to OEM, then this value must not be zero. If oemFileClassification is not equal to zero (0), then the oemFileClassificationNameLength and oemFileClassificationName fields shall be present and populated."
+    },
+    "oemFileClassificationNameLength": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "uint8; Length of oemFileClassificationName including null terminator"
+    },
+    "oemFileClassificationName": {
+      "type": "string",
+      "binaryFormat": "variable",
+      "description": "strUTF-16BE; Null-terminated OEM file classification name"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "OemFileClassification": {
+            "not": {
+              "const": 0
+            }
+          }
+        },
+        "required": [
+          "OemFileClassification"
+        ]
+      },
+      "then": {
+        "required": [
+          "oemFileClassificationNameLength",
+          "oemFileClassificationName"
+        ]
+      }
+    }
+  ],
+  "required": [
+    "pdrHeader",
+    "PLDMTerminusHandle",
+    "FileIdentifier",
+    "EntityType",
+    "EntityInstanceNumber",
+    "ContainerID",
+    "SuperiorDirectoryFileIdentifier",
+    "FileClassification",
+    "OemFileClassification"
+  ]
+}

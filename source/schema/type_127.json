@@ -1,14 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "FRU Record Set PDR Schema (DSP0248 1.3.0, Clause 28.22)",
+  "title": "OEM PDR Schema (DSP0248 1.3.0, Clause 28.24)",
   "type": "object",
   "additionalProperties": false,
   "binaryOrder": [
-    "PLDMTerminusHandle",
-    "FRURecordSetIdentifier",
-    "entityType",
-    "entityInstanceNumber",
-    "containerID"
+    "vendorIANA",
+    "OEMPDRData"
   ],
   "properties": {
     "pdrHeader": {
@@ -37,9 +34,9 @@
         },
         "PDRType": {
           "type": "integer",
-          "const": 20,
+          "const": 127,
           "binaryFormat": "B",
-          "description": "uint8; FRU Record Set PDR = 20"
+          "description": "uint8; OEM PDR = 127"
         },
         "recordChangeNumber": {
           "type": "integer",
@@ -72,48 +69,27 @@
         "dataLength"
       ]
     },
-    "PLDMTerminusHandle": {
+    "vendorIANA": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 65535,
-      "binaryFormat": "H",
-      "description": "uint16; The terminus that originated or maintains this PDR."
+      "maximum": 4294967295,
+      "binaryFormat": "I",
+      "description": "uint32; IANA Enterprise Number for the vendor defining the OEM PDR"
     },
-    "FRURecordSetIdentifier": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 65535,
-      "binaryFormat": "H",
-      "description": "uint16; A unique number per terminus that is used to identify the Record Set for the FRU Data for the associated entity. The Record Set value is used for accessing FRU Data using the commands specified in DSP0257."
-    },
-    "entityType": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 65535,
-      "binaryFormat": "H",
-      "description": "uint16; The Type value for the entity that is associated with this FRU data."
-    },
-    "entityInstanceNumber": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 65535,
-      "binaryFormat": "H",
-      "description": "uint16; The Instance Number for the entity that is associated with this FRU data."
-    },
-    "containerID": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 65535,
-      "binaryFormat": "H",
-      "description": "uint16; The containerID for the containing entity that is associated with this FRU data."
+    "OEMPDRData": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 255
+      },
+      "binaryFormat": "variable",
+      "description": "Variable bytes; OEM-specific PDR data"
     }
   },
   "required": [
     "pdrHeader",
-    "PLDMTerminusHandle",
-    "FRURecordSetIdentifier",
-    "entityType",
-    "entityInstanceNumber",
-    "containerID"
+    "vendorIANA",
+    "OEMPDRData"
   ]
 }

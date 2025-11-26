@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Event Log PDR Schema (DSP0248 1.3.0, Clause 28.21)",
+  "type": "object",
+  "additionalProperties": false,
+  "binaryOrder": [
+    "logSize",
+    "supportedLogClearingPolicies",
+    "entryIDTimeout",
+    "perEntryOverhead",
+    "allocationGranularity",
+    "percentUsedResolution"
+  ],
+  "properties": {
+    "pdrHeader": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "recordHandle": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          ],
+          "binaryFormat": "I",
+          "description": "uint32; opaque handle (TBD or auto-generated)"
+        },
+        "PDRHeaderVersion": {
+          "type": "integer",
+          "const": 1,
+          "binaryFormat": "B",
+          "description": "uint8; must be 1"
+        },
+        "PDRType": {
+          "type": "integer",
+          "const": 19,
+          "binaryFormat": "B",
+          "description": "uint8; Event Log PDR = 19"
+        },
+        "recordChangeNumber": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535,
+          "default": 0,
+          "binaryFormat": "H",
+          "description": "uint16; incremented on changes (default 0)"
+        },
+        "dataLength": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            }
+          ],
+          "binaryFormat": "H",
+          "description": "uint16; calculated data length (TBD)"
+        }
+      },
+      "required": [
+        "recordHandle",
+        "PDRHeaderVersion",
+        "PDRType",
+        "recordChangeNumber",
+        "dataLength"
+      ]
+    },
+    "logSize": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295,
+      "binaryFormat": "I",
+      "description": "uint32; Size in bytes of log storage area (excludes fixed overhead, may include per-entry overhead). Special: 0=unspecified, 0xFFFFFFFE=reserved, 0xFFFFFFFF>=4GB-1"
+    },
+    "supportedLogClearingPolicies": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "bitfield8: [7:3]=reserved, [2]=clearOnAge (1b=supported), [1]=FIFO (1b=supported), [0]=fillAndStop (1b=supported)"
+    },
+    "entryIDTimeout": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "uint8; Min interval (seconds) entryID remains valid during partial transfer. Special: 0=no timeout, 1=default min (PDR Handle Timeout MC1), 0xFF>254s"
+    },
+    "perEntryOverhead": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "uint8; Bytes of storage overhead per entry counted in logSize. Special: 0xFF=unspecified"
+    },
+    "allocationGranularity": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "uint8; Byte multiple for storage allocation. Special: 0xFF=unspecified"
+    },
+    "percentUsedResolution": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "uint8; Resolution (1-100) for storagePercentUsed in GetPLDMEventLogInfo; others reserved"
+    }
+  },
+  "required": [
+    "pdrHeader",
+    "logSize",
+    "supportedLogClearingPolicies",
+    "entryIDTimeout",
+    "perEntryOverhead",
+    "allocationGranularity",
+    "percentUsedResolution"
+  ]
+}

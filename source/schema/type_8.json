@@ -1,0 +1,203 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OEM State Set PDR Schema (DSP0248 1.3.0, Clause 28.10)",
+  "type": "object",
+  "additionalProperties": false,
+  "binaryOrder": [
+    "PLDMTerminusHandle",
+    "OEMStateSetIDHandle",
+    "vendorIANA",
+    "OEMStateSetID",
+    "unspecifiedValueHint",
+    "stateCount"
+  ],
+  "properties": {
+    "pdrHeader": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "recordHandle": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          ],
+          "binaryFormat": "I",
+          "description": "uint32; opaque handle (TBD or auto-generated)"
+        },
+        "PDRHeaderVersion": {
+          "type": "integer",
+          "const": 1,
+          "binaryFormat": "B",
+          "description": "uint8; must be 1"
+        },
+        "PDRType": {
+          "type": "integer",
+          "const": 8,
+          "binaryFormat": "B",
+          "description": "uint8; OEM State Set PDR = 8"
+        },
+        "recordChangeNumber": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535,
+          "default": 0,
+          "binaryFormat": "H",
+          "description": "uint16; incremented on changes (default 0)"
+        },
+        "dataLength": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            }
+          ],
+          "binaryFormat": "H",
+          "description": "uint16; calculated data length (TBD)"
+        }
+      },
+      "required": [
+        "recordHandle",
+        "PDRHeaderVersion",
+        "PDRType",
+        "recordChangeNumber",
+        "dataLength"
+      ]
+    },
+    "PLDMTerminusHandle": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; The terminus that originated this PDR"
+    },
+    "OEMStateSetIDHandle": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; An OEM State Set within this PDR Repository. Value from OEMStateSet range in DSP0249"
+    },
+    "vendorIANA": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295,
+      "binaryFormat": "I",
+      "description": "uint32; IANA Enterprise Number for the vendor defining the OEM State Set"
+    },
+    "OEMStateSetID": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; Vendor-assigned numeric ID for the state set, in OEM range from DSP0249"
+    },
+    "unspecifiedValueHint": {
+      "type": "integer",
+      "enum": [
+        0,
+        1
+      ],
+      "binaryFormat": "B",
+      "description": "enum8: 0=treatAsUnspecified, 1=treatAsError; Hint for handling unspecified state values"
+    },
+    "stateCount": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "uint8; Number of OEM State Value Records following"
+    },
+    "OEMStateValueRecords": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "binaryOrder": [
+          "minStateValue",
+          "maxStateValue",
+          "stringCount"
+        ],
+        "properties": {
+          "minStateValue": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255,
+            "binaryFormat": "B",
+            "description": "uint8; Lowest state value for this record"
+          },
+          "maxStateValue": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255,
+            "binaryFormat": "B",
+            "description": "uint8; Highest state value for this record; ranges non-overlapping"
+          },
+          "stringCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255,
+            "binaryFormat": "B",
+            "description": "uint8; Number 1..N of stateLanguageTag and stateName pairs"
+          },
+          "stateNames": {
+            "type": "array",
+            "minItems": 0,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "binaryOrder": [
+                "stateLanguageTag",
+                "stateName"
+              ],
+              "properties": {
+                "stateLanguageTag": {
+                  "type": "string",
+                  "binaryFormat": "variable",
+                  "description": "strASCII; Null-terminated language tag per RFC4646; empty=unspecified"
+                },
+                "stateName": {
+                  "type": "string",
+                  "binaryFormat": "variable",
+                  "description": "strUTF-16BE; Null-terminated state name; empty=not provided"
+                }
+              },
+              "required": [
+                "stateLanguageTag",
+                "stateName"
+              ]
+            },
+            "description": "Array of state name pairs, length = stringCount"
+          }
+        },
+        "required": [
+          "minStateValue",
+          "maxStateValue",
+          "stringCount",
+          "stateNames"
+        ]
+      },
+      "description": "Array of OEM State Value Records, length = stateCount; sorted by minStateValue ascending"
+    }
+  },
+  "required": [
+    "pdrHeader",
+    "PLDMTerminusHandle",
+    "OEMStateSetIDHandle",
+    "vendorIANA",
+    "OEMStateSetID",
+    "unspecifiedValueHint",
+    "stateCount",
+    "OEMStateValueRecords"
+  ]
+}

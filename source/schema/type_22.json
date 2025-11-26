@@ -1,0 +1,263 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Redfish Resource PDR Schema (DSP0248 1.3.0, Clause 28.26)",
+  "type": "object",
+  "additionalProperties": false,
+  "binaryOrder": [
+    "ResourceID",
+    "ResourceFlags",
+    "ContainingResourceID",
+    "ProposedContainingResourceLengthBytes",
+    "ProposedContainingResourceName",
+    "SubURILengthBytes",
+    "SubURI",
+    "AdditionalResourceIDCount",
+    "MajorSchemaVersion",
+    "MajorSchemaDictionaryLengthBytes",
+    "MajorSchemaDictionarySignature",
+    "MajorSchemaNameLength",
+    "MajorSchemaName",
+    "OEMCount"
+  ],
+  "properties": {
+    "pdrHeader": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "recordHandle": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          ],
+          "binaryFormat": "I",
+          "description": "uint32; opaque handle (TBD or auto-generated)"
+        },
+        "PDRHeaderVersion": {
+          "type": "integer",
+          "const": 1,
+          "binaryFormat": "B",
+          "description": "uint8; must be 1"
+        },
+        "PDRType": {
+          "type": "integer",
+          "const": 22,
+          "binaryFormat": "B",
+          "description": "uint8; Redfish Resource PDR = 22"
+        },
+        "recordChangeNumber": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535,
+          "default": 0,
+          "binaryFormat": "H",
+          "description": "uint16; incremented on changes (default 0)"
+        },
+        "dataLength": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            }
+          ],
+          "binaryFormat": "H",
+          "description": "uint16; calculated data length (TBD)"
+        }
+      },
+      "required": [
+        "recordHandle",
+        "PDRHeaderVersion",
+        "PDRType",
+        "recordChangeNumber",
+        "dataLength"
+      ]
+    },
+    "ResourceID": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295,
+      "binaryFormat": "I",
+      "description": "uint32; The primary ResourceID among the resources described by this PDR. Unique across all Redfish Resource PDRs in an RDE Device."
+    },
+    "ResourceFlags": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "bitfield8: [7:3]=reserved, [2]=is_collection (1b if Redfish collection), [1]=is_contained_in_collection (1b if contained in a collection), [0]=is_device_root (1b if root of RDE Device’s logical containment hierarchy)"
+    },
+    "ContainingResourceID": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295,
+      "binaryFormat": "I",
+      "description": "uint32; References a containing Redfish Resource PDR. Special: 0x00000000=EXTERNAL (logical root), 0xFFFFFFFF=reserved"
+    },
+    "ProposedContainingResourceLengthBytes": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; Length in bytes of ProposedContainingResourceName (including null terminator). Shall be 1 if ContainingResourceID != EXTERNAL"
+    },
+    "ProposedContainingResourceName": {
+      "type": "string",
+      "binaryFormat": "variable",
+      "description": "strUTF-8; Null-terminated schema name for proposed parent resource (format Namespace.EntityType). Null byte if ContainingResourceID=EXTERNAL"
+    },
+    "SubURILengthBytes": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; Length in bytes of SubURI (including null terminator) for primary resource"
+    },
+    "SubURI": {
+      "type": "string",
+      "binaryFormat": "variable",
+      "description": "strUTF-8; Null-terminated SubURI path fragment for primary resource. Neither begins nor ends with '/'. Null byte if ContainingResourceID=EXTERNAL"
+    },
+    "AdditionalResourceIDCount": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; Number NA of additional ResourceIDs sharing the same schema"
+    },
+    "additionalResources": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "binaryOrder": [
+          "AdditionalResourceID",
+          "AdditionalResourceSubURILengthBytes",
+          "AdditionalResourceSubURI"
+        ],
+        "properties": {
+          "AdditionalResourceID": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295,
+            "binaryFormat": "I",
+            "description": "uint32; ResourceID for additional instance. Unique across all Redfish Resource PDRs in RDE Device"
+          },
+          "AdditionalResourceSubURILengthBytes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535,
+            "binaryFormat": "H",
+            "description": "uint16; Length in bytes of AdditionalResourceSubURI (including null terminator)"
+          },
+          "AdditionalResourceSubURI": {
+            "type": "string",
+            "binaryFormat": "variable",
+            "description": "strUTF-8; Null-terminated SubURI for this additional resource. Neither begins nor ends with '/'. Null byte if ContainingResourceID=EXTERNAL"
+          }
+        },
+        "required": [
+          "AdditionalResourceID",
+          "AdditionalResourceSubURILengthBytes",
+          "AdditionalResourceSubURI"
+        ]
+      },
+      "description": "Array of additional resources, length = AdditionalResourceIDCount"
+    },
+    "MajorSchemaVersion": {
+      "type": "string",
+      "binaryFormat": "ver32",
+      "description": "ver32; Major schema version in PLDM format. 0xFFFFFFFF=unversioned"
+    },
+    "MajorSchemaDictionaryLengthBytes": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; Length of dictionary data for major schema"
+    },
+    "MajorSchemaDictionarySignature": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295,
+      "binaryFormat": "I",
+      "description": "uint32; 32-bit CRC for major schema dictionary including OEM extensions (IEEE 802.3 CRC-32)"
+    },
+    "MajorSchemaNameLength": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "uint8; Length of MajorSchemaName including null terminator"
+    },
+    "MajorSchemaName": {
+      "type": "string",
+      "binaryFormat": "variable",
+      "description": "strUTF-8; Null-terminated name of major schema"
+    },
+    "OEMCount": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; Number NO of OEMs associated with this resource"
+    },
+    "OEMs": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "binaryOrder": [
+          "OEMNameLengthBytes",
+          "OEMName"
+        ],
+        "properties": {
+          "OEMNameLengthBytes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535,
+            "binaryFormat": "H",
+            "description": "uint16; Length in bytes of OEMName including null terminator"
+          },
+          "OEMName": {
+            "type": "string",
+            "binaryFormat": "variable",
+            "description": "strUTF-8; Null-terminated name of the OEM"
+          }
+        },
+        "required": [
+          "OEMNameLengthBytes",
+          "OEMName"
+        ]
+      },
+      "description": "Array of OEMs, length = OEMCount"
+    }
+  },
+  "required": [
+    "pdrHeader",
+    "ResourceID",
+    "ResourceFlags",
+    "ContainingResourceID",
+    "ProposedContainingResourceLengthBytes",
+    "ProposedContainingResourceName",
+    "SubURILengthBytes",
+    "SubURI",
+    "AdditionalResourceIDCount",
+    "MajorSchemaVersion",
+    "MajorSchemaDictionaryLengthBytes",
+    "MajorSchemaDictionarySignature",
+    "MajorSchemaNameLength",
+    "MajorSchemaName",
+    "OEMCount"
+  ]
+}
