@@ -1,0 +1,580 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Numeric Sensor Initialization PDR Schema (DSP0248 1.3.0, Clause 28.5)",
+  "type": "object",
+  "additionalProperties": false,
+  "binaryOrder": [
+    "PLDMTerminusHandle",
+    "sensorID",
+    "initConditions",
+    "sensorEnable",
+    "thresholdInitMask",
+    "sensorDataSize",
+    "upperThresholdWarning",
+    "upperThresholdCritical",
+    "upperThresholdFatal",
+    "lowerThresholdWarning",
+    "lowerThresholdCritical",
+    "lowerThresholdFatal"
+  ],
+  "properties": {
+    "pdrHeader": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "recordHandle": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          ],
+          "binaryFormat": "I",
+          "description": "uint32; opaque handle (TBD or auto-generated)"
+        },
+        "PDRHeaderVersion": {
+          "type": "integer",
+          "const": 1,
+          "binaryFormat": "B",
+          "description": "uint8; must be 1"
+        },
+        "PDRType": {
+          "type": "integer",
+          "const": 3,
+          "binaryFormat": "B",
+          "description": "uint8; Numeric Sensor Initialization PDR = 3"
+        },
+        "recordChangeNumber": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535,
+          "default": 0,
+          "binaryFormat": "H",
+          "description": "uint16; incremented on changes (default 0)"
+        },
+        "dataLength": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            }
+          ],
+          "binaryFormat": "H",
+          "description": "uint16; calculated data length (TBD)"
+        }
+      },
+      "required": [
+        "recordHandle",
+        "PDRHeaderVersion",
+        "PDRType",
+        "recordChangeNumber",
+        "dataLength"
+      ]
+    },
+    "PLDMTerminusHandle": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; Handle identifying PDRs for a specific PLDM terminus"
+    },
+    "sensorID": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; Unique ID of the sensor within the terminus"
+    },
+    "initConditions": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "bitfield8: [7:5]=reserved, [4]=PLDM terminus online, [3]=system warm reset, [2]=system hard reset, [1]=PLDM subsystem power up, [0]=Initialization Agent restart/update"
+    },
+    "sensorEnable": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "enum8: Operational state after init (0=enabled,1=disabled,...); 255=do not change"
+    },
+    "thresholdInitMask": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "bitfield8: [7:6]=reserved, [5]=lowerThresholdFatal, [4]=lowerThresholdCritical, [3]=lowerThresholdWarning, [2]=upperThresholdFatal, [1]=upperThresholdCritical, [0]=upperThresholdWarning"
+    },
+    "sensorDataSize": {
+      "type": "integer",
+      "enum": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "binaryFormat": "B",
+      "description": "enum8: 0=uint8,1=sint8,2=uint16,3=sint16,4=uint32,5=sint32,6=uint64,7=sint64"
+    },
+    "upperThresholdWarning": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        {
+          "type": "integer",
+          "minimum": -128,
+          "maximum": 127
+        },
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        {
+          "type": "integer",
+          "minimum": -32768,
+          "maximum": 32767
+        },
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        {
+          "type": "integer",
+          "minimum": -2147483648,
+          "maximum": 2147483647
+        },
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709552000
+        },
+        {
+          "type": "integer",
+          "minimum": -9223372036854776000,
+          "maximum": 9223372036854776000
+        }
+      ],
+      "binaryFormat": "variable",
+      "typeResolver": {
+        "dependsOn": "sensorDataSize",
+        "mapping": {
+          "0": "uint8",
+          "1": "sint8",
+          "2": "uint16",
+          "3": "sint16",
+          "4": "uint32",
+          "5": "sint32",
+          "6": "uint64",
+          "7": "sint64"
+        }
+      },
+      "formatResolver": {
+        "dependsOn": "sensorDataSize",
+        "mapping": {
+          "0": "B",
+          "1": "b",
+          "2": "H",
+          "3": "h",
+          "4": "I",
+          "5": "i",
+          "6": "Q",
+          "7": "q"
+        }
+      },
+      "description": "Variable; upper threshold warning in raw units"
+    },
+    "upperThresholdCritical": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        {
+          "type": "integer",
+          "minimum": -128,
+          "maximum": 127
+        },
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        {
+          "type": "integer",
+          "minimum": -32768,
+          "maximum": 32767
+        },
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        {
+          "type": "integer",
+          "minimum": -2147483648,
+          "maximum": 2147483647
+        },
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709552000
+        },
+        {
+          "type": "integer",
+          "minimum": -9223372036854776000,
+          "maximum": 9223372036854776000
+        }
+      ],
+      "binaryFormat": "variable",
+      "typeResolver": {
+        "dependsOn": "sensorDataSize",
+        "mapping": {
+          "0": "uint8",
+          "1": "sint8",
+          "2": "uint16",
+          "3": "sint16",
+          "4": "uint32",
+          "5": "sint32",
+          "6": "uint64",
+          "7": "sint64"
+        }
+      },
+      "formatResolver": {
+        "dependsOn": "sensorDataSize",
+        "mapping": {
+          "0": "B",
+          "1": "b",
+          "2": "H",
+          "3": "h",
+          "4": "I",
+          "5": "i",
+          "6": "Q",
+          "7": "q"
+        }
+      },
+      "description": "Variable; upper threshold critical in raw units"
+    },
+    "upperThresholdFatal": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        {
+          "type": "integer",
+          "minimum": -128,
+          "maximum": 127
+        },
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        {
+          "type": "integer",
+          "minimum": -32768,
+          "maximum": 32767
+        },
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        {
+          "type": "integer",
+          "minimum": -2147483648,
+          "maximum": 2147483647
+        },
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709552000
+        },
+        {
+          "type": "integer",
+          "minimum": -9223372036854776000,
+          "maximum": 9223372036854776000
+        }
+      ],
+      "binaryFormat": "variable",
+      "typeResolver": {
+        "dependsOn": "sensorDataSize",
+        "mapping": {
+          "0": "uint8",
+          "1": "sint8",
+          "2": "uint16",
+          "3": "sint16",
+          "4": "uint32",
+          "5": "sint32",
+          "6": "uint64",
+          "7": "sint64"
+        }
+      },
+      "formatResolver": {
+        "dependsOn": "sensorDataSize",
+        "mapping": {
+          "0": "B",
+          "1": "b",
+          "2": "H",
+          "3": "h",
+          "4": "I",
+          "5": "i",
+          "6": "Q",
+          "7": "q"
+        }
+      },
+      "description": "Variable; upper threshold fatal in raw units"
+    },
+    "lowerThresholdWarning": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        {
+          "type": "integer",
+          "minimum": -128,
+          "maximum": 127
+        },
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        {
+          "type": "integer",
+          "minimum": -32768,
+          "maximum": 32767
+        },
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        {
+          "type": "integer",
+          "minimum": -2147483648,
+          "maximum": 2147483647
+        },
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709552000
+        },
+        {
+          "type": "integer",
+          "minimum": -9223372036854776000,
+          "maximum": 9223372036854776000
+        }
+      ],
+      "binaryFormat": "variable",
+      "typeResolver": {
+        "dependsOn": "sensorDataSize",
+        "mapping": {
+          "0": "uint8",
+          "1": "sint8",
+          "2": "uint16",
+          "3": "sint16",
+          "4": "uint32",
+          "5": "sint32",
+          "6": "uint64",
+          "7": "sint64"
+        }
+      },
+      "formatResolver": {
+        "dependsOn": "sensorDataSize",
+        "mapping": {
+          "0": "B",
+          "1": "b",
+          "2": "H",
+          "3": "h",
+          "4": "I",
+          "5": "i",
+          "6": "Q",
+          "7": "q"
+        }
+      },
+      "description": "Variable; lower threshold warning in raw units"
+    },
+    "lowerThresholdCritical": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        {
+          "type": "integer",
+          "minimum": -128,
+          "maximum": 127
+        },
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        {
+          "type": "integer",
+          "minimum": -32768,
+          "maximum": 32767
+        },
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        {
+          "type": "integer",
+          "minimum": -2147483648,
+          "maximum": 2147483647
+        },
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709552000
+        },
+        {
+          "type": "integer",
+          "minimum": -9223372036854776000,
+          "maximum": 9223372036854776000
+        }
+      ],
+      "binaryFormat": "variable",
+      "typeResolver": {
+        "dependsOn": "sensorDataSize",
+        "mapping": {
+          "0": "uint8",
+          "1": "sint8",
+          "2": "uint16",
+          "3": "sint16",
+          "4": "uint32",
+          "5": "sint32",
+          "6": "uint64",
+          "7": "sint64"
+        }
+      },
+      "formatResolver": {
+        "dependsOn": "sensorDataSize",
+        "mapping": {
+          "0": "B",
+          "1": "b",
+          "2": "H",
+          "3": "h",
+          "4": "I",
+          "5": "i",
+          "6": "Q",
+          "7": "q"
+        }
+      },
+      "description": "Variable; lower threshold critical in raw units"
+    },
+    "lowerThresholdFatal": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        {
+          "type": "integer",
+          "minimum": -128,
+          "maximum": 127
+        },
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        {
+          "type": "integer",
+          "minimum": -32768,
+          "maximum": 32767
+        },
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        {
+          "type": "integer",
+          "minimum": -2147483648,
+          "maximum": 2147483647
+        },
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709552000
+        },
+        {
+          "type": "integer",
+          "minimum": -9223372036854776000,
+          "maximum": 9223372036854776000
+        }
+      ],
+      "binaryFormat": "variable",
+      "typeResolver": {
+        "dependsOn": "sensorDataSize",
+        "mapping": {
+          "0": "uint8",
+          "1": "sint8",
+          "2": "uint16",
+          "3": "sint16",
+          "4": "uint32",
+          "5": "sint32",
+          "6": "uint64",
+          "7": "sint64"
+        }
+      },
+      "formatResolver": {
+        "dependsOn": "sensorDataSize",
+        "mapping": {
+          "0": "B",
+          "1": "b",
+          "2": "H",
+          "3": "h",
+          "4": "I",
+          "5": "i",
+          "6": "Q",
+          "7": "q"
+        }
+      },
+      "description": "Variable; lower threshold fatal in raw units"
+    }
+  },
+  "required": [
+    "pdrHeader",
+    "PLDMTerminusHandle",
+    "sensorID",
+    "initConditions",
+    "sensorEnable",
+    "thresholdInitMask",
+    "sensorDataSize",
+    "upperThresholdWarning",
+    "upperThresholdCritical",
+    "upperThresholdFatal",
+    "lowerThresholdWarning",
+    "lowerThresholdCritical",
+    "lowerThresholdFatal"
+  ]
+}
