@@ -1,0 +1,81 @@
+# Sample PLDM PDR Type 1: Terminus Locator PDR
+# Corrected to match DSP0248 v1.3.0 Schema Validation
+
+pdrHeader:
+  recordHandle:
+    type: uint16
+    value: 1
+    comment: |
+      Unique identifier for the PDR record.
+  PDRHeaderVersion:
+    type: uint8
+    value: 1
+    comment: |
+      PDR header version. Always 1.
+  PDRType:
+    type: uint8
+    value: 1
+    comment: |
+      PDR type value. 0x01 indicates Terminus Locator PDR.
+  recordChangeNumber:
+    type: uint16
+    value: 0
+    comment: |
+      Incremented on changes.
+  dataLength:  # Renamed from 'recordLength' to match Schema
+    type: uint16
+    value: 23  # Updated length: 6 (fixed) + 17 (locator data)
+    comment: |
+      Length of PDR data excluding header.
+      Calculated: 6 bytes fixed fields + 17 bytes Type 0 data.
+
+# --- FIXED FIELDS ---
+
+PLDMTerminusHandle:  # Renamed from 'terminusHandle'
+  type: uint16
+  value: 256
+  comment: |
+    PLDM Terminus Handle. Opaque 16-bit value.
+
+validity:  # Added (Required by Schema)
+  type: uint8
+  value: 1
+  comment: "1=Valid, 0=Not Valid"
+
+TID:
+  type: uint8
+  value: 5
+  comment: "Terminus ID"
+
+containerID:
+  type: uint16
+  value: 1
+  comment: "Container ID for entity association."
+
+terminusLocatorType:  # Renamed from 'terminusType'
+  type: uint8
+  value: 0
+  comment: |
+    Type 0 = UID (Unique ID).
+    Note: Your Schema defines Type 0 as UID, not raw PCIe BDF.
+
+terminusLocatorValueSize:  # Added (Required by Schema)
+  type: uint8
+  value: 17
+  comment: |
+    Size of the value below: 1 byte (Instance) + 16 bytes (UUID).
+
+# --- VARIABLE LOCATOR VALUE ---
+
+terminusLocatorValue:  # Renamed from 'terminusLocatorData'
+  # The Schema mandates this specific structure for Type 0:
+  terminusInstance:
+    type: uint8
+    value: 1
+    comment: "Differentiates multiple termini."
+  
+  deviceUID:
+    type: uuid
+    # Schema requires an array of 16 integers (bytes) for the UUID
+    value: [136, 136, 136, 136, 170, 187, 204, 221, 17, 34, 51, 68, 85, 102, 119, 136]
+    comment: "16-byte Device UUID."

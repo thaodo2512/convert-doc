@@ -15,3 +15,4 @@ documentation for details.
    :maxdepth: 2
    :caption: Contents:
 
+.. pldm-pdr-table:: data/terminus.yaml schema/type_1.json 

@@ -12,9 +12,12 @@ author = 'tinhn'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
+import os
+import sys
+sys.path.insert(0, os.path.abspath('_extensions'))
 
 extensions = [
-    '_extensions.pldm_pdr_extension',  # Add this line
+    'pldm_pdr_extension',  # Add this line
 ]
 
 templates_path = ['_templates']
@@ -27,3 +30,6 @@ exclude_patterns = []
 
 html_theme = 'alabaster'
 html_static_path = ['_static']
+html_css_files = [
+    'custom.css',
+]

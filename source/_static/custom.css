@@ -1,0 +1,18 @@
+/* In source/_static/custom.css */
+
+.tight-table table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+/* Reduce padding for tight look */
+.tight-table td, .tight-table th {
+    padding: 4px 8px !important; /* Overrides default Sphinx padding */
+    font-size: 0.9em; /* Optional: slightly smaller text */
+}
+
+/* Optional: Make the Comment column wrap nicely */
+.tight-table td:nth-child(4) {
+    word-wrap: break-word;
+    min-width: 200px;
+}
