@@ -1,0 +1,94 @@
+# Sample PLDM PDR Type 4: State Sensor PDR
+# Based on DSP0248 v1.3.0, Clause 28.6
+
+pdrHeader:
+  recordHandle:
+    type: uint32
+    value: 1
+    comment: |
+      Opaque handle (TBD or auto-generated).
+  PDRHeaderVersion:
+    type: uint8
+    value: 1
+    comment: |
+      Must be 1.
+  PDRType:
+    type: uint8
+    value: 4
+    comment: |
+      State Sensor PDR = 4.
+  recordChangeNumber:
+    type: uint16
+    value: 0
+    comment: |
+      Incremented on changes (default 0).
+  dataLength:
+    type: uint16
+    value: 17
+    comment: |
+      Calculated data length (excluding header). For this example: 13 (fixed) + 4 (one composite with size 1) = 17 bytes.
+
+PLDMTerminusHandle:
+  type: uint16
+  value: 0
+  comment: |
+    Terminus handle.
+
+sensorID:
+  type: uint16
+  value: 2
+  comment: |
+    Unique sensor ID.
+
+entityType:
+  type: uint16
+  value: 42
+  comment: |
+    Entity type (see 9.1). Example: 42 = Processor Module (assuming standard value).
+
+entityInstanceNumber:
+  type: uint16
+  value: 1
+  comment: |
+    Entity instance.
+
+containerID:
+  type: uint16
+  value: 0
+  comment: |
+    Container ID.
+
+sensorInit:
+  type: uint8
+  value: 1
+  comment: |
+    enum8: 0=noInit, 1=useInitPDR, 2=enableSensor, 3=disableSensor. Example: 1=useInitPDR.
+
+sensorAuxiliaryNamesPDR:
+  type: uint8
+  value: 0
+  comment: |
+    bool8; 1=true if auxiliary names PDR exists, 0=false. Example: 0=false.
+
+compositeSensorCount:
+  type: uint8
+  value: 1
+  comment: |
+    Number of composite sensors (1-8). Example: 1.
+
+compositeSensorStates:
+  - stateSetID:
+      type: uint16
+      value: 1
+      comment: |
+        State set ID. Example: 1 = Health State (assuming from PLDM State Sets).
+    possibleStatesSize:
+      type: uint8
+      value: 1
+      comment: |
+        Size in bytes of possibleStates, 0=unavailable. Example: 1.
+    possibleStates:
+      type: uint8[]
+      value: [3]
+      comment: |
+        bitfield8[possibleStatesSize]; bits indicate supported states. Example: [3] = 0b00000011, supporting states 0 and 1.

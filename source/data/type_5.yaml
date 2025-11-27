@@ -1,0 +1,137 @@
+# Sample PLDM PDR Type 5: State Sensor Initialization PDR
+# Based on DSP0248 v1.3.0, Clause 28.7
+
+pdrHeader:
+  recordHandle:
+    type: uint32
+    value: 1
+    comment: |
+      Opaque handle (TBD or auto-generated).
+  PDRHeaderVersion:
+    type: uint8
+    value: 1
+    comment: |
+      Must be 1.
+  PDRType:
+    type: uint8
+    value: 5
+    comment: |
+      State Sensor Initialization PDR = 5.
+  recordChangeNumber:
+    type: uint16
+    value: 0
+    comment: |
+      Incremented on changes (default 0).
+  dataLength:
+    type: uint16
+    value: 18
+    comment: |
+      Calculated data length (excluding header). For this example: 4 (handles) + 6 (bitfields/enums) + 8 (state values) = 18 bytes.
+
+PLDMTerminusHandle:
+  type: uint16
+  value: 0
+  comment: |
+    A handle that identifies PDRs that belong to a particular PLDM terminus.
+
+sensorID:
+  type: uint16
+  value: 2
+  comment: |
+    ID of the sensor relative to the given PLDM terminus.
+
+initConditions:
+  type: uint8
+  value: 1
+  comment: |
+    bitfield8: Identifies under which conditions the Initialization Agent must initialize or reinitialize these sensors.
+    [7:5] reserved, [4] PLDM terminus online, [3] system warm reset, [2] system hard reset, [1] PLDM subsystem power up, [0] Initialization Agent restart/update.
+    Example: 1 (0b00000001) - Initialize on Initialization Agent restart/update.
+
+sensorEnable:
+  type: uint8
+  value: 0
+  comment: |
+    enum8: The operational state of the overall composite state sensor after initialization.
+    Example: 0 = enabled (assuming enum values; 0xFF = do not set).
+
+sensorInitMask:
+  type: uint8
+  value: 1
+  comment: |
+    bitfield8: Identifies which sensors within the composite state sensor require initialization.
+    [7:0] for offsets 7 to 0: 1b = requires initialization.
+    Example: 1 (0b00000001) - offset 0 requires initialization.
+
+sensorOpStateEventEnableMask:
+  type: uint8
+  value: 0
+  comment: |
+    bitfield8: Identifies which sensors should have their operational state event message generation enabled after initialization.
+    [7:0] for offsets 7 to 0: 1b = enable.
+    Example: 0 - none enabled.
+
+sensorStateEventEnableMask:
+  type: uint8
+  value: 1
+  comment: |
+    bitfield8: Identifies which sensors should have their state event message generation enabled after initialization.
+    [7:0] for offsets 7 to 0: 1b = enable.
+    Example: 1 (0b00000001) - enable for offset 0.
+
+sensorEventRearm:
+  type: uint8
+  value: 1
+  comment: |
+    bitfield8: Directs the sensor to assess an event if the initialization stateValue does not match the present state.
+    [7:0] for offsets 7 to 0: 1b = trigger event if mismatch, 0b = accept init value.
+    Example: 1 (0b00000001) - trigger for offset 0.
+
+stateValue0:
+  type: uint8
+  value: 0
+  comment: |
+    enum8: Initialization value for state sensor at offset 0.
+    (Value from the state set; 0x00 if dummy.)
+
+stateValue1:
+  type: uint8
+  value: 0
+  comment: |
+    enum8: Initialization value for state sensor at offset 1. (Dummy if not used.)
+
+stateValue2:
+  type: uint8
+  value: 0
+  comment: |
+    enum8: Initialization value for state sensor at offset 2. (Dummy if not used.)
+
+stateValue3:
+  type: uint8
+  value: 0
+  comment: |
+    enum8: Initialization value for state sensor at offset 3. (Dummy if not used.)
+
+stateValue4:
+  type: uint8
+  value: 0
+  comment: |
+    enum8: Initialization value for state sensor at offset 4. (Dummy if not used.)
+
+stateValue5:
+  type: uint8
+  value: 0
+  comment: |
+    enum8: Initialization value for state sensor at offset 5. (Dummy if not used.)
+
+stateValue6:
+  type: uint8
+  value: 0
+  comment: |
+    enum8: Initialization value for state sensor at offset 6. (Dummy if not used.)
+
+stateValue7:
+  type: uint8
+  value: 0
+  comment: |
+    enum8: Initialization value for state sensor at offset 7. (Dummy if not used.)

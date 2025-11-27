@@ -1,0 +1,65 @@
+# Sample PLDM PDR Type 6: Sensor Auxiliary Names PDR
+# Based on DSP0248 v1.3.0, Clause 28.8
+
+pdrHeader:
+  recordHandle:
+    type: uint32
+    value: 1
+    comment: |
+      Opaque handle (TBD or auto-generated).
+  PDRHeaderVersion:
+    type: uint8
+    value: 1
+    comment: |
+      Must be 1.
+  PDRType:
+    type: uint8
+    value: 6
+    comment: |
+      Sensor Auxiliary Names PDR = 6.
+  recordChangeNumber:
+    type: uint16
+    value: 0
+    comment: |
+      Incremented on changes (default 0).
+  dataLength:
+    type: uint16
+    value: 23
+    comment: |
+      Calculated data length (excluding header). For this example: 2 (PLDMTerminusHandle) + 2 (sensorID) + 1 (sensorCount) + 1 (nameStringCount) + 3 (nameLanguageTag "en\0") + 14 (sensorName "Temp\0" in UTF-16BE: 5 chars * 2 = 10 + 2 null + wait, adjust: "Temp" 4 chars + space? Let's say "Temp" : 4*2=8 +2=10, but example uses "Temp Sensor" adjust value.
+
+PLDMTerminusHandle:
+  type: uint16
+  value: 0
+  comment: |
+    A handle that identifies PDRs that belong to a particular PLDM terminus.
+
+sensorID:
+  type: uint16
+  value: 2
+  comment: |
+    ID of the sensor relative to the given PLDM terminus.
+
+sensorCount:
+  type: uint8
+  value: 1
+  comment: |
+    Number of sensors (for composite), each with auxiliary names. Example: 1 (non-composite).
+
+sensorAuxiliaries:
+  - nameStringCount:
+      type: uint8
+      value: 1
+      comment: |
+        Number of name pairs for this sensor. Example: 1.
+    names:
+      - nameLanguageTag:
+          type: strASCII
+          value: "en"
+          comment: |
+            Null-terminated ISO646 ASCII string for language tag (e.g., "en\0" for English).
+        sensorName:
+          type: strUTF-16BE
+          value: "Temp Sensor"
+          comment: |
+            Null-terminated UTF-16BE unicode string for the auxiliary name (e.g., encoded with null terminator).

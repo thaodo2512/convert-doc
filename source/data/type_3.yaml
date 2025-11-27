@@ -1,0 +1,101 @@
+# Sample PLDM PDR Type 3: Numeric Sensor Initialization PDR
+# Based on DSP0248 v1.3.0, Clause 28.5
+
+pdrHeader:
+  recordHandle:
+    type: uint32
+    value: 1
+    comment: |
+      Opaque handle (TBD or auto-generated).
+  PDRHeaderVersion:
+    type: uint8
+    value: 1
+    comment: |
+      Must be 1.
+  PDRType:
+    type: uint8
+    value: 3
+    comment: |
+      Numeric Sensor Initialization PDR = 3.
+  recordChangeNumber:
+    type: uint16
+    value: 0
+    comment: |
+      Incremented on changes (default 0).
+  dataLength:
+    type: uint16
+    value: 12
+    comment: |
+      Calculated data length (excluding header). For this example: 2+2+1+1+1+1+1+1+1+1+1+1=12 bytes, assuming sensorDataSize=0 (uint8 for thresholds).
+
+PLDMTerminusHandle:
+  type: uint16
+  value: 0
+  comment: |
+    Handle identifying PDRs for a specific PLDM terminus.
+
+sensorID:
+  type: uint16
+  value: 1
+  comment: |
+    Unique ID of the sensor within the terminus.
+
+initConditions:
+  type: uint8
+  value: 1
+  comment: |
+    bitfield8: [7:5]=reserved, [4]=PLDM terminus online, [3]=system warm reset, [2]=system hard reset, [1]=PLDM subsystem power up, [0]=Initialization Agent restart/update. Example: 1 (0b00000001) - Initialize on Initialization Agent restart/update.
+
+sensorEnable:
+  type: uint8
+  value: 0
+  comment: |
+    enum8: Operational state after init (0=enabled,1=disabled,...); 255=do not change. Example: 0=enabled.
+
+thresholdInitMask:
+  type: uint8
+  value: 63
+  comment: |
+    bitfield8: [7:6]=reserved, [5]=lowerThresholdFatal, [4]=lowerThresholdCritical, [3]=lowerThresholdWarning, [2]=upperThresholdFatal, [1]=upperThresholdCritical, [0]=upperThresholdWarning. Example: 63 (0b00111111) - Initialize all thresholds.
+
+sensorDataSize:
+  type: uint8
+  value: 0
+  comment: |
+    enum8: 0=uint8,1=sint8,2=uint16,3=sint16,4=uint32,5=sint32,6=uint64,7=sint64. Example: 0=uint8.
+
+upperThresholdWarning:
+  type: uint8
+  value: 100
+  comment: |
+    Variable; upper threshold warning in raw units. Type based on sensorDataSize (here uint8).
+
+upperThresholdCritical:
+  type: uint8
+  value: 120
+  comment: |
+    Variable; upper threshold critical in raw units. Type based on sensorDataSize (here uint8).
+
+upperThresholdFatal:
+  type: uint8
+  value: 150
+  comment: |
+    Variable; upper threshold fatal in raw units. Type based on sensorDataSize (here uint8).
+
+lowerThresholdWarning:
+  type: uint8
+  value: 50
+  comment: |
+    Variable; lower threshold warning in raw units. Type based on sensorDataSize (here uint8).
+
+lowerThresholdCritical:
+  type: uint8
+  value: 30
+  comment: |
+    Variable; lower threshold critical in raw units. Type based on sensorDataSize (here uint8).
+
+lowerThresholdFatal:
+  type: uint8
+  value: 10
+  comment: |
+    Variable; lower threshold fatal in raw units. Type based on sensorDataSize (here uint8).

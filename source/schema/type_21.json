@@ -8,7 +8,19 @@
     "sensorID",
     "entityType",
     "entityInstanceNumber",
-    "containerID"
+    "containerID",
+    "sensorNameStringByteLength",
+    "baseUnit",
+    "unitModifier",
+    "rateUnit",
+    "rangeFieldSupport",
+    "warningHigh",
+    "warningLow",
+    "criticalHigh",
+    "criticalLow",
+    "fatalHigh",
+    "fatalLow",
+    "sensorNameString"
   ],
   "properties": {
     "pdrHeader": {
@@ -106,6 +118,98 @@
       "maximum": 65535,
       "binaryFormat": "H",
       "description": "uint16; The containerID for the containing entity that is associated with this sensor. See 9.1 for more information."
+    },
+    "sensorNameStringByteLength": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "uint8; If this is greater than zero, then the “sensorNameString” is present at the end of this PDR. This field is a vendor supplied sensor name. The recommended maximum length is 96 bytes."
+    },
+    "baseUnit": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "enum8; The base unit of the reading returned by this sensor. See 27.4 and Table 75 for more information."
+    },
+    "unitModifier": {
+      "type": "integer",
+      "minimum": -128,
+      "maximum": 127,
+      "binaryFormat": "b",
+      "description": "sint8; A power-of-10 multiplier for the baseUnit. See 27.4 for more information."
+    },
+    "rateUnit": {
+      "type": "integer",
+      "enum": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "binaryFormat": "B",
+      "description": "enum8; value: { 0=None, 1=Per MicroSecond, 2=Per MilliSecond, 3=Per Second, 4=Per Minute, 5=Per Hour, 6=Per Day, 7=Per Week, 8=Per Month, 9=Per Year }"
+    },
+    "rangeFieldSupport": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "bitfield8; Indicates which of the fields that identify the operating ranges of the parameter monitored by the sensor are supported. [7:6]=reserved, [5]=fatalLow, [4]=fatalHigh, [3]=criticalLow, [2]=criticalHigh, [1]=warningLow, [0]=warningHigh"
+    },
+    "warningHigh": {
+      "type": "integer",
+      "minimum": -2147483648,
+      "maximum": 2147483647,
+      "binaryFormat": "i",
+      "description": "sint32; A warning condition that occurs when the monitored value is greater than the value reported by warningHigh. This value is given directly in the specified units without the use of any conversion formula."
+    },
+    "warningLow": {
+      "type": "integer",
+      "minimum": -2147483648,
+      "maximum": 2147483647,
+      "binaryFormat": "i",
+      "description": "sint32; A warning condition that occurs when the monitored value is less than or equal to the value reported by warningLow. This value is given directly in the specified units without the use of any conversion formula."
+    },
+    "criticalHigh": {
+      "type": "integer",
+      "minimum": -2147483648,
+      "maximum": 2147483647,
+      "binaryFormat": "i",
+      "description": "sint32; A critical condition that occurs when the monitored value is greater than or equal to the value reported by criticalHigh. This value is given directly in the specified units without the use of any conversion formula."
+    },
+    "criticalLow": {
+      "type": "integer",
+      "minimum": -2147483648,
+      "maximum": 2147483647,
+      "binaryFormat": "i",
+      "description": "sint32; A critical condition that occurs when the monitored value is less than or equal to the value reported by criticalLow. This value is given directly in the specified units without the use of any conversion formula."
+    },
+    "fatalHigh": {
+      "type": "integer",
+      "minimum": -2147483648,
+      "maximum": 2147483647,
+      "binaryFormat": "i",
+      "description": "sint32; A fatal condition that occurs when the monitored value is greater than or equal to the value reported by fatalHigh. This value is given directly in the specified units without the use of any conversion formula."
+    },
+    "fatalLow": {
+      "type": "integer",
+      "minimum": -2147483648,
+      "maximum": 2147483647,
+      "binaryFormat": "i",
+      "description": "sint32; A fatal condition that occurs when the monitored value is less than or equal to the value reported by fatalLow. This value is given directly in the specified units without the use of any conversion formula."
+    },
+    "sensorNameString": {
+      "type": "string",
+      "binaryFormat": "variable",
+      "description": "strUTF8; A null-terminated UTF-8 string that contains the sensor name. This field is only present if sensorNameStringByteLength > 0. The length in bytes includes the null terminator."
     }
   },
   "required": [
@@ -114,6 +218,22 @@
     "sensorID",
     "entityType",
     "entityInstanceNumber",
-    "containerID"
-  ]
+    "containerID",
+    "sensorNameStringByteLength",
+    "baseUnit",
+    "unitModifier",
+    "rateUnit",
+    "rangeFieldSupport",
+    "warningHigh",
+    "warningLow",
+    "criticalHigh",
+    "criticalLow",
+    "fatalHigh",
+    "fatalLow"
+  ],
+  "dependencies": {
+    "sensorNameString": [
+      "sensorNameStringByteLength"
+    ]
+  }
 }

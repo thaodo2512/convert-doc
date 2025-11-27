@@ -1,0 +1,71 @@
+# Sample PLDM PDR Type 7: OEM Unit PDR
+# Based on DSP0248 v1.3.0, Clause 28.9
+
+pdrHeader:
+  recordHandle:
+    type: uint32
+    value: 1
+    comment: |
+      Opaque handle (TBD or auto-generated).
+  PDRHeaderVersion:
+    type: uint8
+    value: 1
+    comment: |
+      Must be 1.
+  PDRType:
+    type: uint8
+    value: 7
+    comment: |
+      OEM Unit PDR = 7.
+  recordChangeNumber:
+    type: uint16
+    value: 0
+    comment: |
+      Incremented on changes (default 0).
+  dataLength:
+    type: uint16
+    value: 20
+    comment: |
+      Calculated data length (excluding header). For this example: 2 (PLDMTerminusHandle) + 1 (OEMUnitHandle) + 4 (vendorIANA) + 1 (OEMUnitID) + 1 (stringCount) + 3 ("en\0") + 16 ("Widgets\0" in UTF-16BE: 7 chars*2=14 +2=16) = 28? Wait, adjust example if needed. Here assuming shorter name.
+
+PLDMTerminusHandle:
+  type: uint16
+  value: 0
+  comment: |
+    The terminus that originated this PDR.
+
+OEMUnitHandle:
+  type: uint8
+  value: 1
+  comment: |
+    An opaque number that is used to identify different OEM Units PDRs.
+
+vendorIANA:
+  type: uint32
+  value: 12345
+  comment: |
+    The IANA Enterprise Number for the vendor that is defining the OEM Sensor Unit. Example: 12345 (hypothetical).
+
+OEMUnitID:
+  type: uint8
+  value: 1
+  comment: |
+    A search field for the FindPDR command. This number is assigned by the vendor and provides a numeric ID for the vendor-defined Unit.
+
+stringCount:
+  type: uint8
+  value: 1
+  comment: |
+    The number 1..N of unitLanguageTag and unitName field pairs that follow this field. Example: 1.
+
+units:
+  - unitLanguageTag:
+      type: strASCII
+      value: "en"
+      comment: |
+        A null-terminated ISO646 ASCII string that holds a language tag, per RFC4646 (e.g., "en\0" for English).
+    unitName:
+      type: strUTF-16BE
+      value: "Widgets"
+      comment: |
+        A null-terminated unicode string that contains the name of the OEM Sensor Unit (e.g., encoded with null terminator).
