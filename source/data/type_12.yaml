@@ -1,50 +1,62 @@
-# State Sensor Initialization PDR (Type 5)
+# State Effecter Initialization PDR (Type 12)
 pdrHeader:
   recordHandle:
     type: uint32
-    value: 5
+    value: 12
   PDRHeaderVersion:
     type: uint8
     value: 1
   PDRType:
     type: uint8
-    value: 5
+    value: 12
   recordChangeNumber:
     type: uint16
     value: 0
   dataLength:
     type: uint16
-    value: 18
+    value: 24
 
 PLDMTerminusHandle:
   type: uint16
   value: 256
 
-sensorID:
+effecterID:
   type: uint16
-  value: 259
+  value: 321
+
+entityType:
+  type: uint16
+  value: 0
+
+entityInstanceNumber:
+  type: uint16
+  value: 0
+
+containerID:
+  type: uint16
+  value: 0
 
 initConditions:
   type: uint8
-  value: 1
+  value: 3
 
-sensorEnable:
+effecterEnable:
   type: uint8
   value: 0
 
-sensorInitMask:
+effecterInitMask:
   type: uint8
   value: 1
 
-sensorOpStateEventEnableMask:
+effecterOpStateEventEnableMask:
   type: uint8
   value: 0
 
-sensorStateEventEnableMask:
+effecterStateEventEnableMask:
   type: uint8
   value: 1
 
-sensorEventRearm:
+effecterEventRearm:
   type: uint8
   value: 1
 

@@ -1,45 +1,41 @@
-# OEM Unit PDR (Type 7)
+# Entity Auxiliary Names PDR (Type 16)
 pdrHeader:
   recordHandle:
     type: uint32
-    value: 7
+    value: 16
   PDRHeaderVersion:
     type: uint8
     value: 1
   PDRType:
     type: uint8
-    value: 7
+    value: 16
   recordChangeNumber:
     type: uint16
     value: 0
   dataLength:
     type: uint16
-    value: 37
+    value: 36
 
-PLDMTerminusHandle:
+entityType:
   type: uint16
-  value: 256
-
-OEMUnitHandle:
-  type: uint8
   value: 1
 
-vendorIANA:
-  type: uint32
-  value: 55930
-
-OEMUnitID:
+entityInstanceNumber:
   type: uint16
-  value: 4096
+  value: 1
+
+entityContainerID:
+  type: uint16
+  value: 0
 
 nameStringCount:
   type: uint8
   value: 1
 
-unitNames:
-  - unitLanguageTag:
+names:
+  - entityLanguageTag:
       type: strASCII
       value: "en"
-    unitName:
+    entityName:
       type: strUTF-16BE
-      value: "Cooling Fan"
+      value: "Compute Node"

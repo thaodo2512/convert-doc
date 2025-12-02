@@ -174,7 +174,16 @@
       "description": "Array of additional resources, length = AdditionalResourceIDCount"
     },
     "MajorSchemaVersion": {
-      "type": "string",
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        }
+      ],
       "binaryFormat": "ver32",
       "description": "ver32; Major schema version in PLDM format. 0xFFFFFFFF=unversioned"
     },

@@ -48,72 +48,70 @@ documentation for details.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p>uint16</p></td>
+<tr class="row-even"><td><p>uint32</p></td>
 <td><p>recordHandle</p></td>
 <td><p>1</p></td>
-<td><p>Unique identifier for the PDR record.</p></td>
+<td><p>Opaque record handle.</p></td>
 </tr>
 <tr class="row-odd"><td><p>uint8</p></td>
 <td><p>PDRHeaderVersion</p></td>
 <td><p>1</p></td>
-<td><p>PDR header version. Always 1.</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-even"><td><p>uint8</p></td>
 <td><p>PDRType</p></td>
 <td><p>1</p></td>
-<td><p>PDR type value. 0x01 indicates Terminus Locator PDR.</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-odd"><td><p>uint16</p></td>
 <td><p>recordChangeNumber</p></td>
 <td><p>0</p></td>
-<td><p>Incremented on changes.</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-even"><td><p>uint16</p></td>
 <td><p>dataLength</p></td>
-<td><p>23</p></td>
-<td><p>Length of PDR data excluding header.
-Calculated: 6 bytes fixed fields + 17 bytes Type 0 data.</p></td>
+<td><p>25</p></td>
+<td><p>Body length in bytes.</p></td>
 </tr>
 <tr class="row-odd"><td><p>uint16</p></td>
 <td><p>PLDMTerminusHandle</p></td>
 <td><p>256</p></td>
-<td><p>PLDM Terminus Handle. Opaque 16-bit value.</p></td>
+<td><p>Shared terminus handle for all sample PDRs.</p></td>
 </tr>
 <tr class="row-even"><td><p>uint8</p></td>
 <td><p>validity</p></td>
 <td><p>1</p></td>
-<td><p>1=Valid, 0=Not Valid</p></td>
+<td><p>1 = valid.</p></td>
 </tr>
 <tr class="row-odd"><td><p>uint8</p></td>
 <td><p>TID</p></td>
 <td><p>5</p></td>
-<td><p>Terminus ID</p></td>
+<td><p>Terminus ID.</p></td>
 </tr>
 <tr class="row-even"><td><p>uint16</p></td>
 <td><p>containerID</p></td>
 <td><p>1</p></td>
-<td><p>Container ID for entity association.</p></td>
+<td><p>Container identifier for the terminus.</p></td>
 </tr>
 <tr class="row-odd"><td><p>uint8</p></td>
 <td><p>terminusLocatorType</p></td>
 <td><p>0</p></td>
-<td><p>Type 0 = UID (Unique ID).
-Note: Your Schema defines Type 0 as UID, not raw PCIe BDF.</p></td>
+<td><p>0 = UID locator.</p></td>
 </tr>
 <tr class="row-even"><td><p>uint8</p></td>
 <td><p>terminusLocatorValueSize</p></td>
 <td><p>17</p></td>
-<td><p>Size of the value below: 1 byte (Instance) + 16 bytes (UUID).</p></td>
+<td><p>1 byte instance + 16 byte UUID.</p></td>
 </tr>
 <tr class="row-odd"><td><p>uint8</p></td>
 <td><p>terminusInstance</p></td>
 <td><p>1</p></td>
-<td><p>Differentiates multiple termini.</p></td>
+<td><p>Differentiates multiple termini within a device.</p></td>
 </tr>
-<tr class="row-even"><td><p>uuid</p></td>
+<tr class="row-even"><td><p>uint8[]</p></td>
 <td><p>deviceUID</p></td>
-<td><p>[136, 136, 136, 136, 170, 187, 204, 221, 17, 34, 51, 68, 85, 102, 119, 136]</p></td>
-<td><p>16-byte Device UUID.</p></td>
+<td><p>[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]</p></td>
+<td><p>16-byte device UUID expressed as raw bytes.</p></td>
 </tr>
 </tbody>
 </table>
@@ -129,127 +127,127 @@ Note: Your Schema defines Type 0 as UID, not raw PCIe BDF.</p></td>
 <tr class="row-even"><td><p>uint32</p></td>
 <td><p>recordHandle</p></td>
 <td><p>2</p></td>
-<td><p>Unique record handle.</p></td>
+<td><p>Opaque record handle.</p></td>
 </tr>
 <tr class="row-odd"><td><p>uint8</p></td>
 <td><p>PDRHeaderVersion</p></td>
 <td><p>1</p></td>
-<td><p>Always 1.</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-even"><td><p>uint8</p></td>
 <td><p>PDRType</p></td>
 <td><p>2</p></td>
-<td><p>Type 2 = Numeric Sensor PDR.</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-odd"><td><p>uint16</p></td>
 <td><p>recordChangeNumber</p></td>
 <td><p>0</p></td>
-<td><p>No changes.</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-even"><td><p>uint16</p></td>
 <td><p>dataLength</p></td>
-<td><p>52</p></td>
-<td><p>Length of data excluding header (approx calculation).</p></td>
+<td><p>57</p></td>
+<td><p>Body length in bytes.</p></td>
 </tr>
 <tr class="row-odd"><td><p>uint16</p></td>
 <td><p>PLDMTerminusHandle</p></td>
-<td><p>0</p></td>
-<td><p>Terminus handle.</p></td>
+<td><p>256</p></td>
+<td><p>Shared terminus handle for all sample PDRs.</p></td>
 </tr>
 <tr class="row-even"><td><p>uint16</p></td>
 <td><p>sensorID</p></td>
 <td><p>256</p></td>
-<td><p>Unique Sensor ID within terminus.</p></td>
+<td><p>Unique sensor identifier.</p></td>
 </tr>
 <tr class="row-odd"><td><p>uint16</p></td>
 <td><p>entityType</p></td>
-<td><p>53248</p></td>
-<td><p>Entity Type (e.g., Processor).</p></td>
+<td><p>42</p></td>
+<td><p>Example entity type.</p></td>
 </tr>
 <tr class="row-even"><td><p>uint16</p></td>
 <td><p>entityInstanceNumber</p></td>
 <td><p>1</p></td>
-<td><p>Instance 1.</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-odd"><td><p>uint16</p></td>
 <td><p>containerID</p></td>
 <td><p>0</p></td>
-<td><p>Not contained.</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-even"><td><p>uint8</p></td>
 <td><p>sensorInit</p></td>
 <td><p>2</p></td>
-<td><p>2 = Enable Sensor.</p></td>
+<td><p>2 = enable sensor on discovery.</p></td>
 </tr>
 <tr class="row-odd"><td><p>bool</p></td>
 <td><p>sensorAuxiliaryNamesPDR</p></td>
 <td><p>False</p></td>
-<td><p>No auxiliary names.</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-even"><td><p>uint8</p></td>
 <td><p>baseUnit</p></td>
 <td><p>2</p></td>
-<td><p>2 = Degrees C.</p></td>
+<td><p>Degrees Celsius.</p></td>
 </tr>
 <tr class="row-odd"><td><p>int8</p></td>
 <td><p>unitModifier</p></td>
 <td><p>0</p></td>
-<td><p>x10^0 (Multiplier = 1).</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-even"><td><p>uint8</p></td>
 <td><p>rateUnit</p></td>
 <td><p>0</p></td>
-<td><p>None.</p></td>
+<td><p>No rate qualifier.</p></td>
 </tr>
 <tr class="row-odd"><td><p>uint8</p></td>
 <td><p>baseOEMUnitHandle</p></td>
 <td><p>0</p></td>
-<td><p>N/A.</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-even"><td><p>uint8</p></td>
 <td><p>auxUnit</p></td>
 <td><p>0</p></td>
-<td><p>None.</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-odd"><td><p>int8</p></td>
 <td><p>auxUnitModifier</p></td>
 <td><p>0</p></td>
-<td><p>N/A.</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-even"><td><p>uint8</p></td>
 <td><p>auxrateUnit</p></td>
 <td><p>0</p></td>
-<td><p>None.</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-odd"><td><p>uint8</p></td>
 <td><p>rel</p></td>
 <td><p>0</p></td>
-<td><p>N/A.</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-even"><td><p>uint8</p></td>
 <td><p>auxOEMUnitHandle</p></td>
 <td><p>0</p></td>
-<td><p>N/A.</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-odd"><td><p>bool</p></td>
 <td><p>isLinear</p></td>
 <td><p>True</p></td>
-<td><p>Linear sensor.</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-even"><td><p>uint8</p></td>
 <td><p>sensorDataSize</p></td>
 <td><p>1</p></td>
-<td><p>1 = sint8 (Values are -128 to 127).</p></td>
+<td><p>1 = sint8 readings.</p></td>
 </tr>
 <tr class="row-odd"><td><p>float</p></td>
 <td><p>resolution</p></td>
 <td><p>1.0</p></td>
-<td><p>1 degree resolution.</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-even"><td><p>float</p></td>
 <td><p>offset</p></td>
 <td><p>0.0</p></td>
-<td><p>No offset.</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-odd"><td><p>uint16</p></td>
 <td><p>accuracy</p></td>
@@ -259,70 +257,2433 @@ Note: Your Schema defines Type 0 as UID, not raw PCIe BDF.</p></td>
 <tr class="row-even"><td><p>uint8</p></td>
 <td><p>plusTolerance</p></td>
 <td><p>0</p></td>
-<td><p>0 tolerance.</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-odd"><td><p>uint8</p></td>
 <td><p>minusTolerance</p></td>
 <td><p>0</p></td>
-<td><p>0 tolerance.</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-even"><td><p>int8</p></td>
 <td><p>hysteresis</p></td>
 <td><p>2</p></td>
-<td><p>2 degrees hysteresis. (Must match sensorDataSize type).</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-odd"><td><p>uint8</p></td>
 <td><p>supportedThresholds</p></td>
 <td><p>0</p></td>
-<td><p>No event generation thresholds supported.</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-even"><td><p>uint8</p></td>
 <td><p>thresholdAndHysteresisVolatility</p></td>
 <td><p>0</p></td>
-<td><p>No volatility.</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-odd"><td><p>float</p></td>
 <td><p>stateTransitionInterval</p></td>
 <td><p>1.0</p></td>
-<td><p>1.0 second.</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-even"><td><p>float</p></td>
 <td><p>updateInterval</p></td>
 <td><p>1.0</p></td>
-<td><p>1.0 second update rate.</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-odd"><td><p>int8</p></td>
 <td><p>maxReadable</p></td>
 <td><p>125</p></td>
-<td><p>Max readable temp (sint8).</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-even"><td><p>int8</p></td>
 <td><p>minReadable</p></td>
 <td><p>-40</p></td>
-<td><p>Min readable temp (sint8).</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-odd"><td><p>uint8</p></td>
 <td><p>rangeFieldFormat</p></td>
 <td><p>1</p></td>
-<td><p>1 = sint8 (Thresholds format).</p></td>
+<td><p>1 = sint8 range fields.</p></td>
 </tr>
 <tr class="row-even"><td><p>uint8</p></td>
 <td><p>rangeFieldSupport</p></td>
-<td><p>9</p></td>
-<td><p>Bitfield indicating presence of optional threshold fields:
-- Bit 0 (Nominal): Set
-- Bit 3 (Critical High): Set
-- Value = 1 + 8 = 9.</p></td>
+<td><p>63</p></td>
+<td><p>All optional range fields populated.</p></td>
 </tr>
 <tr class="row-odd"><td><p>int8</p></td>
 <td><p>nominalValue</p></td>
 <td><p>45</p></td>
-<td><p>Nominal temperature: 45C.</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>int8</p></td>
+<td><p>normalMax</p></td>
+<td><p>90</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>int8</p></td>
+<td><p>normalMin</p></td>
+<td><p>10</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-even"><td><p>int8</p></td>
 <td><p>criticalHigh</p></td>
-<td><p>95</p></td>
-<td><p>Critical High threshold: 95C.</p></td>
+<td><p>100</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>int8</p></td>
+<td><p>criticalLow</p></td>
+<td><p>-10</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>int8</p></td>
+<td><p>fatalHigh</p></td>
+<td><p>120</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>int8</p></td>
+<td><p>fatalLow</p></td>
+<td><p>-20</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<table class="tight-table docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Field Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Comment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>uint32</p></td>
+<td><p>recordHandle</p></td>
+<td><p>3</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>PDRHeaderVersion</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>PDRType</p></td>
+<td><p>3</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>recordChangeNumber</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>dataLength</p></td>
+<td><p>14</p></td>
+<td><p>Body length in bytes.</p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>PLDMTerminusHandle</p></td>
+<td><p>256</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>sensorID</p></td>
+<td><p>257</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>initConditions</p></td>
+<td><p>1</p></td>
+<td><p>Initialize when controller restarts.</p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>sensorEnable</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>thresholdInitMask</p></td>
+<td><p>63</p></td>
+<td><p>Initialize all thresholds.</p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>sensorDataSize</p></td>
+<td><p>0</p></td>
+<td><p>Threshold fields use uint8.</p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>upperThresholdWarning</p></td>
+<td><p>100</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>upperThresholdCritical</p></td>
+<td><p>120</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>upperThresholdFatal</p></td>
+<td><p>150</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>lowerThresholdWarning</p></td>
+<td><p>50</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>lowerThresholdCritical</p></td>
+<td><p>30</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>lowerThresholdFatal</p></td>
+<td><p>10</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<table class="tight-table docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Field Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Comment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>uint32</p></td>
+<td><p>recordHandle</p></td>
+<td><p>4</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>PDRHeaderVersion</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>PDRType</p></td>
+<td><p>4</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>recordChangeNumber</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>dataLength</p></td>
+<td><p>21</p></td>
+<td><p>Body length including composite state entries.</p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>PLDMTerminusHandle</p></td>
+<td><p>256</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>sensorID</p></td>
+<td><p>258</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>entityType</p></td>
+<td><p>42</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>entityInstanceNumber</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>containerID</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>sensorInit</p></td>
+<td><p>1</p></td>
+<td><p>Use initialization PDR.</p></td>
+</tr>
+<tr class="row-odd"><td><p>bool</p></td>
+<td><p>sensorAuxiliaryNamesPDR</p></td>
+<td><p>False</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>compositeSensorCount</p></td>
+<td><p>2</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>stateSetID</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>possibleStatesSize</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8[]</p></td>
+<td><p>possibleStates</p></td>
+<td><p>[3]</p></td>
+<td><p>Supports states 0 and 1.</p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>stateSetID</p></td>
+<td><p>2</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>possibleStatesSize</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8[]</p></td>
+<td><p>possibleStates</p></td>
+<td><p>[12]</p></td>
+<td><p>Supports states 2 and 3 (0b00001100).</p></td>
+</tr>
+</tbody>
+</table>
+<table class="tight-table docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Field Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Comment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>uint32</p></td>
+<td><p>recordHandle</p></td>
+<td><p>5</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>PDRHeaderVersion</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>PDRType</p></td>
+<td><p>5</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>recordChangeNumber</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>dataLength</p></td>
+<td><p>18</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>PLDMTerminusHandle</p></td>
+<td><p>256</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>sensorID</p></td>
+<td><p>259</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>initConditions</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>sensorEnable</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>sensorInitMask</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>sensorOpStateEventEnableMask</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>sensorStateEventEnableMask</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>sensorEventRearm</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>stateValue0</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>stateValue1</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>stateValue2</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>stateValue3</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>stateValue4</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>stateValue5</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>stateValue6</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>stateValue7</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<table class="tight-table docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Field Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Comment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>uint32</p></td>
+<td><p>recordHandle</p></td>
+<td><p>6</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>PDRHeaderVersion</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>PDRType</p></td>
+<td><p>6</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>recordChangeNumber</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>dataLength</p></td>
+<td><p>32</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>PLDMTerminusHandle</p></td>
+<td><p>256</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>sensorID</p></td>
+<td><p>260</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>nameStringCount</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>strASCII</p></td>
+<td><p>nameLanguageTag</p></td>
+<td><p>en</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>strUTF-16BE</p></td>
+<td><p>sensorName</p></td>
+<td><p>Temp Sensor</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<table class="tight-table docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Field Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Comment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>uint32</p></td>
+<td><p>recordHandle</p></td>
+<td><p>7</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>PDRHeaderVersion</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>PDRType</p></td>
+<td><p>7</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>recordChangeNumber</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>dataLength</p></td>
+<td><p>37</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>PLDMTerminusHandle</p></td>
+<td><p>256</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>OEMUnitHandle</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint32</p></td>
+<td><p>vendorIANA</p></td>
+<td><p>55930</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>OEMUnitID</p></td>
+<td><p>4096</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>nameStringCount</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>strASCII</p></td>
+<td><p>unitLanguageTag</p></td>
+<td><p>en</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>strUTF-16BE</p></td>
+<td><p>unitName</p></td>
+<td><p>Cooling Fan</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<table class="tight-table docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Field Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Comment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>uint32</p></td>
+<td><p>recordHandle</p></td>
+<td><p>8</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>PDRHeaderVersion</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>PDRType</p></td>
+<td><p>8</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>recordChangeNumber</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>dataLength</p></td>
+<td><p>48</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>PLDMTerminusHandle</p></td>
+<td><p>256</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>OEMStateSetIDHandle</p></td>
+<td><p>100</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint32</p></td>
+<td><p>vendorIANA</p></td>
+<td><p>55930</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>OEMStateSetID</p></td>
+<td><p>200</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>unspecifiedValueHint</p></td>
+<td><p>0</p></td>
+<td><p>Treat unspecified as unspecified.</p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>stateCount</p></td>
+<td><p>2</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>minStateValue</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>maxStateValue</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>stringCount</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>strASCII</p></td>
+<td><p>stateLanguageTag</p></td>
+<td><p>en</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>strUTF-16BE</p></td>
+<td><p>stateName</p></td>
+<td><p>Idle</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>minStateValue</p></td>
+<td><p>2</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>maxStateValue</p></td>
+<td><p>3</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>stringCount</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>strASCII</p></td>
+<td><p>stateLanguageTag</p></td>
+<td><p>en</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>strUTF-16BE</p></td>
+<td><p>stateName</p></td>
+<td><p>Active</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<table class="tight-table docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Field Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Comment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>uint32</p></td>
+<td><p>recordHandle</p></td>
+<td><p>9</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>PDRHeaderVersion</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>PDRType</p></td>
+<td><p>9</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>recordChangeNumber</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>dataLength</p></td>
+<td><p>52</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>PLDMTerminusHandle</p></td>
+<td><p>256</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>effecterID</p></td>
+<td><p>300</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>entityType</p></td>
+<td><p>42</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>entityInstanceNumber</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>containerID</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>effecterInit</p></td>
+<td><p>2</p></td>
+<td><p>Enable effecter.</p></td>
+</tr>
+<tr class="row-odd"><td><p>bool</p></td>
+<td><p>effecterAuxiliaryNamesPDR</p></td>
+<td><p>False</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>baseUnit</p></td>
+<td><p>2</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>int8</p></td>
+<td><p>unitModifier</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>rateUnit</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>baseOEMUnitHandle</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>auxUnit</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>int8</p></td>
+<td><p>auxUnitModifier</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>auxrateUnit</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>rel</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>auxOEMUnitHandle</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>bool</p></td>
+<td><p>isLinear</p></td>
+<td><p>True</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>effecterDataSize</p></td>
+<td><p>1</p></td>
+<td><p>1 = sint8 effecter data.</p></td>
+</tr>
+<tr class="row-odd"><td><p>float</p></td>
+<td><p>resolution</p></td>
+<td><p>0.5</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>float</p></td>
+<td><p>offset</p></td>
+<td><p>0.0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>accuracy</p></td>
+<td><p>100</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>plusTolerance</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>minusTolerance</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>float</p></td>
+<td><p>stateTransitionInterval</p></td>
+<td><p>0.5</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>float</p></td>
+<td><p>updateInterval</p></td>
+<td><p>0.5</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>int8</p></td>
+<td><p>maxSettable</p></td>
+<td><p>100</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>int8</p></td>
+<td><p>minSettable</p></td>
+<td><p>-20</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>rangeFieldFormat</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>rangeFieldSupport</p></td>
+<td><p>31</p></td>
+<td><p>Nominal/normal/rated fields provided.</p></td>
+</tr>
+<tr class="row-even"><td><p>int8</p></td>
+<td><p>nominalValue</p></td>
+<td><p>40</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>int8</p></td>
+<td><p>normalMax</p></td>
+<td><p>80</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>int8</p></td>
+<td><p>normalMin</p></td>
+<td><p>10</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>int8</p></td>
+<td><p>ratedMax</p></td>
+<td><p>90</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>int8</p></td>
+<td><p>ratedMin</p></td>
+<td><p>-5</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<table class="tight-table docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Field Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Comment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>uint32</p></td>
+<td><p>recordHandle</p></td>
+<td><p>10</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>PDRHeaderVersion</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>PDRType</p></td>
+<td><p>10</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>recordChangeNumber</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>dataLength</p></td>
+<td><p>9</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>PLDMTerminusHandle</p></td>
+<td><p>256</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>effecterID</p></td>
+<td><p>310</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>effecterEnable</p></td>
+<td><p>0</p></td>
+<td><p>Enable effecter after init.</p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>initConditions</p></td>
+<td><p>3</p></td>
+<td><p>Initialize on power-up or reset.</p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>effecterDataSize</p></td>
+<td><p>2</p></td>
+<td><p>2 = uint16.</p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>effecterData</p></td>
+<td><p>500</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<table class="tight-table docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Field Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Comment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>uint32</p></td>
+<td><p>recordHandle</p></td>
+<td><p>11</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>PDRHeaderVersion</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>PDRType</p></td>
+<td><p>11</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>recordChangeNumber</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>dataLength</p></td>
+<td><p>23</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>PLDMTerminusHandle</p></td>
+<td><p>256</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>effecterID</p></td>
+<td><p>320</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>entityType</p></td>
+<td><p>42</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>entityInstanceNumber</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>containerID</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>effecterSemanticID</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>effecterInit</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>bool</p></td>
+<td><p>effecterDescriptionPDR</p></td>
+<td><p>False</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>compositeEffecterCount</p></td>
+<td><p>2</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>stateSetID</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>possibleStatesSize</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8[]</p></td>
+<td><p>possibleStates</p></td>
+<td><p>[3]</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>stateSetID</p></td>
+<td><p>2</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>possibleStatesSize</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8[]</p></td>
+<td><p>possibleStates</p></td>
+<td><p>[12]</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<table class="tight-table docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Field Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Comment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>uint32</p></td>
+<td><p>recordHandle</p></td>
+<td><p>12</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>PDRHeaderVersion</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>PDRType</p></td>
+<td><p>12</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>recordChangeNumber</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>dataLength</p></td>
+<td><p>24</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>PLDMTerminusHandle</p></td>
+<td><p>256</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>effecterID</p></td>
+<td><p>321</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>entityType</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>entityInstanceNumber</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>containerID</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>initConditions</p></td>
+<td><p>3</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>effecterEnable</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>effecterInitMask</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>effecterOpStateEventEnableMask</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>effecterStateEventEnableMask</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>effecterEventRearm</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>stateValue0</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>stateValue1</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>stateValue2</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>stateValue3</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>stateValue4</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>stateValue5</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>stateValue6</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>stateValue7</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<table class="tight-table docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Field Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Comment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>uint32</p></td>
+<td><p>recordHandle</p></td>
+<td><p>13</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>PDRHeaderVersion</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>PDRType</p></td>
+<td><p>13</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>recordChangeNumber</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>dataLength</p></td>
+<td><p>28</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>PLDMTerminusHandle</p></td>
+<td><p>256</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>effecterID</p></td>
+<td><p>322</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>nameStringCount</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>strASCII</p></td>
+<td><p>languageTag</p></td>
+<td><p>en</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>strUTF-16BE</p></td>
+<td><p>effecterName</p></td>
+<td><p>Fan Speed</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<table class="tight-table docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Field Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Comment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>uint32</p></td>
+<td><p>recordHandle</p></td>
+<td><p>14</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>PDRHeaderVersion</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>PDRType</p></td>
+<td><p>14</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>recordChangeNumber</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>dataLength</p></td>
+<td><p>36</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>PLDMTerminusHandle</p></td>
+<td><p>256</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>OEMEffecterSemanticHandle</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint32</p></td>
+<td><p>vendorIANA</p></td>
+<td><p>55930</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>OEMEffecterSemanticID</p></td>
+<td><p>10</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>stringCount</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>strASCII</p></td>
+<td><p>languageTag</p></td>
+<td><p>en</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>strUTF-16BE</p></td>
+<td><p>name</p></td>
+<td><p>Fan Control</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<table class="tight-table docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Field Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Comment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>uint32</p></td>
+<td><p>recordHandle</p></td>
+<td><p>15</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>PDRHeaderVersion</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>PDRType</p></td>
+<td><p>15</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>recordChangeNumber</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>dataLength</p></td>
+<td><p>16</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>containerID</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>associationType</p></td>
+<td><p>0</p></td>
+<td><p>Physical containment.</p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>containerEntityType</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>containerEntityInstanceNumber</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>containerEntityContainerID</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>containedEntityCount</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>containedEntityType</p></td>
+<td><p>42</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>containedEntityInstanceNumber</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>containedEntityContainerID</p></td>
+<td><p>123</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<table class="tight-table docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Field Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Comment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>uint32</p></td>
+<td><p>recordHandle</p></td>
+<td><p>16</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>PDRHeaderVersion</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>PDRType</p></td>
+<td><p>16</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>recordChangeNumber</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>dataLength</p></td>
+<td><p>36</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>entityType</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>entityInstanceNumber</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>entityContainerID</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>nameStringCount</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>strASCII</p></td>
+<td><p>entityLanguageTag</p></td>
+<td><p>en</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>strUTF-16BE</p></td>
+<td><p>entityName</p></td>
+<td><p>Compute Node</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<table class="tight-table docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Field Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Comment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>uint32</p></td>
+<td><p>recordHandle</p></td>
+<td><p>17</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>PDRHeaderVersion</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>PDRType</p></td>
+<td><p>17</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>recordChangeNumber</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>dataLength</p></td>
+<td><p>38</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint32</p></td>
+<td><p>vendorIANA</p></td>
+<td><p>55930</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>OEMEntityID</p></td>
+<td><p>5000</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>stringCount</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>strASCII</p></td>
+<td><p>entityLanguageTag</p></td>
+<td><p>en</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>strUTF-16BE</p></td>
+<td><p>entityName</p></td>
+<td><p>Custom Entity</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<table class="tight-table docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Field Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Comment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>uint32</p></td>
+<td><p>recordHandle</p></td>
+<td><p>18</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>PDRHeaderVersion</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>PDRType</p></td>
+<td><p>18</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>recordChangeNumber</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>dataLength</p></td>
+<td><p>36</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>PLDMTerminusHandle</p></td>
+<td><p>256</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>sensorID</p></td>
+<td><p>330</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>sourceOrTargetSensor</p></td>
+<td><p>1</p></td>
+<td><p>Monitoring interrupt at source.</p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>interruptTargetEntityType</p></td>
+<td><p>1000</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>interruptTargetEntityInstanceNumber</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>interruptTargetEntityContainerID</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>interruptSourceEntityCount</p></td>
+<td><p>2</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint32</p></td>
+<td><p>interruptSourcePLDMTerminusHandle</p></td>
+<td><p>256</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>interruptSourceEntityType</p></td>
+<td><p>2000</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>interruptSourceEntityInstanceNumber</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>interruptSourceEntityContainerID</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>interruptSourceSensorID</p></td>
+<td><p>331</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint32</p></td>
+<td><p>interruptSourcePLDMTerminusHandle</p></td>
+<td><p>512</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>interruptSourceEntityType</p></td>
+<td><p>2001</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>interruptSourceEntityInstanceNumber</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>interruptSourceEntityContainerID</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>interruptSourceSensorID</p></td>
+<td><p>332</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<table class="tight-table docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Field Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Comment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>uint32</p></td>
+<td><p>recordHandle</p></td>
+<td><p>19</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>PDRHeaderVersion</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>PDRType</p></td>
+<td><p>19</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>recordChangeNumber</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>dataLength</p></td>
+<td><p>9</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint32</p></td>
+<td><p>logSize</p></td>
+<td><p>65536</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>supportedLogClearingPolicies</p></td>
+<td><p>3</p></td>
+<td><p>FIFO and fill-and-stop supported.</p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>entryIDTimeout</p></td>
+<td><p>10</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>perEntryOverhead</p></td>
+<td><p>16</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>allocationGranularity</p></td>
+<td><p>8</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>percentUsedResolution</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<table class="tight-table docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Field Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Comment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>uint32</p></td>
+<td><p>recordHandle</p></td>
+<td><p>20</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>PDRHeaderVersion</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>PDRType</p></td>
+<td><p>20</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>recordChangeNumber</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>dataLength</p></td>
+<td><p>10</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>PLDMTerminusHandle</p></td>
+<td><p>256</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>FRURecordSetIdentifier</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>entityType</p></td>
+<td><p>160</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>entityInstanceNumber</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>containerID</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<table class="tight-table docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Field Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Comment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>uint32</p></td>
+<td><p>recordHandle</p></td>
+<td><p>21</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>PDRHeaderVersion</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>PDRType</p></td>
+<td><p>21</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>recordChangeNumber</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>dataLength</p></td>
+<td><p>50</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>PLDMTerminusHandle</p></td>
+<td><p>256</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>sensorID</p></td>
+<td><p>340</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>entityType</p></td>
+<td><p>42</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>entityInstanceNumber</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>containerID</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>sensorNameStringByteLength</p></td>
+<td><p>11</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>baseUnit</p></td>
+<td><p>2</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>int8</p></td>
+<td><p>unitModifier</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>rateUnit</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>rangeFieldSupport</p></td>
+<td><p>63</p></td>
+<td><p>All threshold fields supplied.</p></td>
+</tr>
+<tr class="row-odd"><td><p>int32</p></td>
+<td><p>warningHigh</p></td>
+<td><p>70</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>int32</p></td>
+<td><p>warningLow</p></td>
+<td><p>10</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>int32</p></td>
+<td><p>criticalHigh</p></td>
+<td><p>80</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>int32</p></td>
+<td><p>criticalLow</p></td>
+<td><p>5</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>int32</p></td>
+<td><p>fatalHigh</p></td>
+<td><p>90</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>int32</p></td>
+<td><p>fatalLow</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>strUTF-8</p></td>
+<td><p>sensorNameString</p></td>
+<td><p>Inlet Temp</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<table class="tight-table docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Field Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Comment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>uint32</p></td>
+<td><p>recordHandle</p></td>
+<td><p>22</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>PDRHeaderVersion</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>PDRType</p></td>
+<td><p>22</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>recordChangeNumber</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>dataLength</p></td>
+<td><p>80</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint32</p></td>
+<td><p>ResourceID</p></td>
+<td><p>1000</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>ResourceFlags</p></td>
+<td><p>1</p></td>
+<td><p>Device root.</p></td>
+</tr>
+<tr class="row-odd"><td><p>uint32</p></td>
+<td><p>ContainingResourceID</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>ProposedContainingResourceLengthBytes</p></td>
+<td><p>8</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>strUTF-8</p></td>
+<td><p>ProposedContainingResourceName</p></td>
+<td><p>Chassis</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>SubURILengthBytes</p></td>
+<td><p>9</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>strUTF-8</p></td>
+<td><p>SubURI</p></td>
+<td><p>Chassis1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>AdditionalResourceIDCount</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>ver32</p></td>
+<td><p>MajorSchemaVersion</p></td>
+<td><p>65536</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>MajorSchemaDictionaryLengthBytes</p></td>
+<td><p>16</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint32</p></td>
+<td><p>MajorSchemaDictionarySignature</p></td>
+<td><p>3735928559</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>MajorSchemaNameLength</p></td>
+<td><p>8</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>strUTF-8</p></td>
+<td><p>MajorSchemaName</p></td>
+<td><p>redfish</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>OEMCount</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint32</p></td>
+<td><p>AdditionalResourceID</p></td>
+<td><p>1001</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>AdditionalResourceSubURILengthBytes</p></td>
+<td><p>13</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>strUTF-8</p></td>
+<td><p>AdditionalResourceSubURI</p></td>
+<td><p>Chassis1Power</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>OEMNameLengthBytes</p></td>
+<td><p>5</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>strUTF-8</p></td>
+<td><p>OEMName</p></td>
+<td><p>ACME</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<table class="tight-table docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Field Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Comment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>uint32</p></td>
+<td><p>recordHandle</p></td>
+<td><p>23</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>PDRHeaderVersion</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>PDRType</p></td>
+<td><p>23</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>recordChangeNumber</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>dataLength</p></td>
+<td><p>14</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint32</p></td>
+<td><p>ResourceID</p></td>
+<td><p>1000</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>AssociationType</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>ContainedEntityCount</p></td>
+<td><p>2</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint32[]</p></td>
+<td><p>ContainedResourceIDs</p></td>
+<td><p>[1001, 1002]</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<table class="tight-table docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Field Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Comment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>uint32</p></td>
+<td><p>recordHandle</p></td>
+<td><p>24</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>PDRHeaderVersion</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>PDRType</p></td>
+<td><p>24</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>recordChangeNumber</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>dataLength</p></td>
+<td><p>52</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>ActionPDRIndex</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>RelatedResourceCount</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint32[]</p></td>
+<td><p>RelatedResourceIDs</p></td>
+<td><p>[1000]</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>ActionCount</p></td>
+<td><p>2</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>ActionNameLengthBytes</p></td>
+<td><p>6</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>strUTF-8</p></td>
+<td><p>ActionName</p></td>
+<td><p>Reset</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>ActionPathLengthBytes</p></td>
+<td><p>14</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>strUTF-8</p></td>
+<td><p>ActionPath</p></td>
+<td><p>Actions/Reset</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>ActionNameLengthBytes</p></td>
+<td><p>6</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>strUTF-8</p></td>
+<td><p>ActionName</p></td>
+<td><p>Apply</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>ActionPathLengthBytes</p></td>
+<td><p>14</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>strUTF-8</p></td>
+<td><p>ActionPath</p></td>
+<td><p>Actions/Apply</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<table class="tight-table docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Field Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Comment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>uint32</p></td>
+<td><p>recordHandle</p></td>
+<td><p>25</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>PDRHeaderVersion</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>PDRType</p></td>
+<td><p>25</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>recordChangeNumber</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>dataLength</p></td>
+<td><p>38</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint32</p></td>
+<td><p>ResourceID</p></td>
+<td><p>2000</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>ResourceFlags</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint32</p></td>
+<td><p>ContainingResourceID</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>AdditionalResourceIDCount</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint32</p></td>
+<td><p>AdditionalResourceID</p></td>
+<td><p>2001</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint32</p></td>
+<td><p>AdditionalContainingResourceID</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>ProposedContainingResourceLengthBytes</p></td>
+<td><p>7</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>strUTF-8</p></td>
+<td><p>ProposedContainingResourceName</p></td>
+<td><p>System</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>SubURILengthBytes</p></td>
+<td><p>8</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>strUTF-8</p></td>
+<td><p>SubURI</p></td>
+<td><p>System0</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<table class="tight-table docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Field Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Comment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>uint32</p></td>
+<td><p>recordHandle</p></td>
+<td><p>30</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>PDRHeaderVersion</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>PDRType</p></td>
+<td><p>30</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>recordChangeNumber</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>dataLength</p></td>
+<td><p>37</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>PLDMTerminusHandle</p></td>
+<td><p>256</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>FileIdentifier</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>EntityType</p></td>
+<td><p>32769</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>EntityInstanceNumber</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>ContainerID</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>SuperiorDirectoryFileIdentifier</p></td>
+<td><p>65535</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>FileClassification</p></td>
+<td><p>0</p></td>
+<td><p>OEM file.</p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>OemFileClassification</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>oemFileClassificationNameLength</p></td>
+<td><p>20</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>strUTF-16BE</p></td>
+<td><p>oemFileClassificationName</p></td>
+<td><p>ThermalLog</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<table class="tight-table docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Field Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Comment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>uint32</p></td>
+<td><p>recordHandle</p></td>
+<td><p>126</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>PDRHeaderVersion</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>PDRType</p></td>
+<td><p>126</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>recordChangeNumber</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>dataLength</p></td>
+<td><p>12</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint32</p></td>
+<td><p>vendorIANA</p></td>
+<td><p>55930</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>OEMDeviceID</p></td>
+<td><p>900</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8[]</p></td>
+<td><p>OEMDeviceData</p></td>
+<td><p>[1, 2, 3, 4, 5, 6]</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<table class="tight-table docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Field Name</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Comment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>uint32</p></td>
+<td><p>recordHandle</p></td>
+<td><p>127</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint8</p></td>
+<td><p>PDRHeaderVersion</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8</p></td>
+<td><p>PDRType</p></td>
+<td><p>127</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint16</p></td>
+<td><p>recordChangeNumber</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint16</p></td>
+<td><p>dataLength</p></td>
+<td><p>8</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>uint32</p></td>
+<td><p>vendorIANA</p></td>
+<td><p>55930</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>uint8[]</p></td>
+<td><p>OEMPDRData</p></td>
+<td><p>[170, 187, 204, 221]</p></td>
+<td><p></p></td>
 </tr>
 </tbody>
 </table>

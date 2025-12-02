@@ -1,0 +1,33 @@
+# Redfish Entity Association PDR (Type 23)
+pdrHeader:
+  recordHandle:
+    type: uint32
+    value: 23
+  PDRHeaderVersion:
+    type: uint8
+    value: 1
+  PDRType:
+    type: uint8
+    value: 23
+  recordChangeNumber:
+    type: uint16
+    value: 0
+  dataLength:
+    type: uint16
+    value: 14
+
+ResourceID:
+  type: uint32
+  value: 1000
+
+AssociationType:
+  type: uint8
+  value: 0
+
+ContainedEntityCount:
+  type: uint8
+  value: 2
+
+ContainedResourceIDs:
+  type: uint32[]
+  value: [1001, 1002]

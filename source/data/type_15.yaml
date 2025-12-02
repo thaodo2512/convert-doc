@@ -1,82 +1,53 @@
-# Sample PLDM PDR Type 15: Entity Association PDR
-# Based on DSP0248 v1.3.0, Clause 28.17
-
+# Entity Association PDR (Type 15)
 pdrHeader:
   recordHandle:
     type: uint32
-    value: 1
-    comment: |
-      Opaque handle (TBD or auto-generated).
+    value: 15
   PDRHeaderVersion:
     type: uint8
     value: 1
-    comment: |
-      Must be 1.
   PDRType:
     type: uint8
     value: 15
-    comment: |
-      Entity Association PDR = 15.
   recordChangeNumber:
     type: uint16
     value: 0
-    comment: |
-      Incremented on changes (default 0).
   dataLength:
     type: uint16
     value: 16
-    comment: |
-      Calculated data length (excluding header). For this example with containedEntityCount=1: 2 (containerID) + 1 (associationType) + 2+2+2 (containerEntity) + 1 (count) + 1* (2+2+2) = 16 bytes.
 
 containerID:
   type: uint16
   value: 0
-  comment: |
-    0x0000 = "SYSTEM" for topmost, or 0x0001-0xFFFF opaque number identifying container entity. Example: 0 = SYSTEM.
 
 associationType:
   type: uint8
   value: 0
-  comment: |
-    enum8: 0=physicalToPhysicalContainment, 1=logicalContainment. Example: 0=physicalToPhysicalContainment.
+  comment: "Physical containment."
 
 containerEntityType:
   type: uint16
   value: 1
-  comment: |
-    Entity type of the container. Example: 1 (assuming System Chassis or similar).
 
 containerEntityInstanceNumber:
   type: uint16
   value: 1
-  comment: |
-    Instance number of the container entity. Top-level uses 1.
 
 containerEntityContainerID:
   type: uint16
   value: 0
-  comment: |
-    Container ID for the container entity.
 
 containedEntityCount:
   type: uint8
   value: 1
-  comment: |
-    Number of contained entities (1 to N). Example: 1.
 
 containedEntities:
   - containedEntityType:
       type: uint16
       value: 42
-      comment: |
-        Entity type of contained entity 1. Example: 42 (Processor Module).
     containedEntityInstanceNumber:
       type: uint16
       value: 1
-      comment: |
-        Instance number of contained entity 1.
     containedEntityContainerID:
       type: uint16
       value: 123
-      comment: |
-        Container ID for contained entity 1.

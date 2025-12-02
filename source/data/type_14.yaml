@@ -1,26 +1,26 @@
-# OEM Unit PDR (Type 7)
+# OEM Effecter Semantic PDR (Type 14)
 pdrHeader:
   recordHandle:
     type: uint32
-    value: 7
+    value: 14
   PDRHeaderVersion:
     type: uint8
     value: 1
   PDRType:
     type: uint8
-    value: 7
+    value: 14
   recordChangeNumber:
     type: uint16
     value: 0
   dataLength:
     type: uint16
-    value: 37
+    value: 36
 
 PLDMTerminusHandle:
   type: uint16
   value: 256
 
-OEMUnitHandle:
+OEMEffecterSemanticHandle:
   type: uint8
   value: 1
 
@@ -28,18 +28,18 @@ vendorIANA:
   type: uint32
   value: 55930
 
-OEMUnitID:
-  type: uint16
-  value: 4096
+OEMEffecterSemanticID:
+  type: uint8
+  value: 10
 
-nameStringCount:
+stringCount:
   type: uint8
   value: 1
 
-unitNames:
-  - unitLanguageTag:
+names:
+  - languageTag:
       type: strASCII
       value: "en"
-    unitName:
+    name:
       type: strUTF-16BE
-      value: "Cooling Fan"
+      value: "Fan Control"

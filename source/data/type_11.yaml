@@ -1,29 +1,28 @@
-# State Sensor PDR (Type 4)
+# State Effecter PDR (Type 11)
 pdrHeader:
   recordHandle:
     type: uint32
-    value: 4
+    value: 11
   PDRHeaderVersion:
     type: uint8
     value: 1
   PDRType:
     type: uint8
-    value: 4
+    value: 11
   recordChangeNumber:
     type: uint16
     value: 0
   dataLength:
     type: uint16
-    value: 21
-    comment: "Body length including composite state entries."
+    value: 23
 
 PLDMTerminusHandle:
   type: uint16
   value: 256
 
-sensorID:
+effecterID:
   type: uint16
-  value: 258
+  value: 320
 
 entityType:
   type: uint16
@@ -37,20 +36,23 @@ containerID:
   type: uint16
   value: 0
 
-sensorInit:
+effecterSemanticID:
+  type: uint16
+  value: 1
+
+effecterInit:
   type: uint8
   value: 1
-  comment: "Use initialization PDR."
 
-sensorAuxiliaryNamesPDR:
+effecterDescriptionPDR:
   type: bool
   value: false
 
-compositeSensorCount:
+compositeEffecterCount:
   type: uint8
   value: 2
 
-compositeSensorStates:
+possibleStates:
   - stateSetID:
       type: uint16
       value: 1
@@ -60,7 +62,6 @@ compositeSensorStates:
     possibleStates:
       type: uint8[]
       value: [3]
-      comment: "Supports states 0 and 1."
   - stateSetID:
       type: uint16
       value: 2
@@ -70,4 +71,3 @@ compositeSensorStates:
     possibleStates:
       type: uint8[]
       value: [12]
-      comment: "Supports states 2 and 3 (0b00001100)."

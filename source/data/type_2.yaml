@@ -1,126 +1,109 @@
+# Numeric Sensor PDR (Type 2)
 pdrHeader:
   recordHandle:
     type: uint32
     value: 2
-    comment: "Unique record handle."
+    comment: "Opaque record handle."
   PDRHeaderVersion:
     type: uint8
     value: 1
-    comment: "Always 1."
   PDRType:
     type: uint8
     value: 2
-    comment: "Type 2 = Numeric Sensor PDR."
   recordChangeNumber:
     type: uint16
     value: 0
-    comment: "No changes."
   dataLength:
     type: uint16
-    value: 52 
-    comment: "Length of data excluding header (approx calculation)."
-
-# --- Fixed Body Fields ---
+    value: 57
+    comment: "Body length in bytes."
 
 PLDMTerminusHandle:
   type: uint16
-  value: 0
-  comment: "Terminus handle."
+  value: 256
+  comment: "Shared terminus handle for all sample PDRs."
 
 sensorID:
   type: uint16
-  value: 256  # 0x0100
-  comment: "Unique Sensor ID within terminus."
+  value: 256
+  comment: "Unique sensor identifier."
 
 entityType:
   type: uint16
-  value: 53248 # 0xD000 (Example: Processor)
-  comment: "Entity Type (e.g., Processor)."
+  value: 42
+  comment: "Example entity type."
 
 entityInstanceNumber:
   type: uint16
   value: 1
-  comment: "Instance 1."
 
 containerID:
   type: uint16
   value: 0
-  comment: "Not contained."
 
 sensorInit:
   type: uint8
   value: 2
-  comment: "2 = Enable Sensor."
+  comment: "2 = enable sensor on discovery."
 
 sensorAuxiliaryNamesPDR:
   type: bool
   value: false
-  comment: "No auxiliary names."
 
 baseUnit:
   type: uint8
   value: 2
-  comment: "2 = Degrees C."
+  comment: "Degrees Celsius."
 
 unitModifier:
   type: int8
   value: 0
-  comment: "x10^0 (Multiplier = 1)."
 
 rateUnit:
   type: uint8
   value: 0
-  comment: "None."
+  comment: "No rate qualifier."
 
 baseOEMUnitHandle:
   type: uint8
   value: 0
-  comment: "N/A."
 
 auxUnit:
   type: uint8
   value: 0
-  comment: "None."
 
 auxUnitModifier:
   type: int8
   value: 0
-  comment: "N/A."
 
 auxrateUnit:
   type: uint8
   value: 0
-  comment: "None."
 
 rel:
   type: uint8
   value: 0
-  comment: "N/A."
 
 auxOEMUnitHandle:
   type: uint8
   value: 0
-  comment: "N/A."
 
 isLinear:
   type: bool
   value: true
-  comment: "Linear sensor."
 
 sensorDataSize:
   type: uint8
   value: 1
-  comment: "1 = sint8 (Values are -128 to 127)."
+  comment: "1 = sint8 readings."
 
 resolution:
   type: float
   value: 1.0
-  comment: "1 degree resolution."
 
 offset:
   type: float
   value: 0.0
-  comment: "No offset."
 
 accuracy:
   type: uint16
@@ -130,70 +113,73 @@ accuracy:
 plusTolerance:
   type: uint8
   value: 0
-  comment: "0 tolerance."
 
 minusTolerance:
   type: uint8
   value: 0
-  comment: "0 tolerance."
 
 hysteresis:
   type: int8
   value: 2
-  comment: "2 degrees hysteresis. (Must match sensorDataSize type)."
 
 supportedThresholds:
   type: uint8
   value: 0
-  comment: "No event generation thresholds supported."
 
 thresholdAndHysteresisVolatility:
   type: uint8
   value: 0
-  comment: "No volatility."
 
 stateTransitionInterval:
   type: float
   value: 1.0
-  comment: "1.0 second."
 
 updateInterval:
   type: float
   value: 1.0
-  comment: "1.0 second update rate."
 
 maxReadable:
   type: int8
   value: 125
-  comment: "Max readable temp (sint8)."
 
 minReadable:
   type: int8
   value: -40
-  comment: "Min readable temp (sint8)."
 
 rangeFieldFormat:
   type: uint8
   value: 1
-  comment: "1 = sint8 (Thresholds format)."
+  comment: "1 = sint8 range fields."
 
 rangeFieldSupport:
   type: uint8
-  value: 9  # Binary: 00001001
-  comment: |
-    Bitfield indicating presence of optional threshold fields:
-    - Bit 0 (Nominal): Set
-    - Bit 3 (Critical High): Set
-    - Value = 1 + 8 = 9.
-
-# --- Optional/Variable Fields (Present because of rangeFieldSupport) ---
+  value: 63
+  comment: "All optional range fields populated."
 
 nominalValue:
   type: int8
   value: 45
-  comment: "Nominal temperature: 45C."
+
+normalMax:
+  type: int8
+  value: 90
+
+normalMin:
+  type: int8
+  value: 10
 
 criticalHigh:
   type: int8
-  value: 95
-  comment: "Critical High threshold: 95C."
+  value: 100
+
+criticalLow:
+  type: int8
+  value: -10
+
+fatalHigh:
+  type: int8
+  value: 120
+
+fatalLow:
+  type: int8
+  value: -20

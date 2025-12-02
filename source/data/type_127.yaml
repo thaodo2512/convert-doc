@@ -1,0 +1,25 @@
+# OEM PDR (Type 127)
+pdrHeader:
+  recordHandle:
+    type: uint32
+    value: 127
+  PDRHeaderVersion:
+    type: uint8
+    value: 1
+  PDRType:
+    type: uint8
+    value: 127
+  recordChangeNumber:
+    type: uint16
+    value: 0
+  dataLength:
+    type: uint16
+    value: 8
+
+vendorIANA:
+  type: uint32
+  value: 55930
+
+OEMPDRData:
+  type: uint8[]
+  value: [170, 187, 204, 221]

@@ -1,233 +1,156 @@
-# Sample PLDM PDR Type 9: Numeric Effecter PDR
-# Based on DSP0248 v1.3.0, Clause 28.11
-
+# Numeric Effecter PDR (Type 9)
 pdrHeader:
   recordHandle:
     type: uint32
-    value: 1
-    comment: |
-      Opaque handle (TBD or auto-generated).
+    value: 9
   PDRHeaderVersion:
     type: uint8
     value: 1
-    comment: |
-      Must be 1.
   PDRType:
     type: uint8
     value: 9
-    comment: |
-      Numeric Effecter PDR = 9.
   recordChangeNumber:
     type: uint16
     value: 0
-    comment: |
-      Incremented on changes (default 0).
   dataLength:
     type: uint16
-    value: 62
-    comment: |
-      Calculated data length (excluding header). For this example, assuming effecterDataSize=0 (uint8), rangeFieldFormat=0 (uint8), and rangeFieldSupport=31 (all supported): fixed fields ~38 bytes + variables 5*1=5 + 2*4 (real32 intervals) etc., adjust based on actual count.
+    value: 52
 
 PLDMTerminusHandle:
   type: uint16
-  value: 0
-  comment: |
-    A handle that identifies PDRs that belong to a particular PLDM terminus.
+  value: 256
 
 effecterID:
   type: uint16
-  value: 1
-  comment: |
-    ID of the effecter relative to the given PLDM Terminus ID.
+  value: 300
 
 entityType:
   type: uint16
   value: 42
-  comment: |
-    The Type value for the entity that is associated with this effecter. See 9.1 for more information. Example: 42 (Processor Module).
 
 entityInstanceNumber:
   type: uint16
   value: 1
-  comment: |
-    The Instance Number for the entity that is associated with this effecter. See 9.1 for more information.
 
 containerID:
   type: uint16
   value: 0
-  comment: |
-    The containerID for the containing entity that is associated with this effecter. See 9.1 for more information.
-
-effecterSemanticID:
-  type: uint16
-  value: 0
-  comment: |
-    This field either identifies a PLDM-defined effecter semantic or provides an OEMEffecterSemanticHandle value. Special value: 0x0000 = unspecified.
 
 effecterInit:
   type: uint8
-  value: 0
-  comment: |
-    enum8: 0=noInit, 1=useInitPDR, 2=enableEffecter, 3=disableEffecter. Example: 0=noInit.
+  value: 2
+  comment: "Enable effecter."
 
 effecterAuxiliaryNamesPDR:
-  type: uint8
-  value: 0
-  comment: |
-    bool8: true = effecter has an Effecter Auxiliary Names PDR, false = does not. Example: 0=false.
+  type: bool
+  value: false
 
 baseUnit:
   type: uint8
-  value: 19
-  comment: |
-    enum8: The base unit of the reading returned by this effecter. See Table 75. Example: 19 = degrees C.
+  value: 2
 
 unitModifier:
-  type: sint8
+  type: int8
   value: 0
-  comment: |
-    A power-of-10 multiplier for the baseUnit. See 27.1.
 
 rateUnit:
   type: uint8
   value: 0
-  comment: |
-    enum8: 0=None, 1=Per MicroSecond, ..., 9=Per Year. Example: 0=None.
 
 baseOEMUnitHandle:
   type: uint8
   value: 0
-  comment: |
-    Used to locate the PLDM OEM Unit PDR if OEMUnit is used for baseUnit. Example: 0 (not used).
 
 auxUnit:
   type: uint8
   value: 0
-  comment: |
-    enum8: Auxiliary unit. See Table 75. Example: 0=unspecified.
 
 auxUnitModifier:
-  type: sint8
+  type: int8
   value: 0
-  comment: |
-    A power-of-10 multiplier for the auxUnit.
 
 auxrateUnit:
   type: uint8
   value: 0
-  comment: |
-    enum8: Auxiliary rate unit. Example: 0=None.
+
+rel:
+  type: uint8
+  value: 0
 
 auxOEMUnitHandle:
   type: uint8
   value: 0
-  comment: |
-    Used to locate the PLDM OEM Unit PDR if OEMUnit is used for auxUnit.
 
 isLinear:
-  type: uint8
-  value: 1
-  comment: |
-    bool8: true = sensor is linear, false = dynamic.
+  type: bool
+  value: true
 
 effecterDataSize:
   type: uint8
-  value: 0
-  comment: |
-    enum8: 0=uint8,1=sint8,2=uint16,3=sint16,4=uint32,5=sint32,6=uint64,7=sint64. Example: 0=uint8.
+  value: 1
+  comment: "1 = sint8 effecter data."
 
 resolution:
-  type: real32
-  value: 0.1
-  comment: |
-    The resolution of the effecter in Units.
+  type: float
+  value: 0.5
 
 offset:
-  type: real32
+  type: float
   value: 0.0
-  comment: |
-    A constant value added in the conversion process.
 
 accuracy:
   type: uint16
   value: 100
-  comment: |
-    Given as a +/- percentage in 1/100ths of a %. Example: 100 = 1.00%.
 
 plusTolerance:
   type: uint8
-  value: 2
-  comment: |
-    + Tolerance in counts.
+  value: 1
 
 minusTolerance:
   type: uint8
-  value: 2
-  comment: |
-    - Tolerance in counts.
+  value: 1
 
 stateTransitionInterval:
-  type: real32
-  value: 1.0
-  comment: |
-    Time for enabledState change, in seconds.
-
-transitionInterval:
-  type: real32
+  type: float
   value: 0.5
-  comment: |
-    Time for setting change to take effect, in seconds.
+
+updateInterval:
+  type: float
+  value: 0.5
 
 maxSettable:
-  type: uint8
-  value: 255
-  comment: |
-    Maximum legal setting value. Type based on effecterDataSize (here uint8).
+  type: int8
+  value: 100
 
 minSettable:
-  type: uint8
-  value: 0
-  comment: |
-    Minimum legal setting value. Type based on effecterDataSize (here uint8).
+  type: int8
+  value: -20
 
 rangeFieldFormat:
   type: uint8
-  value: 0
-  comment: |
-    enum8: Format for nominalValue, normalMax, etc. 0=uint8,... Example: 0=uint8.
+  value: 1
 
 rangeFieldSupport:
   type: uint8
   value: 31
-  comment: |
-    bitfield8: [7:5]=reserved, [4]=ratedMin, [3]=ratedMax, [2]=normalMin, [1]=normalMax, [0]=nominalValue. Example: 31=0b00011111 all supported.
+  comment: "Nominal/normal/rated fields provided."
 
 nominalValue:
-  type: uint8
-  value: 128
-  comment: |
-    Nominal value for the parameter. Type based on rangeFieldFormat (here uint8).
+  type: int8
+  value: 40
 
 normalMax:
-  type: uint8
-  value: 200
-  comment: |
-    Upper limit of normal range. Type based on rangeFieldFormat.
+  type: int8
+  value: 80
 
 normalMin:
-  type: uint8
-  value: 50
-  comment: |
-    Lower limit of normal range. Type based on rangeFieldFormat.
+  type: int8
+  value: 10
 
 ratedMax:
-  type: uint8
-  value: 255
-  comment: |
-    Upper limit of rated range. Type based on rangeFieldFormat.
+  type: int8
+  value: 90
 
 ratedMin:
-  type: uint8
-  value: 0
-  comment: |
-    Lower limit of rated range. Type based on rangeFieldFormat.
+  type: int8
+  value: -5

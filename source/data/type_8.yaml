@@ -1,0 +1,76 @@
+# OEM State Set PDR (Type 8)
+pdrHeader:
+  recordHandle:
+    type: uint32
+    value: 8
+  PDRHeaderVersion:
+    type: uint8
+    value: 1
+  PDRType:
+    type: uint8
+    value: 8
+  recordChangeNumber:
+    type: uint16
+    value: 0
+  dataLength:
+    type: uint16
+    value: 48
+
+PLDMTerminusHandle:
+  type: uint16
+  value: 256
+
+OEMStateSetIDHandle:
+  type: uint16
+  value: 100
+
+vendorIANA:
+  type: uint32
+  value: 55930
+
+OEMStateSetID:
+  type: uint16
+  value: 200
+
+unspecifiedValueHint:
+  type: uint8
+  value: 0
+  comment: "Treat unspecified as unspecified."
+
+stateCount:
+  type: uint8
+  value: 2
+
+OEMStateValueRecords:
+  - minStateValue:
+      type: uint8
+      value: 0
+    maxStateValue:
+      type: uint8
+      value: 1
+    stringCount:
+      type: uint8
+      value: 1
+    stateNames:
+      - stateLanguageTag:
+          type: strASCII
+          value: "en"
+        stateName:
+          type: strUTF-16BE
+          value: "Idle"
+  - minStateValue:
+      type: uint8
+      value: 2
+    maxStateValue:
+      type: uint8
+      value: 3
+    stringCount:
+      type: uint8
+      value: 1
+    stateNames:
+      - stateLanguageTag:
+          type: strASCII
+          value: "en"
+        stateName:
+          type: strUTF-16BE
+          value: "Active"

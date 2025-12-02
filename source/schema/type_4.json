@@ -40,9 +40,9 @@
         },
         "PDRType": {
           "type": "integer",
-          "const": 3,
+          "const": 4,
           "binaryFormat": "B",
-          "description": "uint8; State Sensor PDR = 3"
+          "description": "uint8; State Sensor PDR = 4"
         },
         "recordChangeNumber": {
           "type": "integer",

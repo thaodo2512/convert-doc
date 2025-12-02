@@ -1,0 +1,59 @@
+# Redfish Action PDR (Type 24)
+pdrHeader:
+  recordHandle:
+    type: uint32
+    value: 24
+  PDRHeaderVersion:
+    type: uint8
+    value: 1
+  PDRType:
+    type: uint8
+    value: 24
+  recordChangeNumber:
+    type: uint16
+    value: 0
+  dataLength:
+    type: uint16
+    value: 52
+
+ActionPDRIndex:
+  type: uint8
+  value: 0
+
+RelatedResourceCount:
+  type: uint16
+  value: 1
+
+RelatedResourceIDs:
+  type: uint32[]
+  value: [1000]
+
+ActionCount:
+  type: uint8
+  value: 2
+
+Actions:
+  - ActionNameLengthBytes:
+      type: uint8
+      value: 6
+    ActionName:
+      type: strUTF-8
+      value: "Reset"
+    ActionPathLengthBytes:
+      type: uint8
+      value: 14
+    ActionPath:
+      type: strUTF-8
+      value: "Actions/Reset"
+  - ActionNameLengthBytes:
+      type: uint8
+      value: 6
+    ActionName:
+      type: strUTF-8
+      value: "Apply"
+    ActionPathLengthBytes:
+      type: uint8
+      value: 14
+    ActionPath:
+      type: strUTF-8
+      value: "Actions/Apply"

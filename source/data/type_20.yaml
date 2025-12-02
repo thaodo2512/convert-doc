@@ -1,0 +1,37 @@
+# FRU Record Set PDR (Type 20)
+pdrHeader:
+  recordHandle:
+    type: uint32
+    value: 20
+  PDRHeaderVersion:
+    type: uint8
+    value: 1
+  PDRType:
+    type: uint8
+    value: 20
+  recordChangeNumber:
+    type: uint16
+    value: 0
+  dataLength:
+    type: uint16
+    value: 10
+
+PLDMTerminusHandle:
+  type: uint16
+  value: 256
+
+FRURecordSetIdentifier:
+  type: uint16
+  value: 1
+
+entityType:
+  type: uint16
+  value: 160
+
+entityInstanceNumber:
+  type: uint16
+  value: 1
+
+containerID:
+  type: uint16
+  value: 0
