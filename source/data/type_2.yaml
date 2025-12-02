@@ -1,185 +1,141 @@
 # Numeric Sensor PDR (Type 2)
 pdrHeader:
   recordHandle:
-    type: uint32
     value: 2
     comment: "Opaque record handle."
   PDRHeaderVersion:
-    type: uint8
     value: 1
   PDRType:
-    type: uint8
     value: 2
   recordChangeNumber:
-    type: uint16
     value: 0
   dataLength:
-    type: uint16
     value: 57
     comment: "Body length in bytes."
 
 PLDMTerminusHandle:
-  type: uint16
   value: 256
   comment: "Shared terminus handle for all sample PDRs."
 
 sensorID:
-  type: uint16
   value: 256
   comment: "Unique sensor identifier."
 
 entityType:
-  type: uint16
   value: 42
   comment: "Example entity type."
 
 entityInstanceNumber:
-  type: uint16
   value: 1
 
 containerID:
-  type: uint16
   value: 0
 
 sensorInit:
-  type: uint8
   value: 2
   comment: "2 = enable sensor on discovery."
 
 sensorAuxiliaryNamesPDR:
-  type: bool
   value: false
 
 baseUnit:
-  type: uint8
   value: 2
   comment: "Degrees Celsius."
 
 unitModifier:
-  type: int8
   value: 0
 
 rateUnit:
-  type: uint8
   value: 0
   comment: "No rate qualifier."
 
 baseOEMUnitHandle:
-  type: uint8
   value: 0
 
 auxUnit:
-  type: uint8
   value: 0
 
 auxUnitModifier:
-  type: int8
   value: 0
 
 auxrateUnit:
-  type: uint8
   value: 0
 
 rel:
-  type: uint8
   value: 0
 
 auxOEMUnitHandle:
-  type: uint8
   value: 0
 
 isLinear:
-  type: bool
   value: true
 
 sensorDataSize:
-  type: uint8
   value: 1
   comment: "1 = sint8 readings."
 
 resolution:
-  type: float
   value: 1.0
 
 offset:
-  type: float
   value: 0.0
 
 accuracy:
-  type: uint16
   value: 100
   comment: "1.00% accuracy."
 
 plusTolerance:
-  type: uint8
   value: 0
 
 minusTolerance:
-  type: uint8
   value: 0
 
 hysteresis:
-  type: int8
   value: 2
 
 supportedThresholds:
-  type: uint8
   value: 0
 
 thresholdAndHysteresisVolatility:
-  type: uint8
   value: 0
 
 stateTransitionInterval:
-  type: float
   value: 1.0
 
 updateInterval:
-  type: float
   value: 1.0
 
 maxReadable:
-  type: int8
   value: 125
 
 minReadable:
-  type: int8
   value: -40
 
 rangeFieldFormat:
-  type: uint8
   value: 1
   comment: "1 = sint8 range fields."
 
 rangeFieldSupport:
-  type: uint8
   value: 63
   comment: "All optional range fields populated."
 
 nominalValue:
-  type: int8
   value: 45
 
 normalMax:
-  type: int8
   value: 90
 
 normalMin:
-  type: int8
   value: 10
 
 criticalHigh:
-  type: int8
   value: 100
 
 criticalLow:
-  type: int8
   value: -10
 
 fatalHigh:
-  type: int8
   value: 120
 
 fatalLow:
-  type: int8
   value: -20

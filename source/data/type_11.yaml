@@ -1,73 +1,53 @@
 # State Effecter PDR (Type 11)
 pdrHeader:
   recordHandle:
-    type: uint32
     value: 11
   PDRHeaderVersion:
-    type: uint8
     value: 1
   PDRType:
-    type: uint8
     value: 11
   recordChangeNumber:
-    type: uint16
     value: 0
   dataLength:
-    type: uint16
     value: 23
 
 PLDMTerminusHandle:
-  type: uint16
   value: 256
 
 effecterID:
-  type: uint16
   value: 320
 
 entityType:
-  type: uint16
   value: 42
 
 entityInstanceNumber:
-  type: uint16
   value: 1
 
 containerID:
-  type: uint16
   value: 0
 
 effecterSemanticID:
-  type: uint16
   value: 1
 
 effecterInit:
-  type: uint8
   value: 1
 
 effecterDescriptionPDR:
-  type: bool
   value: false
 
 compositeEffecterCount:
-  type: uint8
   value: 2
 
 possibleStates:
   - stateSetID:
-      type: uint16
       value: 1
     possibleStatesSize:
-      type: uint8
       value: 1
     possibleStates:
-      type: uint8[]
       value: [3]
   - stateSetID:
-      type: uint16
       value: 2
     possibleStatesSize:
-      type: uint8
       value: 1
     possibleStates:
-      type: uint8[]
       value: [12]

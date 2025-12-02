@@ -1,45 +1,33 @@
 # OEM Unit PDR (Type 7)
 pdrHeader:
   recordHandle:
-    type: uint32
     value: 7
   PDRHeaderVersion:
-    type: uint8
     value: 1
   PDRType:
-    type: uint8
     value: 7
   recordChangeNumber:
-    type: uint16
     value: 0
   dataLength:
-    type: uint16
     value: 37
 
 PLDMTerminusHandle:
-  type: uint16
   value: 256
 
 OEMUnitHandle:
-  type: uint8
   value: 1
 
 vendorIANA:
-  type: uint32
   value: 55930
 
 OEMUnitID:
-  type: uint16
   value: 4096
 
 nameStringCount:
-  type: uint8
   value: 1
 
 unitNames:
   - unitLanguageTag:
-      type: strASCII
       value: "en"
     unitName:
-      type: strUTF-16BE
       value: "Cooling Fan"

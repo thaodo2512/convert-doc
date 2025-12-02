@@ -1,81 +1,60 @@
 # State Sensor Initialization PDR (Type 5)
 pdrHeader:
   recordHandle:
-    type: uint32
     value: 5
   PDRHeaderVersion:
-    type: uint8
     value: 1
   PDRType:
-    type: uint8
     value: 5
   recordChangeNumber:
-    type: uint16
     value: 0
   dataLength:
-    type: uint16
     value: 18
 
 PLDMTerminusHandle:
-  type: uint16
   value: 256
 
 sensorID:
-  type: uint16
   value: 259
 
 initConditions:
-  type: uint8
   value: 1
 
 sensorEnable:
-  type: uint8
   value: 0
 
 sensorInitMask:
-  type: uint8
   value: 1
 
 sensorOpStateEventEnableMask:
-  type: uint8
   value: 0
 
 sensorStateEventEnableMask:
-  type: uint8
   value: 1
 
 sensorEventRearm:
-  type: uint8
   value: 1
 
 stateValue0:
-  type: uint8
   value: 0
 
 stateValue1:
-  type: uint8
   value: 0
 
 stateValue2:
-  type: uint8
   value: 0
 
 stateValue3:
-  type: uint8
   value: 0
 
 stateValue4:
-  type: uint8
   value: 0
 
 stateValue5:
-  type: uint8
   value: 0
 
 stateValue6:
-  type: uint8
   value: 0
 
 stateValue7:
-  type: uint8
   value: 0

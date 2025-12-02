@@ -1,44 +1,33 @@
 # Numeric Effecter Initialization PDR (Type 10)
 pdrHeader:
   recordHandle:
-    type: uint32
     value: 10
   PDRHeaderVersion:
-    type: uint8
     value: 1
   PDRType:
-    type: uint8
     value: 10
   recordChangeNumber:
-    type: uint16
     value: 0
   dataLength:
-    type: uint16
     value: 9
 
 PLDMTerminusHandle:
-  type: uint16
   value: 256
 
 effecterID:
-  type: uint16
   value: 310
 
 effecterEnable:
-  type: uint8
   value: 0
   comment: "Enable effecter after init."
 
 initConditions:
-  type: uint8
   value: 3
   comment: "Initialize on power-up or reset."
 
 effecterDataSize:
-  type: uint8
   value: 2
   comment: "2 = uint16."
 
 effecterData:
-  type: uint16
   value: 500

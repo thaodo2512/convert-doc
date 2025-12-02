@@ -1,86 +1,64 @@
 # Compact Numeric Sensor PDR (Type 21)
 pdrHeader:
   recordHandle:
-    type: uint32
     value: 21
   PDRHeaderVersion:
-    type: uint8
     value: 1
   PDRType:
-    type: uint8
     value: 21
   recordChangeNumber:
-    type: uint16
     value: 0
   dataLength:
-    type: uint16
     value: 50
 
 PLDMTerminusHandle:
-  type: uint16
   value: 256
 
 sensorID:
-  type: uint16
   value: 340
 
 entityType:
-  type: uint16
   value: 42
 
 entityInstanceNumber:
-  type: uint16
   value: 1
 
 containerID:
-  type: uint16
   value: 0
 
 sensorNameStringByteLength:
-  type: uint8
   value: 11
 
 baseUnit:
-  type: uint8
   value: 2
 
 unitModifier:
-  type: int8
   value: 0
 
 rateUnit:
-  type: uint8
   value: 0
 
 rangeFieldSupport:
-  type: uint8
   value: 63
   comment: "All threshold fields supplied."
 
 warningHigh:
-  type: int32
   value: 70
 
 warningLow:
-  type: int32
   value: 10
 
 criticalHigh:
-  type: int32
   value: 80
 
 criticalLow:
-  type: int32
   value: 5
 
 fatalHigh:
-  type: int32
   value: 90
 
 fatalLow:
-  type: int32
   value: 0
 
 sensorNameString:
-  type: strUTF-8
   value: "Inlet Temp"

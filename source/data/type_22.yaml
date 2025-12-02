@@ -1,93 +1,69 @@
 # Redfish Resource PDR (Type 22)
 pdrHeader:
   recordHandle:
-    type: uint32
     value: 22
   PDRHeaderVersion:
-    type: uint8
     value: 1
   PDRType:
-    type: uint8
     value: 22
   recordChangeNumber:
-    type: uint16
     value: 0
   dataLength:
-    type: uint16
     value: 80
 
 ResourceID:
-  type: uint32
   value: 1000
 
 ResourceFlags:
-  type: uint8
   value: 1
   comment: "Device root."
 
 ContainingResourceID:
-  type: uint32
   value: 0
 
 ProposedContainingResourceLengthBytes:
-  type: uint16
   value: 8
 
 ProposedContainingResourceName:
-  type: strUTF-8
   value: "Chassis"
 
 SubURILengthBytes:
-  type: uint16
   value: 9
 
 SubURI:
-  type: strUTF-8
   value: "Chassis1"
 
 AdditionalResourceIDCount:
-  type: uint16
   value: 1
 
 MajorSchemaVersion:
-  type: ver32
   value: 65536
 
 MajorSchemaDictionaryLengthBytes:
-  type: uint16
   value: 16
 
 MajorSchemaDictionarySignature:
-  type: uint32
   value: 3735928559
 
 MajorSchemaNameLength:
-  type: uint8
   value: 8
 
 MajorSchemaName:
-  type: strUTF-8
   value: "redfish"
 
 OEMCount:
-  type: uint16
   value: 1
 
 additionalResources:
   - AdditionalResourceID:
-      type: uint32
       value: 1001
     AdditionalResourceSubURILengthBytes:
-      type: uint16
       value: 13
     AdditionalResourceSubURI:
-      type: strUTF-8
       value: "Chassis1Power"
 
 OEMs:
   - OEMNameLengthBytes:
-      type: uint16
       value: 5
     OEMName:
-      type: strUTF-8
       value: "ACME"

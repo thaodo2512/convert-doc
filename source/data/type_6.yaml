@@ -1,37 +1,27 @@
 # Sensor Auxiliary Names PDR (Type 6)
 pdrHeader:
   recordHandle:
-    type: uint32
     value: 6
   PDRHeaderVersion:
-    type: uint8
     value: 1
   PDRType:
-    type: uint8
     value: 6
   recordChangeNumber:
-    type: uint16
     value: 0
   dataLength:
-    type: uint16
     value: 32
 
 PLDMTerminusHandle:
-  type: uint16
   value: 256
 
 sensorID:
-  type: uint16
   value: 260
 
 auxNames:
   - nameStringCount:
-      type: uint8
       value: 1
     names:
       - nameLanguageTag:
-          type: strASCII
           value: "en"
         sensorName:
-          type: strUTF-16BE
           value: "Temp Sensor"

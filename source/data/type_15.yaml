@@ -1,53 +1,39 @@
 # Entity Association PDR (Type 15)
 pdrHeader:
   recordHandle:
-    type: uint32
     value: 15
   PDRHeaderVersion:
-    type: uint8
     value: 1
   PDRType:
-    type: uint8
     value: 15
   recordChangeNumber:
-    type: uint16
     value: 0
   dataLength:
-    type: uint16
     value: 16
 
 containerID:
-  type: uint16
   value: 0
 
 associationType:
-  type: uint8
   value: 0
   comment: "Physical containment."
 
 containerEntityType:
-  type: uint16
   value: 1
 
 containerEntityInstanceNumber:
-  type: uint16
   value: 1
 
 containerEntityContainerID:
-  type: uint16
   value: 0
 
 containedEntityCount:
-  type: uint8
   value: 1
 
 containedEntities:
   - containedEntityType:
-      type: uint16
       value: 42
     containedEntityInstanceNumber:
-      type: uint16
       value: 1
     containedEntityContainerID:
-      type: uint16
       value: 123

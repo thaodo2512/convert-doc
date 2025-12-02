@@ -1,69 +1,52 @@
 # Numeric Sensor Initialization PDR (Type 3)
 pdrHeader:
   recordHandle:
-    type: uint32
     value: 3
   PDRHeaderVersion:
-    type: uint8
     value: 1
   PDRType:
-    type: uint8
     value: 3
   recordChangeNumber:
-    type: uint16
     value: 0
   dataLength:
-    type: uint16
     value: 14
     comment: "Body length in bytes."
 
 PLDMTerminusHandle:
-  type: uint16
   value: 256
 
 sensorID:
-  type: uint16
   value: 257
 
 initConditions:
-  type: uint8
   value: 1
   comment: "Initialize when controller restarts."
 
 sensorEnable:
-  type: uint8
   value: 0
 
 thresholdInitMask:
-  type: uint8
   value: 63
   comment: "Initialize all thresholds."
 
 sensorDataSize:
-  type: uint8
   value: 0
   comment: "Threshold fields use uint8."
 
 upperThresholdWarning:
-  type: uint8
   value: 100
 
 upperThresholdCritical:
-  type: uint8
   value: 120
 
 upperThresholdFatal:
-  type: uint8
   value: 150
 
 lowerThresholdWarning:
-  type: uint8
   value: 50
 
 lowerThresholdCritical:
-  type: uint8
   value: 30
 
 lowerThresholdFatal:
-  type: uint8
   value: 10

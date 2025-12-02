@@ -43,16 +43,20 @@ HEADER_SIZE = 10  # recordHandle(4) + PDRHeaderVersion(1) + PDRType(1) + recordC
 TYPE_FMT = {
     "uint8": "<B",
     "int8": "<b",
+    "sint8": "<b",
     "enum8": "<B",
     "bitfield8": "<B",
     "bool": "<?",
     "uint16": "<H",
     "int16": "<h",
+    "sint16": "<h",
     "uint32": "<I",
     "int32": "<i",
+    "sint32": "<i",
     "float": "<f",
     "uint64": "<Q",
     "int64": "<q",
+    "sint64": "<q",
     "ver32": "<I",
     # BinaryFormat shorthands (single-char)
     "B": "<B",
@@ -61,6 +65,7 @@ TYPE_FMT = {
     "b": "<b",
     "h": "<h",
     "i": "<i",
+    "f": "<f",
     "Q": "<Q",
     "q": "<q",
 }
@@ -128,14 +133,14 @@ FMT_CHAR_TO_TYPE = {
     "b": "int8",
     "h": "int16",
     "i": "int32",
+    "f": "float",
     "Q": "uint64",
     "q": "int64",
 }
 
 
 def infer_type_name(node: Any, schema: Dict[str, Any] | None) -> str | None:
-    if isinstance(node, dict) and "type" in node:
-        return node["type"]
+    # Prefer schema; YAML "type" hints are ignored to avoid drift.
     if schema:
         fmt = schema.get("binaryFormat")
         if fmt in FMT_CHAR_TO_TYPE:
@@ -153,29 +158,59 @@ def infer_type_name(node: Any, schema: Dict[str, Any] | None) -> str | None:
             if maximum <= 4294967295:
                 return "uint32"
             return "uint64"
+        if schema.get("type") == "number":
+            return "float"
+    if isinstance(node, dict) and "type" in node:
+        return node["type"]
     return None
 
 
-def pack_leaf(node: Any, schema: Dict[str, Any] | None, path: str, buf: bytearray, offsets: Dict[str, int], base_offset: int) -> None:
+def resolve_dynamic_type(schema: Dict[str, Any] | None, parsed: Dict[str, Any]) -> str | None:
+    if not schema:
+        return None
+    dep_val = None
+    for resolver_key in ("typeResolver", "formatResolver"):
+        resolver = schema.get(resolver_key)
+        if not resolver:
+            continue
+        dep = resolver.get("dependsOn")
+        if dep and dep in parsed:
+            dep_val = str(parsed[dep])
+            mapping = resolver.get("mapping", {})
+            if dep_val in mapping:
+                mapped = mapping[dep_val]
+                if resolver_key == "formatResolver" and mapped in FMT_CHAR_TO_TYPE:
+                    return FMT_CHAR_TO_TYPE[mapped]
+                return mapped
+    return None
+
+
+def pack_leaf(node: Any, schema: Dict[str, Any] | None, path: str, buf: bytearray, offsets: Dict[str, int], base_offset: int, parsed: Dict[str, Any]) -> Any:
     if isinstance(node, dict) and "value" in node:
         value = node["value"]
         tname = infer_type_name(node, schema) or "uint8"
     else:
         value = node
         tname = infer_type_name(node, schema)
+    override = resolve_dynamic_type(schema, parsed)
+    if override:
+        tname = override
+    # If value is a list and schema is not explicit, treat as array of uint8 by default.
+    if isinstance(value, list) and (tname is None or not str(tname).endswith("[]")):
+        tname = (tname or "uint8") + "[]"
     if not tname:
         die(f"unable to infer type for field '{path}'")
     offsets[path] = base_offset + len(buf)
     buf.extend(pack_scalar(value, tname))
+    return value
 
 
-def pack_with_schema(node: Any, schema: Dict[str, Any] | None, path: str, buf: bytearray, offsets: Dict[str, int], base_offset: int) -> None:
+def pack_with_schema(node: Any, schema: Dict[str, Any] | None, path: str, buf: bytearray, offsets: Dict[str, int], base_offset: int, parsed: Dict[str, Any]) -> Any:
     schema_type = schema.get("type") if schema else None
 
     # Treat dicts with explicit 'value' as leaf nodes unless schema forces composite.
     if isinstance(node, dict) and "value" in node and schema_type not in ("array", "object"):
-        pack_leaf(node, schema, path, buf, offsets, base_offset)
-        return
+        return pack_leaf(node, schema, path, buf, offsets, base_offset, parsed)
 
     if schema_type == "array" or (schema_type is None and isinstance(node, list)):
         if isinstance(node, dict) and "value" in node:
@@ -183,35 +218,38 @@ def pack_with_schema(node: Any, schema: Dict[str, Any] | None, path: str, buf: b
         if not isinstance(node, list):
             die(f"expected list at '{path}'")
         item_schema = schema.get("items", {})
+        vals = []
         for idx, val in enumerate(node):
-            pack_with_schema(val, item_schema, f"{path}[{idx}]", buf, offsets, base_offset)
-        return
+            vals.append(pack_with_schema(val, item_schema, f"{path}[{idx}]", buf, offsets, base_offset, {}))
+        return vals
 
     if schema_type == "object" or (schema_type is None and isinstance(node, dict)):
         props = schema.get("properties", {}) if schema else {}
         order = schema.get("binaryOrder") if schema and "binaryOrder" in schema else (list(node.keys()) if isinstance(node, dict) else [])
+        obj_parsed: Dict[str, Any] = {}
         for key in order:
             if not isinstance(node, dict) or key not in node:
                 die(f"missing field '{key}' in object at '{path}'")
             sub_schema = props.get(key, {})
             sub_path = f"{path}.{key}" if path else key
-            pack_with_schema(node[key], sub_schema, sub_path, buf, offsets, base_offset)
+            obj_parsed[key] = pack_with_schema(node[key], sub_schema, sub_path, buf, offsets, base_offset, obj_parsed)
         if isinstance(node, dict):
             for key, val in node.items():
                 if key in order:
                     continue
                 sub_schema = props.get(key, {})
                 sub_path = f"{path}.{key}" if path else key
-                pack_with_schema(val, sub_schema, sub_path, buf, offsets, base_offset)
-        return
+                obj_parsed[key] = pack_with_schema(val, sub_schema, sub_path, buf, offsets, base_offset, obj_parsed)
+        parsed.update(obj_parsed)
+        return obj_parsed
 
-    pack_leaf(node, schema, path, buf, offsets, base_offset)
+    return pack_leaf(node, schema, path, buf, offsets, base_offset, parsed)
 
 
 def pack_body(data: Dict[str, Any], schema: Dict[str, Any]) -> Tuple[bytes, Dict[str, int]]:
     buf = bytearray()
     offsets: Dict[str, int] = {}
-    pack_with_schema(data, schema, "", buf, offsets, base_offset=HEADER_SIZE)
+    pack_with_schema(data, schema, "", buf, offsets, base_offset=HEADER_SIZE, parsed={})
     return bytes(buf), offsets
 
 
@@ -262,6 +300,15 @@ def load_pdrs_from_dir(pdr_dir: Path, schema_dir: Path) -> List[PdrItem]:
     for path_str in sorted(glob.glob(str(pdr_dir / "*.yaml"))):
         path = Path(path_str)
         data = load_yaml(path)
+        # Drop YAML-specified type hints to rely solely on schema-defined formats.
+        def strip_types(obj: Any) -> Any:
+            if isinstance(obj, dict):
+                obj = {k: strip_types(v) for k, v in obj.items() if k != "type"}
+            elif isinstance(obj, list):
+                obj = [strip_types(v) for v in obj]
+            return obj
+
+        data = strip_types(data)
         if "pdrHeader" not in data:
             die(f"{path} missing pdrHeader")
         header = data["pdrHeader"]

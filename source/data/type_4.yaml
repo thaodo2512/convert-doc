@@ -1,73 +1,54 @@
 # State Sensor PDR (Type 4)
 pdrHeader:
   recordHandle:
-    type: uint32
     value: 4
   PDRHeaderVersion:
-    type: uint8
     value: 1
   PDRType:
-    type: uint8
     value: 4
   recordChangeNumber:
-    type: uint16
     value: 0
   dataLength:
-    type: uint16
     value: 21
     comment: "Body length including composite state entries."
 
 PLDMTerminusHandle:
-  type: uint16
   value: 256
 
 sensorID:
-  type: uint16
   value: 258
 
 entityType:
-  type: uint16
   value: 42
 
 entityInstanceNumber:
-  type: uint16
   value: 1
 
 containerID:
-  type: uint16
   value: 0
 
 sensorInit:
-  type: uint8
   value: 1
   comment: "Use initialization PDR."
 
 sensorAuxiliaryNamesPDR:
-  type: bool
   value: false
 
 compositeSensorCount:
-  type: uint8
   value: 2
 
 compositeSensorStates:
   - stateSetID:
-      type: uint16
       value: 1
     possibleStatesSize:
-      type: uint8
       value: 1
     possibleStates:
-      type: uint8[]
       value: [3]
       comment: "Supports states 0 and 1."
   - stateSetID:
-      type: uint16
       value: 2
     possibleStatesSize:
-      type: uint8
       value: 1
     possibleStates:
-      type: uint8[]
       value: [12]
       comment: "Supports states 2 and 3 (0b00001100)."

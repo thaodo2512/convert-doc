@@ -1,37 +1,27 @@
 # Effecter Auxiliary Names PDR (Type 13)
 pdrHeader:
   recordHandle:
-    type: uint32
     value: 13
   PDRHeaderVersion:
-    type: uint8
     value: 1
   PDRType:
-    type: uint8
     value: 13
   recordChangeNumber:
-    type: uint16
     value: 0
   dataLength:
-    type: uint16
     value: 28
 
 PLDMTerminusHandle:
-  type: uint16
   value: 256
 
 effecterID:
-  type: uint16
   value: 322
 
 auxNames:
   - nameStringCount:
-      type: uint8
       value: 1
     names:
       - languageTag:
-          type: strASCII
           value: "en"
         effecterName:
-          type: strUTF-16BE
           value: "Fan Speed"

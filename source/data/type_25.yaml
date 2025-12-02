@@ -1,57 +1,42 @@
 # Redfish Parallel Resource PDR (Type 25)
 pdrHeader:
   recordHandle:
-    type: uint32
     value: 25
   PDRHeaderVersion:
-    type: uint8
     value: 1
   PDRType:
-    type: uint8
     value: 25
   recordChangeNumber:
-    type: uint16
     value: 0
   dataLength:
-    type: uint16
     value: 38
 
 ResourceID:
-  type: uint32
   value: 2000
 
 ResourceFlags:
-  type: uint8
   value: 0
 
 ContainingResourceID:
-  type: uint32
   value: 0
 
 AdditionalResourceIDCount:
-  type: uint16
   value: 1
 
 additionalResources:
   - AdditionalResourceID:
-      type: uint32
       value: 2001
     AdditionalContainingResourceID:
-      type: uint32
       value: 0
 
 ProposedContainingResourceLengthBytes:
-  type: uint16
   value: 7
 
 ProposedContainingResourceName:
-  type: strUTF-8
   value: "System"
 
 SubURILengthBytes:
-  type: uint16
   value: 8
 
 SubURI:
-  type: strUTF-8
   value: "System0"

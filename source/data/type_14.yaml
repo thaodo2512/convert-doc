@@ -1,45 +1,33 @@
 # OEM Effecter Semantic PDR (Type 14)
 pdrHeader:
   recordHandle:
-    type: uint32
     value: 14
   PDRHeaderVersion:
-    type: uint8
     value: 1
   PDRType:
-    type: uint8
     value: 14
   recordChangeNumber:
-    type: uint16
     value: 0
   dataLength:
-    type: uint16
     value: 36
 
 PLDMTerminusHandle:
-  type: uint16
   value: 256
 
 OEMEffecterSemanticHandle:
-  type: uint8
   value: 1
 
 vendorIANA:
-  type: uint32
   value: 55930
 
 OEMEffecterSemanticID:
-  type: uint8
   value: 10
 
 stringCount:
-  type: uint8
   value: 1
 
 names:
   - languageTag:
-      type: strASCII
       value: "en"
     name:
-      type: strUTF-16BE
       value: "Fan Control"

@@ -1,37 +1,27 @@
 # OEM EntityID PDR (Type 17)
 pdrHeader:
   recordHandle:
-    type: uint32
     value: 17
   PDRHeaderVersion:
-    type: uint8
     value: 1
   PDRType:
-    type: uint8
     value: 17
   recordChangeNumber:
-    type: uint16
     value: 0
   dataLength:
-    type: uint16
     value: 38
 
 vendorIANA:
-  type: uint32
   value: 55930
 
 OEMEntityID:
-  type: uint16
   value: 5000
 
 stringCount:
-  type: uint8
   value: 1
 
 entityNames:
   - entityLanguageTag:
-      type: strASCII
       value: "en"
     entityName:
-      type: strUTF-16BE
       value: "Custom Entity"

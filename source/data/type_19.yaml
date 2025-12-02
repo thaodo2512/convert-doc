@@ -1,42 +1,31 @@
 # Event Log PDR (Type 19)
 pdrHeader:
   recordHandle:
-    type: uint32
     value: 19
   PDRHeaderVersion:
-    type: uint8
     value: 1
   PDRType:
-    type: uint8
     value: 19
   recordChangeNumber:
-    type: uint16
     value: 0
   dataLength:
-    type: uint16
     value: 9
 
 logSize:
-  type: uint32
   value: 65536
 
 supportedLogClearingPolicies:
-  type: uint8
   value: 3
   comment: "FIFO and fill-and-stop supported."
 
 entryIDTimeout:
-  type: uint8
   value: 10
 
 perEntryOverhead:
-  type: uint8
   value: 16
 
 allocationGranularity:
-  type: uint8
   value: 8
 
 percentUsedResolution:
-  type: uint8
   value: 1

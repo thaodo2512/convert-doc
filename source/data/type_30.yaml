@@ -1,58 +1,43 @@
 # File Descriptor PDR (Type 30)
 pdrHeader:
   recordHandle:
-    type: uint32
     value: 30
   PDRHeaderVersion:
-    type: uint8
     value: 1
   PDRType:
-    type: uint8
     value: 30
   recordChangeNumber:
-    type: uint16
     value: 0
   dataLength:
-    type: uint16
     value: 37
 
 PLDMTerminusHandle:
-  type: uint16
   value: 256
 
 FileIdentifier:
-  type: uint16
   value: 1
 
 EntityType:
-  type: uint16
   value: 32769
 
 EntityInstanceNumber:
-  type: uint16
   value: 1
 
 ContainerID:
-  type: uint16
   value: 0
 
 SuperiorDirectoryFileIdentifier:
-  type: uint16
   value: 65535
 
 FileClassification:
-  type: uint8
   value: 0
   comment: "OEM file."
 
 OemFileClassification:
-  type: uint8
   value: 1
 
 oemFileClassificationNameLength:
-  type: uint8
   value: 20
 
 oemFileClassificationName:
-  type: strUTF-16BE
   value: "ThermalLog"

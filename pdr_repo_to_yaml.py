@@ -222,9 +222,16 @@ def decode_body(body: bytes, schema: Dict[str, Any]) -> Dict[str, Any]:
     return parsed
 
 
-def write_yaml(out_dir: Path, handle: int, body: Dict[str, Any], header_fields: Dict[str, Any]) -> None:
-    data = {"pdrHeader": header_fields}
-    data.update(body)
+def write_yaml(out_dir: Path, handle: int, body: Dict[str, Any], header_fields: Dict[str, Any], include_type: bool) -> None:
+    def drop_type(obj: Any) -> Any:
+        if isinstance(obj, dict):
+            obj = {k: drop_type(v) for k, v in obj.items() if include_type or k != "type"}
+        elif isinstance(obj, list):
+            obj = [drop_type(v) for v in obj]
+        return obj
+
+    data = {"pdrHeader": drop_type(header_fields)}
+    data.update(drop_type(body))
     out_path = out_dir / f"pdr_{handle}.yaml"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
@@ -236,6 +243,7 @@ def main() -> None:
     ap.add_argument("--in-c", type=Path, help="C/H file containing pdr_repository[]")
     ap.add_argument("--in-bin", type=Path, help="Raw binary repository blob")
     ap.add_argument("--out-dir", required=True, type=Path, help="Directory to write reconstructed YAMLs")
+    ap.add_argument("--include-type", action="store_true", help="Emit 'type' fields in YAML (default: omit)")
     args = ap.parse_args()
 
     repo = read_repo_bytes(args)
@@ -255,7 +263,7 @@ def main() -> None:
 
         schema = load_schema(args.schema_dir, pdr_type)
         body_yaml = decode_body(body, schema)
-        write_yaml(args.out_dir, handle, body_yaml, header_yaml)
+        write_yaml(args.out_dir, handle, body_yaml, header_yaml, include_type=args.include_type)
         print(f"wrote {args.out_dir}/pdr_{handle}.yaml (Type {pdr_type})")
 
 

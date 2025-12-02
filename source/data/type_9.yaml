@@ -1,156 +1,117 @@
 # Numeric Effecter PDR (Type 9)
 pdrHeader:
   recordHandle:
-    type: uint32
     value: 9
   PDRHeaderVersion:
-    type: uint8
     value: 1
   PDRType:
-    type: uint8
     value: 9
   recordChangeNumber:
-    type: uint16
     value: 0
   dataLength:
-    type: uint16
     value: 52
 
 PLDMTerminusHandle:
-  type: uint16
   value: 256
 
 effecterID:
-  type: uint16
   value: 300
 
 entityType:
-  type: uint16
   value: 42
 
 entityInstanceNumber:
-  type: uint16
   value: 1
 
 containerID:
-  type: uint16
   value: 0
 
 effecterInit:
-  type: uint8
   value: 2
   comment: "Enable effecter."
 
 effecterAuxiliaryNamesPDR:
-  type: bool
   value: false
 
 baseUnit:
-  type: uint8
   value: 2
 
 unitModifier:
-  type: int8
   value: 0
 
 rateUnit:
-  type: uint8
   value: 0
 
 baseOEMUnitHandle:
-  type: uint8
   value: 0
 
 auxUnit:
-  type: uint8
   value: 0
 
 auxUnitModifier:
-  type: int8
   value: 0
 
 auxrateUnit:
-  type: uint8
   value: 0
 
 rel:
-  type: uint8
   value: 0
 
 auxOEMUnitHandle:
-  type: uint8
   value: 0
 
 isLinear:
-  type: bool
   value: true
 
 effecterDataSize:
-  type: uint8
   value: 1
   comment: "1 = sint8 effecter data."
 
 resolution:
-  type: float
   value: 0.5
 
 offset:
-  type: float
   value: 0.0
 
 accuracy:
-  type: uint16
   value: 100
 
 plusTolerance:
-  type: uint8
   value: 1
 
 minusTolerance:
-  type: uint8
   value: 1
 
 stateTransitionInterval:
-  type: float
   value: 0.5
 
 updateInterval:
-  type: float
   value: 0.5
 
 maxSettable:
-  type: int8
   value: 100
 
 minSettable:
-  type: int8
   value: -20
 
 rangeFieldFormat:
-  type: uint8
   value: 1
 
 rangeFieldSupport:
-  type: uint8
   value: 31
   comment: "Nominal/normal/rated fields provided."
 
 nominalValue:
-  type: int8
   value: 40
 
 normalMax:
-  type: int8
   value: 80
 
 normalMin:
-  type: int8
   value: 10
 
 ratedMax:
-  type: int8
   value: 90
 
 ratedMin:
-  type: int8
   value: -5

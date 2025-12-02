@@ -1,78 +1,56 @@
 # Interrupt Association PDR (Type 18)
 pdrHeader:
   recordHandle:
-    type: uint32
     value: 18
   PDRHeaderVersion:
-    type: uint8
     value: 1
   PDRType:
-    type: uint8
     value: 18
   recordChangeNumber:
-    type: uint16
     value: 0
   dataLength:
-    type: uint16
     value: 36
 
 PLDMTerminusHandle:
-  type: uint16
   value: 256
 
 sensorID:
-  type: uint16
   value: 330
 
 sourceOrTargetSensor:
-  type: uint8
   value: 1
   comment: "Monitoring interrupt at source."
 
 interruptTargetEntityType:
-  type: uint16
   value: 1000
 
 interruptTargetEntityInstanceNumber:
-  type: uint16
   value: 1
 
 interruptTargetEntityContainerID:
-  type: uint16
   value: 0
 
 interruptSourceEntityCount:
-  type: uint8
   value: 2
 
 interruptSources:
   - interruptSourcePLDMTerminusHandle:
-      type: uint32
       value: 256
     interruptSourceEntityType:
-      type: uint16
       value: 2000
     interruptSourceEntityInstanceNumber:
-      type: uint16
       value: 1
     interruptSourceEntityContainerID:
-      type: uint16
       value: 0
     interruptSourceSensorID:
-      type: uint16
       value: 331
   - interruptSourcePLDMTerminusHandle:
-      type: uint32
       value: 512
     interruptSourceEntityType:
-      type: uint16
       value: 2001
     interruptSourceEntityInstanceNumber:
-      type: uint16
       value: 1
     interruptSourceEntityContainerID:
-      type: uint16
       value: 0
     interruptSourceSensorID:
-      type: uint16
       value: 332
