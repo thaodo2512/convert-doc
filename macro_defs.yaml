@@ -1,0 +1,27 @@
+macros:
+  handles:
+    - name: PDR_HANDLE_TERMINUS_LOCATOR0
+      match_handle: 1
+    - name: PDR_HANDLE_SENSOR_CPU0
+      match_handle: 2
+    - name: PDR_HANDLE_STATE_FAN0
+      match_handle: 4
+
+  offsets:
+    - name: PDR_REPO_OFFSET_LOCATOR0
+      match_handle: 1
+    - name: PDR_REPO_OFFSET_SENSOR_CPU0
+      match_handle: 2
+    - name: PDR_REPO_OFFSET_STATE_FAN0
+      match_handle: 4
+
+  fields:
+    - name: PDR_FIELD_SENSOR_CPU0_SENSOR_ID_OFF
+      match_handle: 2
+      field: sensorID
+    - name: PDR_FIELD_SENSOR_CPU0_ENTITY_TYPE_OFF
+      match_handle: 2
+      field: entityType
+    - name: PDR_FIELD_STATE_FAN0_STATE_SET0_OFF
+      match_handle: 4
+      field: compositeSensorStates[0].stateSetID

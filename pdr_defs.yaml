@@ -1,0 +1,79 @@
+platforms:
+  base:
+    pdrs:
+      - name: terminus_locator_0
+        type: terminus_locator          # DSP0248 1.3.0 Clause 28.3
+        handle: 1
+        record_change_number: 0
+        data:
+          terminus_handle: 0x0100
+          validity: 1                   # valid
+          tid: 0x20
+          container_id: 0
+          terminus_locator_type: 1      # UID
+          terminus_locator_value: "ACPI0001"
+
+      - name: numeric_sensor_cpu0
+        type: numeric_sensor            # Clause 28.4
+        handle: 2
+        data:
+          terminus_handle: 0x0100
+          sensor_id: 0x0101
+          entity_type: 42               # CPU
+          entity_instance: 1
+          container_id: 0
+          sensor_init: 2                # enable sensor
+          aux_names_pdr: false
+          base_unit: 2                  # degrees C
+          unit_modifier: 0
+          rate_unit: 0
+          base_oem_unit_handle: 0
+          aux_unit: 0
+          aux_unit_modifier: 0
+          aux_rate_unit: 0
+          rel: 0
+          aux_oem_unit_handle: 0
+          sensor_data_size: 2           # 16-bit reading
+          resolution: 1000              # 0.001 degC
+          offset: 0
+          accuracy: 0
+          plus_tolerance: 0
+          minus_tolerance: 0
+          hysteresis: 0
+          supported_thresholds: 0
+          state_transition_interval: 0
+          update_interval: 1000
+          max_readable: 1250            # 125.0 C (s16 scaled by 0.1)
+          min_readable: -400            # -40.0 C
+          range_field_format: 1         # s16
+          nominal_value: 250            # 25.0 C
+          normal_max: 900               # 90.0 C
+          normal_min: 0
+          warning_high: 1000            # 100.0 C
+          warning_low: 0
+
+      - name: state_sensor_fan0
+        type: state_sensor              # Clause 28.6
+        handle: 3
+        data:
+          terminus_handle: 0x0100
+          sensor_id: 0x0200
+          entity_type: 29               # Fan
+          entity_instance: 0
+          container_id: 0
+          sensor_init: 1                # use init PDR
+          aux_names_pdr: false
+          composite_states:
+            - state_set_id: 2           # Operational State
+              possible_states_size: 1
+              possible_states: [3]      # bits 0-1 set -> enabled, disabled
+
+  variant_a:
+    inherits: base
+    overrides:
+      pdrs:
+        - match_handle: 2               # tweak CPU sensor for variant A
+          data:
+            sensor_id: 0x0201
+            nominal_value: 300          # 30.0 C
+            warning_high: 950           # 95.0 C
