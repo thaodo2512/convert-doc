@@ -47,6 +47,8 @@ documentation for details.
 
 .. pldm-pdr-table:: data/type_15.yaml schema/type_15.json
 
+.. pldm-pdr-table:: data/type_15_doc_hidden.yaml schema/type_15.json
+
 .. pldm-pdr-table:: data/type_16.yaml schema/type_16.json
 
 .. pldm-pdr-table:: data/type_17.yaml schema/type_17.json

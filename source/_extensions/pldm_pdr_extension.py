@@ -6,6 +6,19 @@ from docutils import nodes
 from docutils.statemachine import ViewList
 from sphinx.util.docutils import SphinxDirective
 
+
+DOC_META_KEYS = {"docHidden", "_doc_hidden", "_docHide", "_doc_hidden", "_doc"}
+
+
+def is_hidden(node):
+    if not isinstance(node, dict):
+        return False
+    meta = node.get("_doc")
+    if isinstance(meta, dict) and meta.get("hidden"):
+        return True
+    return any(node.get(key) is True for key in DOC_META_KEYS if key != "_doc")
+
+
 class PldmPdrTableDirective(SphinxDirective):
     required_arguments = 2  # YAML file path, JSON schema file path
     has_content = False
@@ -33,7 +46,11 @@ class PldmPdrTableDirective(SphinxDirective):
             if isinstance(node, dict):
                 if 'value' in node:
                     return clean_for_validation(node['value'])
-                return {k: clean_for_validation(v) for k, v in node.items()}
+                return {
+                    k: clean_for_validation(v)
+                    for k, v in node.items()
+                    if k not in DOC_META_KEYS
+                }
             elif isinstance(node, list):
                 return [clean_for_validation(i) for i in node]
             else:
@@ -50,7 +67,9 @@ class PldmPdrTableDirective(SphinxDirective):
 
         # 5. Flatten Data (for table)
         rows = []
-        def flatten(data, parent_key='', schema=schema):
+        def flatten(data, parent_key='', schema=schema, hidden=False):
+            if hidden or is_hidden(data):
+                return
             if isinstance(data, dict):
                 if 'value' in data:
                     # Leaf Node
@@ -75,13 +94,15 @@ class PldmPdrTableDirective(SphinxDirective):
                 else:
                     # Container Node
                     for key, value in data.items():
+                        if key in DOC_META_KEYS:
+                            continue
                         full_key = f"{parent_key}.{key}" if parent_key else key
                         subschema = schema.get('properties', {}).get(key, {})
-                        flatten(value, full_key, subschema)
+                        flatten(value, full_key, subschema, hidden=False)
             elif isinstance(data, list):
                 for i, item in enumerate(data):
                     full_key = f"{parent_key}[{i}]"
-                    flatten(item, full_key)
+                    flatten(item, full_key, hidden=hidden or is_hidden(item))
 
         flatten(raw_data)
 

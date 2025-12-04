@@ -1,0 +1,51 @@
+# Entity Association PDR (Type 15) with docHidden examples
+pdrHeader:
+  recordHandle:
+    value: auto
+  PDRHeaderVersion:
+    value: 1
+  PDRType:
+    value: 15
+  recordChangeNumber:
+    value: 0
+  dataLength:
+    value: auto
+
+containerID:
+  value: 0
+  comment: "Top-level container."
+
+associationType:
+  value: 0
+  comment: "0 = physical containment."
+
+containerEntityType:
+  value: 1
+  comment: "System enclosure."
+
+containerEntityInstanceNumber:
+  value: 1
+
+containerEntityContainerID:
+  value: 0
+
+containedEntityCount:
+  value: 2
+
+containedEntities:
+  - _doc:
+      hidden: true
+    containedEntityType:
+      value: 10
+      comment: "Hidden from docs but still emitted in binary."
+    containedEntityInstanceNumber:
+      value: 3
+    containedEntityContainerID:
+      value: 200
+  - containedEntityType:
+      value: 42
+      comment: "Visible in docs."
+    containedEntityInstanceNumber:
+      value: 1
+    containedEntityContainerID:
+      value: 123

@@ -24,9 +24,12 @@ Outputs:
 - `build/pdr_repo.c`: definitions for `pdr_repository[]` (contiguous binary PDRs, header+body) and `pdr_offsets[]` (handle->offset table).
 
 Notes:
-- Packing is little-endian per DSP0248 Clause 28.1. `dataLength` is computed from the body size (header is 10 bytes).
-- If duplicate `recordHandle` values appear across YAMLs, later ones are auto-renumbered upward with a notice.
+- Packing is little-endian per DSP0248 Clause 28.1. `dataLength` is always computed from the packed body size (header is 10 bytes); stale YAML values are corrected automatically.
+- `recordHandle` can be omitted or set to `auto` to let the generator assign the next free handle; duplicates are auto-renumbered upward with a notice, skipping any user-reserved handles.
 - Strings: UTF-8/ASCII and UTF-16BE are supported; numeric widths/ranges come from schema `binaryFormat` or bounds.
+
+Doc-only hiding:
+- Add `docHidden: true` or `_doc: { hidden: true }` to any field/object in YAML to omit it from the Sphinx tables while keeping it in the generated binary/C output. See `source/data/type_15_doc_hidden.yaml` for an example.
 
 ## Reconstruct YAMLs from generated C/binary
 
@@ -91,6 +94,10 @@ const uint8_t *pdr_by_handle(uint16_t handle, uint16_t *len_out) {
     }
     return NULL;
 }
+
+Handle and length auto-fill (generator details):
+- `recordHandle` is encoded as uint32 in the C output. If missing or set to `auto`/`auto-gen`, the generator assigns the next unused handle (respecting any handles explicitly present in other YAMLs and renumbering duplicates with a warning). The assigned handle is what appears in `pdr_offsets[]` and the C macros, so downstream C code always sees a consistent mapping.
+- `dataLength` is encoded as uint16 and always recomputed from the packed body, so header bytes and `pdr_repository[]` stay consistent even if YAML contained a placeholder.
 ```
 
 ## Troubleshooting
