@@ -1,1 +1,36 @@
-build
+# Sphinx documentation output
+build/
+_build/
+
+# Generated PDR headers/C sources
+pdr_repo*.c
+pdr_repo*.h
+generated/
+
+# Python bytecode/cache
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env/
+
+# Tool caches and test artifacts
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+.cache/
+htmlcov/
+*.egg-info/
+.eggs/
+dist/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+*.swp
