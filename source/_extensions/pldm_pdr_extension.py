@@ -80,8 +80,8 @@ class PldmPdrTableDirective(SphinxDirective):
                     if 'type' in data:
                         field_type = data['type']
                     else:
-                        key_part = parent_key.split('.')[-1] if parent_key else ''
-                        key_schema = schema.get('properties', {}).get(key_part, {})
+                        # FIX: Use the passed schema directly, as it's the field's schema
+                        key_schema = schema
                         
                         # Improved type inference from schema
                         bf = key_schema.get('binaryFormat', '')
