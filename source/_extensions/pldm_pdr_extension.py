@@ -82,7 +82,37 @@ class PldmPdrTableDirective(SphinxDirective):
                     else:
                         key_part = parent_key.split('.')[-1] if parent_key else ''
                         key_schema = schema.get('properties', {}).get(key_part, {})
-                        field_type = key_schema.get('type', 'unknown')
+                        
+                        # Improved type inference from schema
+                        bf = key_schema.get('binaryFormat', '')
+                        desc = key_schema.get('description', '').lower()
+                        format_to_bits = {'B': 8, 'b': 8, 'H': 16, 'h': 16, 'I': 32, 'i': 32, 'Q': 64, 'q': 64, 'f': 32}
+                        bits = format_to_bits.get(bf, '')
+                        
+                        if 'enum' in key_schema:
+                            field_type = f"enum{bits}"
+                        elif 'bitfield' in desc:
+                            field_type = f"bitfield{bits}"
+                        elif 'bool' in desc:
+                            field_type = f"bool{bits}"
+                        elif bf == 'variable':
+                            field_type = 'variable'  # Override in YAML for specific type like uint32
+                        elif bf in ['B', 'H', 'I', 'Q']:
+                            field_type = f"uint{bits}"
+                        elif bf in ['b', 'h', 'i', 'q']:
+                            field_type = f"sint{bits}"
+                        elif bf == 'f':
+                            field_type = 'real32'
+                        else:
+                            # Fallback: parse from description
+                            if desc:
+                                type_part = desc.split(';')[0].split(':')[0].strip()
+                                if type_part:
+                                    field_type = type_part
+                                else:
+                                    field_type = 'unknown'
+                            else:
+                                field_type = 'unknown'
 
                     if parent_key:
                         display_name = parent_key.split('.')[-1].split('[')[0]  # Strips index if array
