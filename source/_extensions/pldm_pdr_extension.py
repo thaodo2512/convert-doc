@@ -1,12 +1,12 @@
 import yaml
 import json
-import os
 from jsonschema import validate, ValidationError
 from docutils import nodes
 from docutils.statemachine import ViewList
 from sphinx.util.docutils import SphinxDirective
+import docutils.parsers.rst.directives as directives
 
-DOC_META_KEYS = {"docHidden", "_doc_hidden", "_docHide", "_doc_hidden", "_doc"}
+DOC_META_KEYS = {"docHidden", "_doc_hidden", "_docHide", "_doc"}
 
 def is_hidden(node):
     if not isinstance(node, dict):
@@ -19,6 +19,10 @@ def is_hidden(node):
 class PldmPdrTableDirective(SphinxDirective):
     required_arguments = 2  # YAML file path, JSON schema file path
     has_content = False
+    option_spec = {
+        'caption': directives.unchanged,
+        'name': directives.unchanged,
+    }
 
     def run(self):
         env = self.state.document.settings.env
@@ -80,10 +84,8 @@ class PldmPdrTableDirective(SphinxDirective):
                         key_schema = schema.get('properties', {}).get(key_part, {})
                         field_type = key_schema.get('type', 'unknown')
 
-                    # --- FIX: Shorten the Field Name ---
-                    # Split "pdrHeader.recordHandle" -> ["pdrHeader", "recordHandle"] -> "recordHandle"
                     if parent_key:
-                        display_name = parent_key.split('.')[-1]
+                        display_name = parent_key.split('.')[-1].split('[')[0]  # Strips index if array
                     else:
                         display_name = ""
 
@@ -97,9 +99,10 @@ class PldmPdrTableDirective(SphinxDirective):
                         subschema = schema.get('properties', {}).get(key, {})
                         flatten(value, full_key, subschema, hidden=False)
             elif isinstance(data, list):
+                subschema = schema if schema.get('type') != 'array' else schema.get('items', {})
                 for i, item in enumerate(data):
                     full_key = f"{parent_key}[{i}]"
-                    flatten(item, full_key, hidden=hidden or is_hidden(item))
+                    flatten(item, full_key, subschema, hidden=hidden or is_hidden(item))
 
         flatten(raw_data)
 
@@ -140,15 +143,28 @@ class PldmPdrTableDirective(SphinxDirective):
                     rst_content = ViewList()
                     for line in str(cell).splitlines():
                         rst_content.append(line, yaml_abs_path)
-                    self.state.nested_parse(rst_content, 0, entry)
+                    try:
+                        self.state.nested_parse(rst_content, 0, entry, match_titles=False)
+                    except Exception as e:
+                        entry += nodes.paragraph(text=str(cell))
+                        self.warning(f"Failed to parse RST in comment: {e}")
                 else:
                     entry += nodes.paragraph(text=cell)
                 row += entry
             
             tbody += row
 
+        # --- ADD CAPTION FOR NUMBERING (if provided) ---
+        if 'caption' in self.options:
+            title = nodes.title('', self.options['caption'])
+            table.insert(0, title)
+
+        # --- ADD NAME FOR IMPLICIT LABEL (if provided) ---
+        if 'name' in self.options:
+            self.add_name(table)
+
         return [table]
 
 def setup(app):
     app.add_directive('pldm-pdr-table', PldmPdrTableDirective)
-    return {'version': '0.7', 'parallel_read_safe': True}
+    return {'version': '0.8', 'parallel_read_safe': True}
