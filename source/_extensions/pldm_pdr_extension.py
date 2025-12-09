@@ -16,13 +16,13 @@ def is_hidden(node):
         return True
     return any(node.get(key) is True for key in DOC_META_KEYS if key != "_doc")
 
-def resolve_subschema(full_data, root_schema, current_subschema, key):
+def resolve_subschema(condition_data, root_schema, current_subschema, key):
     if 'allOf' in root_schema:
         for cond in root_schema['allOf']:
             if_cond = cond.get('if', {})
             matches = True
             for prop, cond_val in if_cond.get('properties', {}).items():
-                data_val = full_data.get(prop)
+                data_val = condition_data.get(prop)
                 if data_val != cond_val.get('const'):
                     matches = False
                     break
@@ -73,22 +73,22 @@ class PldmPdrTableDirective(SphinxDirective):
             else:
                 return node
 
-        validation_data = clean_for_validation(raw_data)
+        condition_data = clean_for_validation(raw_data)
 
         # 4. Validate
         try:
-            validate(instance=validation_data, schema=schema)
+            validate(instance=condition_data, schema=schema)
         except ValidationError as e:
             error_path = " -> ".join([str(p) for p in e.path])
             raise self.error(f"Schema Validation Failed at '{error_path}': {e.message}")
 
         # 5. Flatten Data (for table)
         rows = []
-        def flatten(data, parent_key='', schema=schema, hidden=False, root_schema=None, full_data=None):
+        def flatten(data, parent_key='', schema=schema, hidden=False, root_schema=None, condition_data=None):
             if root_schema is None:
                 root_schema = schema
-            if full_data is None:
-                full_data = data
+            if condition_data is None:
+                condition_data = clean_for_validation(data)  # Fallback, though passed from root
             if hidden or is_hidden(data):
                 return
             if isinstance(data, dict):
@@ -151,15 +151,15 @@ class PldmPdrTableDirective(SphinxDirective):
                             continue
                         full_key = f"{parent_key}.{key}" if parent_key else key
                         subschema = schema.get('properties', {}).get(key, {})
-                        subschema = resolve_subschema(full_data, root_schema, subschema, key)
-                        flatten(value, full_key, subschema, hidden=False, root_schema=root_schema, full_data=full_data)
+                        subschema = resolve_subschema(condition_data, root_schema, subschema, key)
+                        flatten(value, full_key, subschema, hidden=False, root_schema=root_schema, condition_data=condition_data)
             elif isinstance(data, list):
                 subschema = schema if schema.get('type') != 'array' else schema.get('items', {})
                 for i, item in enumerate(data):
                     full_key = f"{parent_key}[{i}]"
-                    flatten(item, full_key, subschema, hidden=hidden or is_hidden(item), root_schema=root_schema, full_data=full_data)
+                    flatten(item, full_key, subschema, hidden=hidden or is_hidden(item), root_schema=root_schema, condition_data=condition_data)
 
-        flatten(raw_data, root_schema=schema, full_data=raw_data)
+        flatten(raw_data, root_schema=schema, condition_data=condition_data)
 
         if not rows:
             raise self.error("No data found to generate table.")
