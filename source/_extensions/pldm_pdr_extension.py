@@ -16,6 +16,22 @@ def is_hidden(node):
         return True
     return any(node.get(key) is True for key in DOC_META_KEYS if key != "_doc")
 
+def resolve_subschema(full_data, root_schema, current_subschema, key):
+    if 'allOf' in root_schema:
+        for cond in root_schema['allOf']:
+            if_cond = cond.get('if', {})
+            matches = True
+            for prop, cond_val in if_cond.get('properties', {}).items():
+                data_val = full_data.get(prop)
+                if data_val != cond_val.get('const'):
+                    matches = False
+                    break
+            if matches:
+                cond_sub = cond.get('then', {}).get('properties', {}).get(key, {})
+                if cond_sub:
+                    return cond_sub
+    return current_subschema
+
 class PldmPdrTableDirective(SphinxDirective):
     required_arguments = 2  # YAML file path, JSON schema file path
     has_content = False
@@ -68,7 +84,11 @@ class PldmPdrTableDirective(SphinxDirective):
 
         # 5. Flatten Data (for table)
         rows = []
-        def flatten(data, parent_key='', schema=schema, hidden=False):
+        def flatten(data, parent_key='', schema=schema, hidden=False, root_schema=None, full_data=None):
+            if root_schema is None:
+                root_schema = schema
+            if full_data is None:
+                full_data = data
             if hidden or is_hidden(data):
                 return
             if isinstance(data, dict):
@@ -88,7 +108,10 @@ class PldmPdrTableDirective(SphinxDirective):
                         format_to_bits = {'B': 8, 'b': 8, 'H': 16, 'h': 16, 'I': 32, 'i': 32, 'Q': 64, 'q': 64, 'f': 32}
                         bits = format_to_bits.get(bf, '')
                         
-                        if 'enum' in key_schema:
+                        if bf.endswith('B') and bf[:-1].isdigit():
+                            num = bf[:-1]
+                            field_type = f"uint8[{num}]"
+                        elif 'enum' in key_schema:
                             field_type = f"enum{bits}"
                         elif 'bitfield' in desc:
                             field_type = f"bitfield{bits}"
@@ -102,6 +125,8 @@ class PldmPdrTableDirective(SphinxDirective):
                             field_type = f"sint{bits}"
                         elif bf == 'f':
                             field_type = 'real32'
+                        elif key_schema.get('type') == 'string':
+                            field_type = 'strASCII'
                         else:
                             # Fallback: parse from description
                             if desc:
@@ -126,14 +151,15 @@ class PldmPdrTableDirective(SphinxDirective):
                             continue
                         full_key = f"{parent_key}.{key}" if parent_key else key
                         subschema = schema.get('properties', {}).get(key, {})
-                        flatten(value, full_key, subschema, hidden=False)
+                        subschema = resolve_subschema(full_data, root_schema, subschema, key)
+                        flatten(value, full_key, subschema, hidden=False, root_schema=root_schema, full_data=full_data)
             elif isinstance(data, list):
                 subschema = schema if schema.get('type') != 'array' else schema.get('items', {})
                 for i, item in enumerate(data):
                     full_key = f"{parent_key}[{i}]"
-                    flatten(item, full_key, subschema, hidden=hidden or is_hidden(item))
+                    flatten(item, full_key, subschema, hidden=hidden or is_hidden(item), root_schema=root_schema, full_data=full_data)
 
-        flatten(raw_data)
+        flatten(raw_data, root_schema=schema, full_data=raw_data)
 
         if not rows:
             raise self.error("No data found to generate table.")
