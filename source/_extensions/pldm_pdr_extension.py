@@ -80,7 +80,6 @@ class PldmPdrTableDirective(SphinxDirective):
                     if 'type' in data:
                         field_type = data['type']
                     else:
-                        # FIX: Use the passed schema directly, as it's the field's schema
                         key_schema = schema
                         
                         # Improved type inference from schema
