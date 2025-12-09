@@ -6,9 +6,7 @@ from docutils import nodes
 from docutils.statemachine import ViewList
 from sphinx.util.docutils import SphinxDirective
 
-
 DOC_META_KEYS = {"docHidden", "_doc_hidden", "_docHide", "_doc_hidden", "_doc"}
-
 
 def is_hidden(node):
     if not isinstance(node, dict):
@@ -17,7 +15,6 @@ def is_hidden(node):
     if isinstance(meta, dict) and meta.get("hidden"):
         return True
     return any(node.get(key) is True for key in DOC_META_KEYS if key != "_doc")
-
 
 class PldmPdrTableDirective(SphinxDirective):
     required_arguments = 2  # YAML file path, JSON schema file path
