@@ -117,16 +117,26 @@ class PldmPdrTableDirective(SphinxDirective):
                             field_type = f"bitfield{bits}"
                         elif 'bool' in desc:
                             field_type = f"bool{bits}"
-                        elif bf == 'variable':
-                            field_type = 'variable'  # Override in YAML for specific type like uint32
                         elif bf in ['B', 'H', 'I', 'Q']:
                             field_type = f"uint{bits}"
                         elif bf in ['b', 'h', 'i', 'q']:
                             field_type = f"sint{bits}"
                         elif bf == 'f':
                             field_type = 'real32'
-                        elif key_schema.get('type') == 'string':
-                            field_type = 'strASCII'
+                        elif key_schema.get('type') == 'string' or 'string' in desc or bf == 'variable':
+                            # Enhanced string handling
+                            if 'ascii' in desc:
+                                field_type = 'ascii'
+                            elif 'unicode be16' in desc:
+                                field_type = 'strunicode be16'
+                            elif 'unicode le16' in desc:
+                                field_type = 'strunicode le16'
+                            elif 'utf-8' in desc:
+                                field_type = 'utf-8'
+                            else:
+                                field_type = 'strASCII'  # Default for strings
+                        elif bf == 'variable':
+                            field_type = 'variable'  # Override in YAML for specific type like uint32
                         else:
                             # Fallback: parse from description
                             if desc:
@@ -199,7 +209,10 @@ class PldmPdrTableDirective(SphinxDirective):
                     for line in str(cell).splitlines():
                         rst_content.append(line, yaml_abs_path)
                     try:
-                        self.state.nested_parse(rst_content, 0, entry, match_titles=False)
+                        # UPGRADE: Use a container to allow nested directives
+                        container = nodes.container()
+                        entry += container
+                        self.state.nested_parse(rst_content, 0, container, match_titles=False)
                     except Exception as e:
                         entry += nodes.paragraph(text=str(cell))
                         self.warning(f"Failed to parse RST in comment: {e}")
