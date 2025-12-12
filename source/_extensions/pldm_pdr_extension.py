@@ -92,6 +92,15 @@ class PldmPdrTableDirective(SphinxDirective):
             if hidden or is_hidden(data):
                 return
             if isinstance(data, dict):
+                # Handle custom rows from _doc meta key
+                meta = data.get('_doc', {})
+                if isinstance(meta, dict) and 'custom_rows' in meta:
+                    for cr in meta['custom_rows']:
+                        if isinstance(cr, list) and len(cr) == 4:
+                            rows.append([str(x) for x in cr])  # Ensure string cells
+                        else:
+                            self.warning(f"Invalid custom row format: {cr} (must be list of 4 elements)")
+                
                 if 'value' in data:
                     # Leaf Node
                     val = data['value']
