@@ -134,11 +134,13 @@ class PldmPdrTableDirective(SphinxDirective):
                             field_type = 'real32'
                         elif key_schema.get('type') == 'string' or 'string' in desc or bf == 'variable':
                             # Enhanced string handling
-                            if 'ascii' in desc:
+                            if 'pldmType' in key_schema:
+                                field_type = key_schema['pldmType']  # e.g., 'strUTF-16BE'
+                            elif 'ascii' in desc:
                                 field_type = 'ascii'
-                            elif 'unicode be16' in desc:
-                                field_type = 'strunicode be16'
-                            elif 'unicode le16' in desc:
+                            elif 'unicode be16' in desc or 'utf-16be' in desc:
+                                field_type = 'strUTF-16BE'  # Align with PLDM spec
+                            elif 'unicode le16' in desc or 'utf-16le' in desc:
                                 field_type = 'strunicode le16'
                             elif 'utf-8' in desc:
                                 field_type = 'utf-8'
