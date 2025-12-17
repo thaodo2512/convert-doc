@@ -114,13 +114,17 @@
               "properties": {
                 "nameLanguageTag": {
                   "type": "string",
-                  "binaryFormat": "variable",
-                  "description": "strASCII; Null-terminated language tag (RFC4646), e.g., 'en'. Empty = unspecified"
+                  "contentMediaType": "text/plain; charset=us-ascii",
+                  "description": "Null-terminated (0x00) ASCII language tag (RFC4646), e.g., 'en'. Special value: null string (0x00) = unspecified. Variable length in binary.",
+                  "minLength": 0,
+                  "binaryFormat": "variable"
                 },
                 "sensorName": {
                   "type": "string",
-                  "binaryFormat": "variable",
-                  "description": "strUTF-16BE; Null-terminated sensor name. Empty = not provided"
+                  "contentMediaType": "text/plain; charset=utf-16be",
+                  "description": "Null-terminated (0x0000) UTF-16 big-endian sensor name. Special value: null string (0x0000) = name not provided. Variable length in binary.",
+                  "minLength": 0,
+                  "binaryFormat": "variable"
                 }
               },
               "required": [
