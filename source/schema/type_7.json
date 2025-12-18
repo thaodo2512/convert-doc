@@ -1,148 +1,134 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "OEM Unit PDR Schema (DSP0248 1.3.0, Clause 28.9)",
+  "title": "OEM Unit PDR (DSP0248 Type 7)",
+  "description": "Per DSP0248 v1.3.0 Clause 28.9 and DSP0240 v1.2.0 Section 2.5",
   "type": "object",
   "additionalProperties": false,
   "binaryOrder": [
-    "PLDMTerminusHandle",
-    "OEMUnitHandle",
-    "vendorIANA",
-    "OEMUnitID",
-    "nameStringCount"
+    "pdrHeader",
+    "containerID",
+    "baseUnit",
+    "unitModifier",
+    "nameStringCount",
+    "unitNames"
   ],
+  "x-c-struct-packing": 1,
   "properties": {
     "pdrHeader": {
       "type": "object",
+      "description": "Common PDR Header (DSP0248)",
       "additionalProperties": false,
-      "properties": {
-        "recordHandle": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 4294967295
-            }
-          ],
-          "binaryFormat": "I",
-          "description": "uint32; opaque handle (TBD or auto-generated)"
-        },
-        "PDRHeaderVersion": {
-          "type": "integer",
-          "const": 1,
-          "binaryFormat": "B",
-          "description": "uint8; must be 1"
-        },
-        "PDRType": {
-          "type": "integer",
-          "const": 7,
-          "binaryFormat": "B",
-          "description": "uint8; OEM Unit PDR = 7"
-        },
-        "recordChangeNumber": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 65535,
-          "default": 0,
-          "binaryFormat": "H",
-          "description": "uint16; incremented on changes (default 0)"
-        },
-        "dataLength": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 65535
-            }
-          ],
-          "binaryFormat": "H",
-          "description": "uint16; calculated data length (TBD)"
-        }
-      },
-      "required": [
+      "binaryOrder": [
         "recordHandle",
         "PDRHeaderVersion",
         "PDRType",
         "recordChangeNumber",
         "dataLength"
-      ]
+      ],
+      "properties": {
+        "recordHandle": {
+          "oneOf": [
+            { "type": "string", "enum": ["auto"] },
+            { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+          ],
+          "binaryFormat": "I",
+          "description": "uint32; PDR Record Handle. 0 = auto-assign."
+        },
+        "PDRHeaderVersion": {
+          "type": "integer",
+          "const": 1,
+          "binaryFormat": "B",
+          "description": "uint8; PDR Header Version (1)"
+        },
+        "PDRType": {
+          "type": "integer",
+          "const": 7,
+          "binaryFormat": "B",
+          "description": "uint8; PDR Type 7 = OEM Unit"
+        },
+        "recordChangeNumber": {
+          "type": "integer",
+          "default": 0,
+          "binaryFormat": "H",
+          "description": "uint16; recordChangeNumber"
+        },
+        "dataLength": {
+          "oneOf": [
+            { "type": "string", "enum": ["auto"] },
+            { "type": "integer", "minimum": 0 }
+          ],
+          "binaryFormat": "H",
+          "description": "uint16; Length of data following this header (calculated automatically)."
+        }
+      },
+      "required": ["recordHandle", "PDRHeaderVersion", "PDRType", "recordChangeNumber", "dataLength"]
     },
-    "PLDMTerminusHandle": {
+    "containerID": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; Handle identifying PDRs for a specific PLDM terminus"
+      "description": "uint16; The container ID for the entity with which the OEM unit is associated. 0 = no container."
     },
-    "OEMUnitHandle": {
+    "baseUnit": {
       "type": "integer",
-      "minimum": 0,
-      "maximum": 255,
+      "const": 255,
       "binaryFormat": "B",
-      "description": "uint8; Unique handle for this OEM unit within the PDR Repository"
+      "description": "uint8; Base unit code, set to 255 for OEM units."
     },
-    "vendorIANA": {
+    "unitModifier": {
       "type": "integer",
-      "minimum": 0,
-      "maximum": 4294967295,
-      "binaryFormat": "I",
-      "description": "uint32; Enterprise Number (IANA) for the vendor defining the OEM Unit"
-    },
-    "OEMUnitID": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 65535,
-      "binaryFormat": "H",
-      "description": "uint16; Vendor-defined value identifying the type of OEM unit"
+      "minimum": -128,
+      "maximum": 127,
+      "binaryFormat": "b",
+      "description": "sint8; Unit modifier (power of 10)."
     },
     "nameStringCount": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 255,
+      "maximum": 16,
       "binaryFormat": "B",
-      "description": "uint8; Number of following pairs [0..N] of unitLanguageTag + unitName fields"
+      "description": "uint8; Number of unit name pairs. If 0, 'unitNames' array must be empty."
     },
     "unitNames": {
       "type": "array",
+      "description": "Array of unit name pairs. Length must match 'nameStringCount'.",
       "minItems": 0,
+      "maxItems": 16,
       "items": {
         "type": "object",
         "additionalProperties": false,
         "binaryOrder": [
-          "unitLanguageTag",
-          "unitName"
+          "nameLanguageTag",
+          "oemUnitString"
         ],
         "properties": {
-          "unitLanguageTag": {
+          "nameLanguageTag": {
             "type": "string",
+            "description": "strASCII per DSP0240. RFC 5646 tag (e.g., 'en'). Null-terminated (0x00). Includes terminator in binary length. Empty: just terminator.",
             "binaryFormat": "variable",
-            "description": "strASCII; Null-terminated language tag per RFC4646 (e.g., 'en'). Special: empty = unspecified"
+            "x-binary-encoding": "us-ascii",
+            "x-binary-terminator": "0x00",
+            "maxLength": 32
           },
-          "unitName": {
+          "oemUnitString": {
             "type": "string",
+            "description": "strUTF-16BE per DSP0240. Null-terminated (0x0000). No BOM required; empty string is just the terminator. Includes terminator in binary length.",
             "binaryFormat": "variable",
-            "description": "strUTF-16BE; Null-terminated unicode string for the OEM unit name. Special: empty = not provided"
+            "x-binary-encoding": "utf-16be",
+            "x-binary-terminator": "0x0000",
+            "maxLength": 128
           }
         },
-        "required": [
-          "unitLanguageTag",
-          "unitName"
-        ]
-      },
-      "description": "Array of unit name pairs, length = nameStringCount"
+        "required": ["nameLanguageTag", "oemUnitString"]
+      }
     }
   },
   "required": [
     "pdrHeader",
-    "PLDMTerminusHandle",
-    "OEMUnitHandle",
-    "vendorIANA",
-    "OEMUnitID",
+    "containerID",
+    "baseUnit",
+    "unitModifier",
     "nameStringCount",
     "unitNames"
   ]
