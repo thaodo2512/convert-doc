@@ -1,9 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "State Effecter PDR Schema (DSP0248 1.3.0, Clause 28.13)",
+  "title": "State Effecter PDR (DSP0248 Type 11)",
+  "description": "Per DSP0248 v1.3.0 Clause 28.13 and DSP0240 v1.2.0 Section 2.5",
   "type": "object",
   "additionalProperties": false,
   "binaryOrder": [
+    "pdrHeader",
     "PLDMTerminusHandle",
     "effecterID",
     "entityType",
@@ -11,138 +13,126 @@
     "containerID",
     "effecterSemanticID",
     "effecterInit",
-    "effecterDescriptionPDR",
-    "compositeEffecterCount"
+    "effecterAuxiliaryNames",
+    "compositeEffecterCount",
+    "stateEffecterInfo"
   ],
+  "x-c-struct-packing": 1,
   "properties": {
     "pdrHeader": {
       "type": "object",
+      "description": "Common PDR Header (DSP0248)",
       "additionalProperties": false,
-      "properties": {
-        "recordHandle": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 4294967295
-            }
-          ],
-          "binaryFormat": "I",
-          "description": "uint32; opaque handle (TBD or auto-generated)"
-        },
-        "PDRHeaderVersion": {
-          "type": "integer",
-          "const": 1,
-          "binaryFormat": "B",
-          "description": "uint8; must be 1"
-        },
-        "PDRType": {
-          "type": "integer",
-          "const": 11,
-          "binaryFormat": "B",
-          "description": "uint8; State Effecter PDR = 11"
-        },
-        "recordChangeNumber": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 65535,
-          "default": 0,
-          "binaryFormat": "H",
-          "description": "uint16; incremented on changes (default 0)"
-        },
-        "dataLength": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 65535
-            }
-          ],
-          "binaryFormat": "H",
-          "description": "uint16; calculated data length (TBD)"
-        }
-      },
-      "required": [
+      "binaryOrder": [
         "recordHandle",
         "PDRHeaderVersion",
         "PDRType",
         "recordChangeNumber",
         "dataLength"
-      ]
+      ],
+      "properties": {
+        "recordHandle": {
+          "oneOf": [
+            { "type": "string", "enum": ["auto"] },
+            { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+          ],
+          "binaryFormat": "I",
+          "description": "uint32; PDR Record Handle. 0 = auto-assign."
+        },
+        "PDRHeaderVersion": {
+          "type": "integer",
+          "const": 1,
+          "binaryFormat": "B",
+          "description": "uint8; PDR Header Version (1)"
+        },
+        "PDRType": {
+          "type": "integer",
+          "const": 11,
+          "binaryFormat": "B",
+          "description": "uint8; PDR Type 11 = State Effecter"
+        },
+        "recordChangeNumber": {
+          "type": "integer",
+          "default": 0,
+          "binaryFormat": "H",
+          "description": "uint16; recordChangeNumber"
+        },
+        "dataLength": {
+          "oneOf": [
+            { "type": "string", "enum": ["auto"] },
+            { "type": "integer", "minimum": 0 }
+          ],
+          "binaryFormat": "H",
+          "description": "uint16; Length of data following this header (calculated automatically)."
+        }
+      },
+      "required": ["recordHandle", "PDRHeaderVersion", "PDRType", "recordChangeNumber", "dataLength"]
     },
     "PLDMTerminusHandle": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; terminus handle"
+      "description": "uint16; PLDM Terminus Handle"
     },
     "effecterID": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; unique effecter ID"
+      "description": "uint16; Effecter ID"
     },
     "entityType": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; entity type (see 9.1)"
+      "description": "uint16; Entity Type (per DSP0245)"
     },
     "entityInstanceNumber": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; entity instance"
+      "description": "uint16; Entity Instance Number"
     },
     "containerID": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; container ID"
+      "description": "uint16; Container ID"
     },
     "effecterSemanticID": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; PLDM-defined or OEMEffecterSemanticHandle (special: 0x0000=unspecified)"
+      "description": "uint16; Effecter Semantic ID (0 if no Effecter OEM Semantic PDR)"
     },
     "effecterInit": {
       "type": "integer",
-      "enum": [
-        0,
-        1,
-        2,
-        3
-      ],
+      "minimum": 0,
+      "maximum": 3,
       "binaryFormat": "B",
-      "description": "enum8: 0=noInit, 1=useInitPDR, 2=enableEffecter, 3=disableEffecter"
+      "description": "uint8; Effecter Initialization: 0=noInit, 1=useInitPDR, 2=oem, 3=reserved"
     },
-    "effecterDescriptionPDR": {
-      "type": "boolean",
+    "effecterAuxiliaryNames": {
+      "type": "integer",
+      "enum": [0, 1],
       "binaryFormat": "B",
-      "description": "bool8; true if effecter has an effecterDescription PDR"
+      "description": "uint8; 1 if has Effecter Auxiliary Names PDR, 0 otherwise"
     },
     "compositeEffecterCount": {
       "type": "integer",
       "minimum": 1,
       "maximum": 8,
       "binaryFormat": "B",
-      "description": "uint8; number of state effecters (1-8)"
+      "description": "uint8; Number of state effecter information fields (1 for non-composite, >1 for composite)"
     },
-    "possibleStates": {
+    "stateEffecterInfo": {
       "type": "array",
+      "description": "Array of state effecter info. Length must match 'compositeEffecterCount'.",
       "minItems": 1,
       "maxItems": 8,
       "items": {
@@ -159,34 +149,31 @@
             "minimum": 0,
             "maximum": 65535,
             "binaryFormat": "H",
-            "description": "uint16; state set ID"
+            "description": "uint16; State Set ID (per DSP0246)"
           },
           "possibleStatesSize": {
             "type": "integer",
-            "minimum": 0,
+            "minimum": 1,
             "maximum": 32,
             "binaryFormat": "B",
-            "description": "uint8; size in bytes of possibleStates, 0=unavailable"
+            "description": "uint8; Size in bytes of the possibleStates bitfield"
           },
           "possibleStates": {
             "type": "array",
+            "description": "Bitfield of possible states. Length must match 'possibleStatesSize'. Bit position (n-1) set if stateValue n is supported.",
+            "minItems": 1,
+            "maxItems": 32,
             "items": {
               "type": "integer",
               "minimum": 0,
               "maximum": 255,
-              "binaryFormat": "B"
-            },
-            "binaryFormat": "variable",
-            "description": "bitfield8[possibleStatesSize]; bits indicate supported states"
+              "binaryFormat": "B",
+              "description": "uint8; Byte of the possibleStates bitfield"
+            }
           }
         },
-        "required": [
-          "stateSetID",
-          "possibleStatesSize",
-          "possibleStates"
-        ]
-      },
-      "description": "Array of possible states, length equals compositeEffecterCount"
+        "required": ["stateSetID", "possibleStatesSize", "possibleStates"]
+      }
     }
   },
   "required": [
@@ -198,8 +185,8 @@
     "containerID",
     "effecterSemanticID",
     "effecterInit",
-    "effecterDescriptionPDR",
+    "effecterAuxiliaryNames",
     "compositeEffecterCount",
-    "possibleStates"
+    "stateEffecterInfo"
   ]
 }
