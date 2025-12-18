@@ -1,355 +1,291 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Terminus Locator PDR Schema (DSP0248 1.3.0, Clause 28.3)",
+  "title": "Terminus Locator PDR (DSP0248 Type 1)",
+  "description": "Per DSP0248 v1.3.0 Clause 28.3 and DSP0240 v1.2.0 Section 2.5",
   "type": "object",
   "additionalProperties": false,
   "binaryOrder": [
+    "pdrHeader",
     "PLDMTerminusHandle",
     "validity",
     "TID",
     "containerID",
-    "terminusLocatorType",
-    "terminusLocatorValueSize",
-    "terminusLocatorValue"
+    "locator"
   ],
+  "x-c-struct-packing": 1,
   "properties": {
     "pdrHeader": {
       "type": "object",
+      "description": "Common PDR Header (DSP0248)",
       "additionalProperties": false,
-      "properties": {
-        "recordHandle": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 4294967295
-            }
-          ],
-          "binaryFormat": "I",
-          "description": "uint32; opaque handle (TBD or auto-generated)"
-        },
-        "PDRHeaderVersion": {
-          "type": "integer",
-          "const": 1,
-          "binaryFormat": "B",
-          "description": "uint8; must be 1"
-        },
-        "PDRType": {
-          "type": "integer",
-          "const": 1,
-          "binaryFormat": "B",
-          "description": "uint8; Terminus Locator PDR = 1"
-        },
-        "recordChangeNumber": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 65535,
-          "default": 0,
-          "binaryFormat": "H",
-          "description": "uint16; incremented on changes (default 0)"
-        },
-        "dataLength": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 65535
-            }
-          ],
-          "binaryFormat": "H",
-          "description": "uint16; calculated data length (TBD)"
-        }
-      },
-      "required": [
+      "binaryOrder": [
         "recordHandle",
         "PDRHeaderVersion",
         "PDRType",
         "recordChangeNumber",
         "dataLength"
-      ]
+      ],
+      "properties": {
+        "recordHandle": {
+          "oneOf": [
+            { "type": "string", "enum": ["auto"] },
+            { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+          ],
+          "binaryFormat": "I",
+          "description": "uint32; PDR Record Handle. 0 = auto-assign."
+        },
+        "PDRHeaderVersion": {
+          "type": "integer",
+          "const": 1,
+          "binaryFormat": "B",
+          "description": "uint8; PDR Header Version (1)"
+        },
+        "PDRType": {
+          "type": "integer",
+          "const": 1,
+          "binaryFormat": "B",
+          "description": "uint8; PDR Type 1 = Terminus Locator"
+        },
+        "recordChangeNumber": {
+          "type": "integer",
+          "default": 0,
+          "binaryFormat": "H",
+          "description": "uint16; recordChangeNumber"
+        },
+        "dataLength": {
+          "oneOf": [
+            { "type": "string", "enum": ["auto"] },
+            { "type": "integer", "minimum": 0 }
+          ],
+          "binaryFormat": "H",
+          "description": "uint16; Length of data following this header (calculated automatically)."
+        }
+      },
+      "required": ["recordHandle", "PDRHeaderVersion", "PDRType", "recordChangeNumber", "dataLength"]
     },
     "PLDMTerminusHandle": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; opaque handle used to identify all PDRs associated with a specific PLDM terminus"
+      "description": "uint16; A handle that identifies PDRs that belong to a particular PLDM terminus."
     },
     "validity": {
       "type": "integer",
-      "enum": [
-        0,
-        1
-      ],
+      "enum": [0, 1],
       "binaryFormat": "B",
-      "description": "enum8: 0=notValid, 1=valid"
+      "description": "uint8; 0=notValid (ignore PDR), 1=valid"
     },
     "TID": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "uint8; PLDM Terminus ID"
+      "description": "uint8; PLDM Terminus ID used to identify asynchronous messages from this terminus."
     },
     "containerID": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; container ID"
+      "description": "uint16; The containerID for the containing entity that holds this terminus. See 9.1 for more information."
     },
-    "terminusLocatorType": {
-      "type": "integer",
-      "enum": [
-        0,
-        1,
-        2,
-        3,
-        4
-      ],
-      "binaryFormat": "B",
-      "description": "enum8: 0=UID, 1=MCTP_EID, 2=SMBusRelative, 3=systemSoftware, 4=NC_SI"
-    },
-    "terminusLocatorValueSize": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 255,
-      "binaryFormat": "B",
-      "description": "uint8; length of terminusLocatorValue in bytes"
-    },
-    "terminusLocatorValue": {
-      "description": "Variable; locator value depending on terminusLocatorType"
-    }
-  },
-  "allOf": [
-    {
-      "if": {
-        "properties": {
-          "terminusLocatorType": {
-            "const": 0
-          }
-        },
-        "required": [
-          "terminusLocatorType"
-        ]
-      },
-      "then": {
-        "properties": {
-          "terminusLocatorValue": {
-            "type": "object",
-            "additionalProperties": false,
-            "binaryOrder": [
-              "terminusInstance",
-              "deviceUID"
-            ],
-            "properties": {
-              "terminusInstance": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 255,
-                "binaryFormat": "B",
-                "description": "uint8; differentiates multiple termini in same device"
-              },
-              "deviceUID": {
-                "type": "array",
-                "items": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 255
-                },
-                "minItems": 16,
-                "maxItems": 16,
-                "binaryFormat": "16B",
-                "description": "16 bytes UUID"
-              }
+    "locator": {
+      "type": "object",
+      "description": "Terminus locator details, polymorphic based on type.",
+      "oneOf": [
+        {
+          "title": "UID (Type 0)",
+          "additionalProperties": false,
+          "binaryOrder": [
+            "terminusLocatorType",
+            "terminusLocatorValueSize",
+            "terminusInstance",
+            "deviceUID"
+          ],
+          "properties": {
+            "terminusLocatorType": {
+              "type": "integer",
+              "const": 0,
+              "binaryFormat": "B"
             },
-            "required": [
-              "terminusInstance",
-              "deviceUID"
-            ]
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "terminusLocatorType": {
-            "const": 1
-          }
-        },
-        "required": [
-          "terminusLocatorType"
-        ]
-      },
-      "then": {
-        "properties": {
-          "terminusLocatorValue": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 255,
-            "binaryFormat": "B",
-            "description": "uint8; MCTP EID"
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "terminusLocatorType": {
-            "const": 2
-          }
-        },
-        "required": [
-          "terminusLocatorType"
-        ]
-      },
-      "then": {
-        "properties": {
-          "terminusLocatorValue": {
-            "type": "object",
-            "additionalProperties": false,
-            "binaryOrder": [
-              "UID",
-              "busNumber",
-              "slaveAddress"
-            ],
-            "properties": {
-              "UID": {
-                "type": "array",
-                "items": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 255
-                },
-                "minItems": 16,
-                "maxItems": 16,
-                "binaryFormat": "16B",
-                "description": "16 bytes UID of the owning controller"
-              },
-              "busNumber": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 255,
-                "binaryFormat": "B",
-                "description": "uint8; bus or MCTP port number"
-              },
-              "slaveAddress": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 255,
-                "binaryFormat": "B",
-                "description": "uint8; SMBus address"
-              }
+            "terminusLocatorValueSize": {
+              "type": "integer",
+              "const": 17,
+              "binaryFormat": "B"
             },
-            "required": [
-              "UID",
-              "busNumber",
-              "slaveAddress"
-            ]
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "terminusLocatorType": {
-            "const": 3
-          }
-        },
-        "required": [
-          "terminusLocatorType"
-        ]
-      },
-      "then": {
-        "properties": {
-          "terminusLocatorValue": {
-            "type": "object",
-            "additionalProperties": false,
-            "binaryOrder": [
-              "softwareClass",
-              "UUID"
-            ],
-            "properties": {
-              "softwareClass": {
-                "type": "integer",
-                "enum": [
-                  0,
-                  1,
-                  2,
-                  3,
-                  4,
-                  5,
-                  6,
-                  7
-                ],
-                "binaryFormat": "B",
-                "description": "enum8: 0=unspecified, 1=other, 2=systemFirmware, 3=OSloader, 4=OS, 5=CIMprovider, 6=otherProvider, 7=virtualMachineManager"
-              },
-              "UUID": {
-                "type": "array",
-                "items": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 255
-                },
-                "minItems": 16,
-                "maxItems": 16,
-                "binaryFormat": "16B",
-                "description": "16 bytes UUID"
-              }
-            },
-            "required": [
-              "softwareClass",
-              "UUID"
-            ]
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "terminusLocatorType": {
-            "const": 4
-          }
-        },
-        "required": [
-          "terminusLocatorType"
-        ]
-      },
-      "then": {
-        "properties": {
-          "terminusLocatorValue": {
-            "type": "array",
-            "items": {
+            "terminusInstance": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 255
+              "maximum": 255,
+              "binaryFormat": "B",
+              "description": "uint8; Differentiates multiple PLDM termini in the same device."
             },
-            "binaryFormat": "variable",
-            "description": "Variable bytes for NC_SI (not detailed in spec)"
-          }
+            "deviceUID": {
+              "type": "array",
+              "minItems": 16,
+              "maxItems": 16,
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255,
+                "binaryFormat": "B"
+              },
+              "description": "16-byte UUID binary."
+            }
+          },
+          "required": ["terminusLocatorType", "terminusLocatorValueSize", "terminusInstance", "deviceUID"]
+        },
+        {
+          "title": "MCTP_EID (Type 1)",
+          "additionalProperties": false,
+          "binaryOrder": [
+            "terminusLocatorType",
+            "terminusLocatorValueSize",
+            "EID"
+          ],
+          "properties": {
+            "terminusLocatorType": {
+              "type": "integer",
+              "const": 1,
+              "binaryFormat": "B"
+            },
+            "terminusLocatorValueSize": {
+              "type": "integer",
+              "const": 1,
+              "binaryFormat": "B"
+            },
+            "EID": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 255,
+              "binaryFormat": "B",
+              "description": "uint8; MCTP Endpoint ID."
+            }
+          },
+          "required": ["terminusLocatorType", "terminusLocatorValueSize", "EID"]
+        },
+        {
+          "title": "SMBusRelative (Type 2)",
+          "additionalProperties": false,
+          "binaryOrder": [
+            "terminusLocatorType",
+            "terminusLocatorValueSize",
+            "UID",
+            "busNumber",
+            "slaveAddress"
+          ],
+          "properties": {
+            "terminusLocatorType": {
+              "type": "integer",
+              "const": 2,
+              "binaryFormat": "B"
+            },
+            "terminusLocatorValueSize": {
+              "type": "integer",
+              "const": 18,
+              "binaryFormat": "B"
+            },
+            "UID": {
+              "type": "array",
+              "minItems": 16,
+              "maxItems": 16,
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255,
+                "binaryFormat": "B"
+              },
+              "description": "16-byte UID of the controller owning the bus."
+            },
+            "busNumber": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 255,
+              "binaryFormat": "B",
+              "description": "uint8; Relative bus number or MCTP port."
+            },
+            "slaveAddress": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 255,
+              "binaryFormat": "B",
+              "description": "uint8; Bits [7:1] slave address, [0]=0b."
+            }
+          },
+          "required": ["terminusLocatorType", "terminusLocatorValueSize", "UID", "busNumber", "slaveAddress"]
+        },
+        {
+          "title": "systemSoftware (Type 3)",
+          "additionalProperties": false,
+          "binaryOrder": [
+            "terminusLocatorType",
+            "terminusLocatorValueSize",
+            "softwareClass",
+            "UUID"
+          ],
+          "properties": {
+            "terminusLocatorType": {
+              "type": "integer",
+              "const": 3,
+              "binaryFormat": "B"
+            },
+            "terminusLocatorValueSize": {
+              "type": "integer",
+              "const": 17,
+              "binaryFormat": "B"
+            },
+            "softwareClass": {
+              "type": "integer",
+              "enum": [0, 1, 2, 3, 4, 5, 6, 7],
+              "binaryFormat": "B",
+              "description": "uint8; 0=unspecified, 1=other, 2=systemFirmware, 3=OSloader, 4=OS, 5=CIMprovider, 6=otherProvider, 7=virtualMachineManager"
+            },
+            "UUID": {
+              "type": "array",
+              "minItems": 16,
+              "maxItems": 16,
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255,
+                "binaryFormat": "B"
+              },
+              "description": "16-byte unique identifier for the software instance."
+            }
+          },
+          "required": ["terminusLocatorType", "terminusLocatorValueSize", "softwareClass", "UUID"]
+        },
+        {
+          "title": "NC_SI (Type 4)",
+          "additionalProperties": false,
+          "binaryOrder": [
+            "terminusLocatorType",
+            "terminusLocatorValueSize"
+          ],
+          "properties": {
+            "terminusLocatorType": {
+              "type": "integer",
+              "const": 4,
+              "binaryFormat": "B"
+            },
+            "terminusLocatorValueSize": {
+              "type": "integer",
+              "const": 0,
+              "binaryFormat": "B"
+            }
+          },
+          "required": ["terminusLocatorType", "terminusLocatorValueSize"]
         }
-      }
+      ]
     }
-  ],
+  },
   "required": [
     "pdrHeader",
     "PLDMTerminusHandle",
     "validity",
     "TID",
     "containerID",
-    "terminusLocatorType",
-    "terminusLocatorValueSize",
-    "terminusLocatorValue"
+    "locator"
   ]
 }
