@@ -1,252 +1,226 @@
-import os
-import glob
+import yaml
+import json
+import struct
 import argparse
 import sys
+import os
+import glob
 from datetime import datetime
-import json
-import jsonschema
-import struct
-import yaml
-from collections import Counter
+from jsonschema import validate, ValidationError
 
-HEADER_FIELD_TYPES = {
-    'recordHandle': 'I',
-    'PDRHeaderVersion': 'B',
-    'PDRType': 'B',
-    'recordChangeNumber': 'H',
-    'dataLength': 'H'
-}
+DOC_META_KEYS = {"docHidden", "_doc_hidden", "_docHide", "_doc"}
 
-def extract_value(value):
-    if isinstance(value, dict):
-        return value.get('value')
-    return value
+def is_hidden(node):
+    if not isinstance(node, dict):
+        return False
+    meta = node.get("_doc")
+    if isinstance(meta, dict) and meta.get("hidden"):
+        return True
+    return any(node.get(key) is True for key in DOC_META_KEYS if key != "_doc")
 
-def is_auto_value(value):
-    return isinstance(value, str) and value.lower() == 'auto'
+def clean_for_validation(node, schema_props=None):
+    if schema_props is None:
+        schema_props = {}
+    if isinstance(node, dict):
+        if 'value' in node:
+            return clean_for_validation(node['value'], schema_props)
+        cleaned = {}
+        for k, v in node.items():
+            if k in DOC_META_KEYS:
+                continue
+            sub_props = schema_props.get(k, {}).get('properties', {}) if schema_props.get(k, {}).get('type') == 'object' else {}
+            cleaned[k] = clean_for_validation(v, sub_props)
+        return cleaned
+    elif isinstance(node, list):
+        item_props = schema_props.get('items', {}).get('properties', {}) if schema_props.get('items') else {}
+        return [clean_for_validation(i, item_props) for i in node]
+    else:
+        return node
+
+def resolve_subschema(condition_data, root_schema, current_subschema, key):
+    if 'allOf' in root_schema:
+        for cond in root_schema['allOf']:
+            if_cond = cond.get('if', {})
+            matches = True
+            for prop, cond_val in if_cond.get('properties', {}).items():
+                data_val = condition_data.get(prop)
+                if data_val != cond_val.get('const'):
+                    matches = False
+                    break
+            if matches:
+                cond_sub = cond.get('then', {}).get('properties', {}).get(key, {})
+                if cond_sub:
+                    return cond_sub
+    return current_subschema
 
 def coerce_int(value, field, filename):
     try:
         return int(value)
     except ValueError:
-        print(f"Error in {filename}: {field} must be an integer or convertible string")
-        sys.exit(1)
-
-def next_available_handle(used_handles, reserved_handles, start):
-    h = start
-    while h in used_handles or h in reserved_handles:
-        h += 1
-        if h > 0xFFFFFFFF:
-            print("Error: No available recordHandle")
-            sys.exit(1)
-    return h
+        print(f"Warning: Non-integer {field} in {filename}: '{value}' - treating as 0")
+        return 0
 
 def collect_reserved_handles(yaml_files):
-    reserved = set()
+    reserved = {}
     duplicates = set()
     for yaml_file in yaml_files:
         with open(yaml_file, 'r') as f:
             data = yaml.safe_load(f)
-        pdr_header = data.get('pdrHeader')
-        if pdr_header:
-            raw_handle = extract_value(pdr_header.get('recordHandle'))
-            if not is_auto_value(raw_handle):
-                h = coerce_int(raw_handle, 'recordHandle', yaml_file)
-                if h in reserved:
-                    duplicates.add(h)
-                reserved.add(h)
+        pdr_header = data.get('pdrHeader', {})
+        raw_handle = pdr_header.get('recordHandle')
+        if isinstance(raw_handle, dict):
+            raw_handle = raw_handle.get('value')
+        if raw_handle not in (None, 'auto', 'auto-gen'):
+            h = coerce_int(raw_handle, 'recordHandle', yaml_file)
+            if h in reserved:
+                duplicates.add(h)
+            reserved[h] = yaml_file
     return reserved, duplicates
 
-def process_single_yaml(yaml_file, schema_dir, used_handles, reserved_handles, next_handle):
+def assign_handle(next_handle, reserved_handles, yaml_file, handle):
+    if handle in (None, 'auto', 'auto-gen'):
+        while next_handle in reserved_handles:
+            next_handle += 1
+        print(f"Auto-assigned recordHandle {next_handle} for {yaml_file}")
+        return next_handle
+    else:
+        return handle
+
+def pack_field(field_schema, value, field_name):
+    bf = field_schema.get('binaryFormat', '')
+    if bf == 'variable':
+        # Handle variable-length (e.g., strings, arrays)
+        if field_schema.get('type') == 'string':
+            encoding = field_schema.get('pldmEncoding', 'utf-8')  # Default UTF-8, or UTF-16BE
+            if encoding == 'utf-16be':
+                encoded = value.encode('utf-16-be')
+            else:
+                encoded = value.encode(encoding)
+            return encoded + b'\x00' if 'null-terminated' in field_schema.get('description', '').lower() else encoded
+        elif field_schema.get('type') == 'array':
+            packed = b''
+            item_schema = field_schema.get('items', {})
+            for item in value:
+                packed += pack_field(item_schema, item, field_name)
+            return packed
+        else:
+            raise ValueError(f"Unsupported variable field: {field_name}")
+    elif bf:
+        try:
+            return struct.pack(bf, value)
+        except struct.error as e:
+            raise ValueError(f"Packing error for {field_name}: {e}")
+    else:
+        raise ValueError(f"No binaryFormat for {field_name}")
+
+def process_single_yaml(yaml_file, schema_dir, reserved_handles, next_handle_ref):
     filename = os.path.basename(yaml_file)
     with open(yaml_file, 'r') as f:
-        data = yaml.safe_load(f)
-    pdr_header = data.get('pdrHeader')
-    if not pdr_header:
-        print(f"Error {filename}: Missing pdrHeader")
-        sys.exit(1)
-    pdr_type = coerce_int(extract_value(pdr_header.get('PDRType')), "PDRType", filename)
+        raw_data = yaml.safe_load(f)
+    
+    # Infer PDR type from filename (e.g., type_1.yaml -> 1)
+    try:
+        pdr_type = int(filename.split('_')[1].split('.')[0])
+    except ValueError:
+        raise ValueError(f"Invalid filename format for {filename}; expected type_<num>.yaml")
+    
     schema_file = os.path.join(schema_dir, f"type_{pdr_type}.json")
     if not os.path.exists(schema_file):
-        print(f"Error {filename}: Schema {schema_file} not found")
-        sys.exit(1)
+        raise FileNotFoundError(f"Schema not found: {schema_file}")
+    
     with open(schema_file, 'r') as f:
         schema = json.load(f)
+    
+    schema_props = schema.get('properties', {})
+    cleaned_data = clean_for_validation(raw_data, schema_props)
+    
+    # Validate
     try:
-        jsonschema.validate(instance=data, schema=schema)
-    except jsonschema.exceptions.ValidationError as err:
-        print(f"Validation error in {filename}: {err}")
+        validate(instance=cleaned_data, schema=schema)
+    except ValidationError as e:
+        print(f"Validation error in {filename}: {e}")
         sys.exit(1)
-    var_name = os.path.splitext(filename)[0] + '_pdr'
-    body_buffer = bytearray()
-    def pack_field(field_schema, value, field_name=None):
-        if value is None:
-            value = field_schema.get('default')
-            if value is None:
-                print(f"Error {filename}: Missing value for {field_name}")
-                sys.exit(1)
-        field_type = field_schema['type']
-        if field_type == 'integer':
-            fmt = field_schema['binaryFormat']
-            v = coerce_int(value, field_name, filename)
-            return struct.pack(fmt, v)
-        elif field_type == 'string':
-            if not isinstance(value, str):
-                print(f"Error {filename}: {field_name} must be string")
-                sys.exit(1)
-            charset = 'utf-16be'  # default
-            content_media_type = field_schema.get('contentMediaType')
-            if content_media_type:
-                parts = content_media_type.split(';')
-                for part in parts[1:]:
-                    part = part.strip()
-                    if part.startswith('charset='):
-                        charset = part[8:]
-                        break
-            if 'utf-16' in charset.lower():
-                terminator = b'\x00\x00'
-            else:
-                terminator = b'\x00'
-            try:
-                encoded = value.encode(charset)
-            except UnicodeEncodeError:
-                print(f"Error {filename}: {field_name} cannot be encoded in {charset}")
-                sys.exit(1)
-            return encoded + terminator
-        elif field_type == 'object':
-            sub_buffer = bytearray()
-            order = field_schema.get('binaryOrder', list(field_schema['properties'].keys()))
-            for sub_field in order:
-                sub_schema = field_schema['properties'][sub_field]
-                sub_value = value.get(sub_field)
-                sub_buffer.extend(pack_field(sub_schema, sub_value, sub_field))
-            return sub_buffer
-        elif field_type == 'array':
-            sub_buffer = bytearray()
-            items_schema = field_schema['items']
-            for idx, item in enumerate(value):
-                sub_buffer.extend(pack_field(items_schema, item, f"{field_name}[{idx}]"))
-            return sub_buffer
-        else:
-            print(f"Error {filename}: Unsupported type {field_type} for {field_name}")
-            sys.exit(1)
-    order = schema.get('binaryOrder', [])
+    
+    pdr_header = cleaned_data.get('pdrHeader', {})
+    handle = pdr_header.get('recordHandle')
+    if isinstance(handle, dict):
+        handle = handle.get('value')
+    handle = coerce_int(handle, 'recordHandle', filename)
+    assigned_handle = assign_handle(next_handle_ref[0], reserved_handles, filename, handle)
+    if assigned_handle != handle:
+        pdr_header['recordHandle'] = assigned_handle  # Update for packing
+    next_handle_ref[0] = max(next_handle_ref[0], assigned_handle) + 1
+    
+    # Pack header (fixed format: uint32 handle, uint8 version, uint8 type, uint16 change_num, uint16 data_len)
+    header_buffer = struct.pack('<IBBHH', assigned_handle, pdr_header['PDRHeaderVersion'], pdr_type, pdr_header['recordChangeNumber'], 0)  # Placeholder data_len
+    
+    # Pack body in binaryOrder
+    body_buffer = b''
+    order = schema.get('binaryOrder', list(cleaned_data.keys()))  # Use schema order or YAML keys
+    root_schema = schema
+    condition_data = cleaned_data
     for field in order:
-        field_schema = schema['properties'][field]
-        value = data[field]
-        body_buffer.extend(pack_field(field_schema, value, field))
-    computed_data_length = len(body_buffer)
-    if computed_data_length > 0xFFFF:
-        print(f"Error {filename}: dataLength {computed_data_length} exceeds uint16 range")
-        sys.exit(1)
-    raw_handle = extract_value(pdr_header.get('recordHandle'))
-    if is_auto_value(raw_handle):
-        handle = next_available_handle(used_handles, reserved_handles, next_handle)
-        used_handles.add(handle)
-        next_handle = next_available_handle(used_handles, reserved_handles, handle + 1)
-        print(f"  - Auto-assigned recordHandle {handle} for {filename}")
-    else:
-        handle = coerce_int(raw_handle, "recordHandle", filename)
-        if handle in used_handles:
-            new_handle = next_available_handle(used_handles, reserved_handles, max(next_handle, handle))
-            print(f"  - recordHandle {handle} already used; reassigned to {new_handle} for {filename}")
-            handle = new_handle
-        used_handles.add(handle)
-        next_handle = next_available_handle(used_handles, reserved_handles, max(next_handle, handle + 1))
-    if handle < 0 or handle > 0xFFFFFFFF:
-        print(f"Error {filename}: recordHandle {handle} is outside uint32 range")
-        sys.exit(1)
-    header_fields = {}
-    for field in ['PDRHeaderVersion', 'PDRType', 'recordChangeNumber']:
-        if field not in pdr_header:
-            print(f"Error {filename}: Missing header field '{field}'")
-            sys.exit(1)
-        header_fields[field] = coerce_int(extract_value(pdr_header[field]), field, filename)
-    provided_length = extract_value(pdr_header.get('dataLength'))
-    if provided_length is not None and not is_auto_value(provided_length):
-        provided_int = coerce_int(provided_length, "dataLength", filename)
-        if provided_int != computed_data_length:
-            print(f"  - Adjusted dataLength for {filename}: expected {computed_data_length} (was {provided_int})")
-    header_fields['recordHandle'] = handle
-    header_fields['dataLength'] = computed_data_length
-    header_buffer = bytearray()
-    for field in ['recordHandle', 'PDRHeaderVersion', 'PDRType', 'recordChangeNumber', 'dataLength']:
-        header_buffer.extend(struct.pack(HEADER_FIELD_TYPES[field], header_fields[field]))
-    byte_buffer = header_buffer + body_buffer
-    print(f"  - Processed {filename} (Type {pdr_type}) -> {len(byte_buffer)} bytes (dataLength {computed_data_length})")
-    return byte_buffer, var_name, next_handle, pdr_type
+        if field == 'pdrHeader':
+            continue
+        value = cleaned_data.get(field)
+        field_schema = schema_props.get(field, {})
+        field_schema = resolve_subschema(condition_data, root_schema, field_schema, field)
+        if not is_hidden(raw_data.get(field)):  # Include even if hidden? For binary: yes, but flag if needed
+            body_buffer += pack_field(field_schema, value, field)
+    
+    # Update data_len in header
+    data_len = len(body_buffer)
+    header_buffer = header_buffer[:-2] + struct.pack('<H', data_len)
+    
+    return assigned_handle, header_buffer + body_buffer, filename.replace('.yaml', '')
 
 def generate_all(yaml_dir, schema_dir, output_file):
-    if not os.path.exists(yaml_dir):
-        print(f"YAML Directory not found: {yaml_dir}")
-        sys.exit(1)
-    yaml_files = glob.glob(os.path.join(yaml_dir, "*.yaml"))
-    if not yaml_files:
-        print("No .yaml files found in directory.")
-        sys.exit(0)
+    yaml_files = sorted(glob.glob(os.path.join(yaml_dir, 'type_*.yaml')))
     print(f"Found {len(yaml_files)} YAML files in {yaml_dir}")
-    reserved_handles, duplicate_handles = collect_reserved_handles(yaml_files)
-    if duplicate_handles:
-        print(f"Warning: Duplicate recordHandle values detected (will auto-renumber later occurrences): {sorted(duplicate_handles)}")
-    used_handles = set()
-    next_handle = next_available_handle(used_handles, reserved_handles, 1)
-    generated_arrays = []  # List of (var_name, size)
-    pdr_counts = Counter()
-    c_source = [
-        "/*",
-        f" * Generated by code_gen_dir.py",
-        f" * Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-        " */",
-        "",
-        "#include <stdint.h>",
-        "#include <stddef.h>",
-        ""
-    ]
-    for yaml_file in sorted(yaml_files):
-        byte_data, var_name, next_handle, pdr_type = process_single_yaml(
-            yaml_file, schema_dir, used_handles, reserved_handles, next_handle
-        )
-        pdr_counts[pdr_type] += 1
-        if byte_data:
-            c_source.append(f"// Source: {os.path.basename(yaml_file)}")
-            c_source.append(f"const uint8_t {var_name}[] = {{")
-            hex_lines = []
-            for i in range(0, len(byte_data), 12):
-                chunk = byte_data[i:i + 12]
-                hex_lines.append("    " + ", ".join(f"0x{b:02X}" for b in chunk) + ",")
-            if hex_lines:
-                hex_lines[-1] = hex_lines[-1].rstrip(',')
-            c_source.extend(hex_lines)
-            c_source.append("};")
-            c_source.append(f"const size_t {var_name}_size = sizeof({var_name});")
-            c_source.append("")
-            generated_arrays.append(var_name)
-    c_source.append("/* --- PDR Registry --- */")
-    c_source.append("typedef struct {")
-    c_source.append("    const uint8_t* data;")
-    c_source.append("    size_t size;")
-    c_source.append("} pdr_entry_t;")
-    c_source.append("")
-    c_source.append("const pdr_entry_t pdr_registry[] = {")
-    for name in generated_arrays:
-        c_source.append(f"    {{ {name}, {name}_size }},")
-    c_source.append("};")
-    c_source.append("")
-    c_source.append(f"const size_t pdr_registry_count = {len(generated_arrays)};")
-    output_dir = os.path.dirname(output_file)
-    if output_dir and not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-    with open(output_file, 'w') as f:
-        f.write("\n".join(c_source))
-    print(f"Success! Generated {output_file} containing {len(generated_arrays)} PDRs.")
-    print("\nPDR Type Counts:")
-    for typ, cnt in sorted(pdr_counts.items()):
-        print(f"Type {typ}: {cnt} PDRs")
+    
+    reserved_handles, duplicates = collect_reserved_handles(yaml_files)
+    if duplicates:
+        print(f"Warning: Duplicate recordHandle values detected (will auto-renumber later occurrences): {sorted(duplicates)}")
+    
+    next_handle_ref = [1]  # Mutable for ref
+    pdr_data = []
+    for yaml_file in yaml_files:
+        handle, binary_data, var_name = process_single_yaml(yaml_file, schema_dir, reserved_handles, next_handle_ref)
+        pdr_data.append((handle, binary_data, var_name))
+    
+    # Sort by handle for registry
+    pdr_data.sort(key=lambda x: x[0])
+    
+    # Generate C code
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    with open(output_file, 'w') as out:
+        out.write(f"// Generated by code_gen.py on {datetime.now().isoformat()}\n")
+        out.write("#include <stdint.h>\n#include <stddef.h>\n\n")
+        
+        for _, binary_data, var_name in pdr_data:
+            out.write(f"// Source: {var_name}.yaml\n")
+            out.write(f"const uint8_t {var_name}[] = {{\n    ")
+            for i, byte in enumerate(binary_data):
+                out.write(f"0x{byte:02X}, ")
+                if (i + 1) % 16 == 0:
+                    out.write("\n    ")
+            out.write("\n};\n")
+            out.write(f"const size_t {var_name}_size = sizeof({var_name});\n\n")
+        
+        out.write("// PDR Registry\n")
+        out.write("typedef struct {\n    const uint8_t* data;\n    size_t size;\n} pdr_entry_t;\n\n")
+        out.write("const pdr_entry_t pdr_registry[] = {\n")
+        for _, _, var_name in pdr_data:
+            out.write(f"    {{ {var_name}, {var_name}_size }},\n")
+        out.write("};\n")
+        out.write(f"const size_t pdr_registry_count = {len(pdr_data)};\n")
+    
+    print(f"Generated {output_file} with {len(pdr_data)} PDRs.")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Generate C code from directory of PLDM YAMLs")
-    parser.add_argument("yaml_dir", help="Directory containing .yaml files")
-    parser.add_argument("schema_dir", help="Directory containing .json schema files")
-    parser.add_argument("out", help="Output .c file path")
+    parser = argparse.ArgumentParser(description="Generate C code from PLDM PDR YAMLs.")
+    parser.add_argument('yaml_dir', help="Directory with YAML PDR files")
+    parser.add_argument('schema_dir', help="Directory with JSON schemas")
+    parser.add_argument('out', help="Output C file path")
     args = parser.parse_args()
     generate_all(args.yaml_dir, args.schema_dir, args.out)
