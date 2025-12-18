@@ -1,109 +1,113 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Sensor Auxiliary Names PDR Schema (DSP0248 1.3.0, Clause 28.8)",
+  "title": "Sensor Auxiliary Names PDR (DSP0248 Type 6)",
+  "description": "Per DSP0248 v1.3.0 Clause 28.8 and DSP0240 v1.2.0 Section 2.5",
   "type": "object",
   "additionalProperties": false,
   "binaryOrder": [
+    "pdrHeader",
     "PLDMTerminusHandle",
-    "sensorID"
+    "sensorID",
+    "sensorCount",
+    "auxNames"
   ],
+  "x-c-struct-packing": 1,
   "properties": {
     "pdrHeader": {
       "type": "object",
+      "description": "Common PDR Header (DSP0248)",
       "additionalProperties": false,
-      "properties": {
-        "recordHandle": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 4294967295
-            }
-          ],
-          "binaryFormat": "I",
-          "description": "uint32; opaque handle (TBD or auto-generated)"
-        },
-        "PDRHeaderVersion": {
-          "type": "integer",
-          "const": 1,
-          "binaryFormat": "B",
-          "description": "uint8; must be 1"
-        },
-        "PDRType": {
-          "type": "integer",
-          "const": 6,
-          "binaryFormat": "B",
-          "description": "uint8; Sensor Auxiliary Names PDR = 6"
-        },
-        "recordChangeNumber": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 65535,
-          "default": 0,
-          "binaryFormat": "H",
-          "description": "uint16; incremented on changes (default 0)"
-        },
-        "dataLength": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 65535
-            }
-          ],
-          "binaryFormat": "H",
-          "description": "uint16; calculated data length (TBD)"
-        }
-      },
-      "required": [
+      "binaryOrder": [
         "recordHandle",
         "PDRHeaderVersion",
         "PDRType",
         "recordChangeNumber",
         "dataLength"
-      ]
+      ],
+      "properties": {
+        "recordHandle": {
+          "oneOf": [
+            { "type": "string", "enum": ["auto"] },
+            { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+          ],
+          "binaryFormat": "I",
+          "description": "uint32; PDR Record Handle. 0 = auto-assign."
+        },
+        "PDRHeaderVersion": {
+          "type": "integer",
+          "const": 1,
+          "binaryFormat": "B",
+          "description": "uint8; PDR Header Version (1)"
+        },
+        "PDRType": {
+          "type": "integer",
+          "const": 6,
+          "binaryFormat": "B",
+          "description": "uint8; PDR Type 6 = Sensor Auxiliary Names"
+        },
+        "recordChangeNumber": {
+          "type": "integer",
+          "default": 0,
+          "binaryFormat": "H",
+          "description": "uint16; recordChangeNumber"
+        },
+        "dataLength": {
+          "oneOf": [
+            { "type": "string", "enum": ["auto"] },
+            { "type": "integer", "minimum": 0 }
+          ],
+          "binaryFormat": "H",
+          "description": "uint16; Length of data following this header (calculated automatically)."
+        }
+      },
+      "required": ["recordHandle", "PDRHeaderVersion", "PDRType", "recordChangeNumber", "dataLength"]
     },
     "PLDMTerminusHandle": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; Handle identifying PDRs for a specific PLDM terminus"
+      "description": "uint16; Terminus Handle"
     },
     "sensorID": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; Unique ID of the sensor within the terminus"
+      "description": "uint16; Sensor ID of the sensor these names belong to."
+    },
+    "sensorCount": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 8,
+      "binaryFormat": "B",
+      "description": "uint8; Number of sensors described in this PDR (usually 1 for numeric sensors; max 8 for composite)."
     },
     "auxNames": {
       "type": "array",
+      "description": "Array of name sets. Length must match 'sensorCount'.",
       "minItems": 1,
       "maxItems": 8,
       "items": {
         "type": "object",
         "additionalProperties": false,
         "binaryOrder": [
-          "nameStringCount"
+          "nameStringCount",
+          "names"
         ],
         "properties": {
           "nameStringCount": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 255,
+            "maximum": 16,
             "binaryFormat": "B",
-            "description": "uint8; Number of name pairs for this sensor offset"
+            "description": "uint8; Number of name pairs (Language Tag + Sensor Name) for this sensor. If 0, 'names' array must be empty."
           },
           "names": {
             "type": "array",
+            "description": "List of string pairs. Length must match 'nameStringCount'.",
             "minItems": 0,
+            "maxItems": 16,
             "items": {
               "type": "object",
               "additionalProperties": false,
@@ -114,39 +118,34 @@
               "properties": {
                 "nameLanguageTag": {
                   "type": "string",
-                  "contentMediaType": "text/plain; charset=us-ascii",
-                  "description": "Null-terminated (0x00) ASCII language tag (RFC4646), e.g., 'en'. Special value: null string (0x00) = unspecified. Variable length in binary.",
-                  "minLength": 0,
-                  "binaryFormat": "variable"
+                  "description": "strASCII per DSP0240. RFC 5646 tag (e.g., 'en'). Null-terminated (0x00). Includes terminator in binary length. Empty: just terminator.",
+                  "binaryFormat": "variable",
+                  "x-binary-encoding": "us-ascii",
+                  "x-binary-terminator": "0x00",
+                  "maxLength": 32
                 },
                 "sensorName": {
                   "type": "string",
-                  "contentMediaType": "text/plain; charset=utf-16be",
-                  "description": "Null-terminated (0x0000) UTF-16 big-endian sensor name. Special value: null string (0x0000) = name not provided. Variable length in binary.",
-                  "minLength": 0,
-                  "binaryFormat": "variable"
+                  "description": "strUTF-16BE per DSP0240. Null-terminated (0x0000). No BOM required; empty string is just the terminator. Includes terminator in binary length.",
+                  "binaryFormat": "variable",
+                  "x-binary-encoding": "utf-16be",
+                  "x-binary-terminator": "0x0000",
+                  "maxLength": 128
                 }
               },
-              "required": [
-                "nameLanguageTag",
-                "sensorName"
-              ]
-            },
-            "description": "Array of name pairs, length = nameStringCount"
+              "required": ["nameLanguageTag", "sensorName"]
+            }
           }
         },
-        "required": [
-          "nameStringCount",
-          "names"
-        ]
-      },
-      "description": "Array for each sensor offset (1 for numeric/single, up to 8 for composite). Implied count from associated sensor PDR."
+        "required": ["nameStringCount", "names"]
+      }
     }
   },
   "required": [
     "pdrHeader",
     "PLDMTerminusHandle",
     "sensorID",
+    "sensorCount",
     "auxNames"
   ]
 }
