@@ -1,203 +1,237 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "OEM State Set PDR Schema (DSP0248 1.3.0, Clause 28.10)",
+  "title": "OEM State Set PDR (DSP0248 Type 8)",
+  "description": "Per DSP0248 v1.3.0 Clause 28.10 and DSP0240 v1.2.0 Section 2.5",
   "type": "object",
   "additionalProperties": false,
   "binaryOrder": [
-    "PLDMTerminusHandle",
-    "OEMStateSetIDHandle",
-    "vendorIANA",
-    "OEMStateSetID",
-    "unspecifiedValueHint",
-    "stateCount"
+    "pdrHeader",
+    "oemStateSetID",
+    "stateSetVersion",
+    "nameStringCount",
+    "stateSetNames",
+    "possibleStateCount",
+    "possibleStates"
   ],
+  "x-c-struct-packing": 1,
   "properties": {
     "pdrHeader": {
       "type": "object",
+      "description": "Common PDR Header (DSP0248)",
       "additionalProperties": false,
-      "properties": {
-        "recordHandle": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 4294967295
-            }
-          ],
-          "binaryFormat": "I",
-          "description": "uint32; opaque handle (TBD or auto-generated)"
-        },
-        "PDRHeaderVersion": {
-          "type": "integer",
-          "const": 1,
-          "binaryFormat": "B",
-          "description": "uint8; must be 1"
-        },
-        "PDRType": {
-          "type": "integer",
-          "const": 8,
-          "binaryFormat": "B",
-          "description": "uint8; OEM State Set PDR = 8"
-        },
-        "recordChangeNumber": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 65535,
-          "default": 0,
-          "binaryFormat": "H",
-          "description": "uint16; incremented on changes (default 0)"
-        },
-        "dataLength": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 65535
-            }
-          ],
-          "binaryFormat": "H",
-          "description": "uint16; calculated data length (TBD)"
-        }
-      },
-      "required": [
+      "binaryOrder": [
         "recordHandle",
         "PDRHeaderVersion",
         "PDRType",
         "recordChangeNumber",
         "dataLength"
-      ]
-    },
-    "PLDMTerminusHandle": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 65535,
-      "binaryFormat": "H",
-      "description": "uint16; The terminus that originated this PDR"
-    },
-    "OEMStateSetIDHandle": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 65535,
-      "binaryFormat": "H",
-      "description": "uint16; An OEM State Set within this PDR Repository. Value from OEMStateSet range in DSP0249"
-    },
-    "vendorIANA": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 4294967295,
-      "binaryFormat": "I",
-      "description": "uint32; IANA Enterprise Number for the vendor defining the OEM State Set"
-    },
-    "OEMStateSetID": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 65535,
-      "binaryFormat": "H",
-      "description": "uint16; Vendor-assigned numeric ID for the state set, in OEM range from DSP0249"
-    },
-    "unspecifiedValueHint": {
-      "type": "integer",
-      "enum": [
-        0,
-        1
       ],
-      "binaryFormat": "B",
-      "description": "enum8: 0=treatAsUnspecified, 1=treatAsError; Hint for handling unspecified state values"
+      "properties": {
+        "recordHandle": {
+          "oneOf": [
+            { "type": "string", "enum": ["auto"] },
+            { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+          ],
+          "binaryFormat": "I",
+          "description": "uint32; PDR Record Handle. 0 = auto-assign."
+        },
+        "PDRHeaderVersion": {
+          "type": "integer",
+          "const": 1,
+          "binaryFormat": "B",
+          "description": "uint8; PDR Header Version (1)"
+        },
+        "PDRType": {
+          "type": "integer",
+          "const": 8,
+          "binaryFormat": "B",
+          "description": "uint8; PDR Type 8 = OEM State Set"
+        },
+        "recordChangeNumber": {
+          "type": "integer",
+          "default": 0,
+          "binaryFormat": "H",
+          "description": "uint16; recordChangeNumber"
+        },
+        "dataLength": {
+          "oneOf": [
+            { "type": "string", "enum": ["auto"] },
+            { "type": "integer", "minimum": 0 }
+          ],
+          "binaryFormat": "H",
+          "description": "uint16; Length of data following this header (calculated automatically)."
+        }
+      },
+      "required": ["recordHandle", "PDRHeaderVersion", "PDRType", "recordChangeNumber", "dataLength"]
     },
-    "stateCount": {
+    "oemStateSetID": {
+      "type": "integer",
+      "minimum": 32768,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; OEM State Set ID"
+    },
+    "stateSetVersion": {
+      "type": "object",
+      "additionalProperties": false,
+      "binaryOrder": [
+        "major",
+        "minor",
+        "update",
+        "alpha"
+      ],
+      "properties": {
+        "major": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255,
+          "binaryFormat": "B",
+          "description": "uint8; Major version number"
+        },
+        "minor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255,
+          "binaryFormat": "B",
+          "description": "uint8; Minor version number"
+        },
+        "update": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255,
+          "binaryFormat": "B",
+          "description": "uint8; Update/revision number"
+        },
+        "alpha": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255,
+          "binaryFormat": "B",
+          "description": "uint8; Alpha modifier: 0=released, 1-26=a-z pre-release"
+        }
+      },
+      "required": ["major", "minor", "update", "alpha"]
+    },
+    "nameStringCount": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 255,
+      "maximum": 16,
       "binaryFormat": "B",
-      "description": "uint8; Number of OEM State Value Records following"
+      "description": "uint8; Number of name pairs for the state set. If 0, 'stateSetNames' array must be empty."
     },
-    "OEMStateValueRecords": {
+    "stateSetNames": {
       "type": "array",
+      "description": "Array of name pairs for the state set. Length must match 'nameStringCount'.",
       "minItems": 0,
+      "maxItems": 16,
       "items": {
         "type": "object",
         "additionalProperties": false,
         "binaryOrder": [
-          "minStateValue",
-          "maxStateValue",
-          "stringCount"
+          "nameLanguageTag",
+          "stateSetName"
         ],
         "properties": {
-          "minStateValue": {
+          "nameLanguageTag": {
+            "type": "string",
+            "description": "strASCII per DSP0240. RFC 5646 tag (e.g., 'en'). Null-terminated (0x00). Includes terminator in binary length. Empty: just terminator.",
+            "binaryFormat": "variable",
+            "x-binary-encoding": "us-ascii",
+            "x-binary-terminator": "0x00",
+            "maxLength": 32
+          },
+          "stateSetName": {
+            "type": "string",
+            "description": "strUTF-16BE per DSP0240. Null-terminated (0x0000). No BOM required; empty string is just the terminator. Includes terminator in binary length.",
+            "binaryFormat": "variable",
+            "x-binary-encoding": "utf-16be",
+            "x-binary-terminator": "0x0000",
+            "maxLength": 128
+          }
+        },
+        "required": ["nameLanguageTag", "stateSetName"]
+      }
+    },
+    "possibleStateCount": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 32,
+      "binaryFormat": "B",
+      "description": "uint8; Number of possible states in the state set."
+    },
+    "possibleStates": {
+      "type": "array",
+      "description": "Array of possible states. Length must match 'possibleStateCount'.",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "binaryOrder": [
+          "possibleStateValue",
+          "nameStringCount",
+          "possibleStateNames"
+        ],
+        "properties": {
+          "possibleStateValue": {
             "type": "integer",
             "minimum": 0,
             "maximum": 255,
             "binaryFormat": "B",
-            "description": "uint8; Lowest state value for this record"
+            "description": "uint8; Value for this possible state"
           },
-          "maxStateValue": {
+          "nameStringCount": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 255,
+            "maximum": 16,
             "binaryFormat": "B",
-            "description": "uint8; Highest state value for this record; ranges non-overlapping"
+            "description": "uint8; Number of name pairs for this possible state. If 0, 'possibleStateNames' array must be empty."
           },
-          "stringCount": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 255,
-            "binaryFormat": "B",
-            "description": "uint8; Number 1..N of stateLanguageTag and stateName pairs"
-          },
-          "stateNames": {
+          "possibleStateNames": {
             "type": "array",
+            "description": "Array of name pairs for this possible state. Length must match 'nameStringCount'.",
             "minItems": 0,
+            "maxItems": 16,
             "items": {
               "type": "object",
               "additionalProperties": false,
               "binaryOrder": [
-                "stateLanguageTag",
-                "stateName"
+                "nameLanguageTag",
+                "possibleStateName"
               ],
               "properties": {
-                "stateLanguageTag": {
+                "nameLanguageTag": {
                   "type": "string",
+                  "description": "strASCII per DSP0240. RFC 5646 tag (e.g., 'en'). Null-terminated (0x00). Includes terminator in binary length. Empty: just terminator.",
                   "binaryFormat": "variable",
-                  "description": "strASCII; Null-terminated language tag per RFC4646; empty=unspecified"
+                  "x-binary-encoding": "us-ascii",
+                  "x-binary-terminator": "0x00",
+                  "maxLength": 32
                 },
-                "stateName": {
+                "possibleStateName": {
                   "type": "string",
+                  "description": "strUTF-16BE per DSP0240. Null-terminated (0x0000). No BOM required; empty string is just the terminator. Includes terminator in binary length.",
                   "binaryFormat": "variable",
-                  "description": "strUTF-16BE; Null-terminated state name; empty=not provided"
+                  "x-binary-encoding": "utf-16be",
+                  "x-binary-terminator": "0x0000",
+                  "maxLength": 128
                 }
               },
-              "required": [
-                "stateLanguageTag",
-                "stateName"
-              ]
-            },
-            "description": "Array of state name pairs, length = stringCount"
+              "required": ["nameLanguageTag", "possibleStateName"]
+            }
           }
         },
-        "required": [
-          "minStateValue",
-          "maxStateValue",
-          "stringCount",
-          "stateNames"
-        ]
-      },
-      "description": "Array of OEM State Value Records, length = stateCount; sorted by minStateValue ascending"
+        "required": ["possibleStateValue", "nameStringCount", "possibleStateNames"]
+      }
     }
   },
   "required": [
     "pdrHeader",
-    "PLDMTerminusHandle",
-    "OEMStateSetIDHandle",
-    "vendorIANA",
-    "OEMStateSetID",
-    "unspecifiedValueHint",
-    "stateCount",
-    "OEMStateValueRecords"
+    "oemStateSetID",
+    "stateSetVersion",
+    "nameStringCount",
+    "stateSetNames",
+    "possibleStateCount",
+    "possibleStates"
   ]
 }
