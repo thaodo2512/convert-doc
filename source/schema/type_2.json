@@ -1,26 +1,20 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Numeric Sensor PDR Schema (DSP0248 1.3.0, Clause 28.4)",
+  "title": "Numeric Sensor PDR (DSP0248 Type 2)",
+  "description": "Per DSP0248 v1.3.0 Clause 28.4 and DSP0240 v1.2.0 Section 2.5",
   "type": "object",
   "additionalProperties": false,
   "binaryOrder": [
+    "pdrHeader",
     "PLDMTerminusHandle",
     "sensorID",
     "entityType",
     "entityInstanceNumber",
     "containerID",
     "sensorInit",
-    "sensorAuxiliaryNamesPDR",
-    "baseUnit",
-    "unitModifier",
-    "rateUnit",
-    "baseOEMUnitHandle",
-    "auxUnit",
-    "auxUnitModifier",
-    "auxrateUnit",
-    "rel",
-    "auxOEMUnitHandle",
-    "isLinear",
+    "hysteresisSupport",
+    "thresholdSupport",
+    "eventMessageEnable",
     "sensorDataSize",
     "resolution",
     "offset",
@@ -28,10 +22,12 @@
     "plusTolerance",
     "minusTolerance",
     "hysteresis",
-    "supportedThresholds",
-    "thresholdAndHysteresisVolatility",
-    "stateTransitionInterval",
-    "updateInterval",
+    "lowerThresholdNonCritical",
+    "lowerThresholdCritical",
+    "lowerThresholdFatal",
+    "upperThresholdNonCritical",
+    "upperThresholdCritical",
+    "upperThresholdFatal",
     "maxReadable",
     "minReadable",
     "rangeFieldFormat",
@@ -39,20 +35,40 @@
     "nominalValue",
     "normalMax",
     "normalMin",
-    "criticalHigh",
-    "criticalLow",
-    "fatalHigh",
-    "fatalLow"
+    "ratedMax",
+    "ratedMin",
+    "baseUnit",
+    "unitModifier",
+    "rateUnit",
+    "baseOEMUnitHandle",
+    "auxUnit",
+    "auxUnitModifier",
+    "auxRateUnit",
+    "rel",
+    "auxOEMUnitHandle",
+    "isLinear"
   ],
+  "x-c-struct-packing": 1,
   "properties": {
     "pdrHeader": {
       "type": "object",
+      "description": "Common PDR Header (DSP0248)",
       "additionalProperties": false,
+      "binaryOrder": [
+        "recordHandle",
+        "PDRHeaderVersion",
+        "PDRType",
+        "recordChangeNumber",
+        "dataLength"
+      ],
       "properties": {
         "recordHandle": {
           "oneOf": [
             {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "auto"
+              ]
             },
             {
               "type": "integer",
@@ -61,41 +77,41 @@
             }
           ],
           "binaryFormat": "I",
-          "description": "uint32; opaque handle (TBD or auto-generated)"
+          "description": "uint32; PDR Record Handle. 0 = auto-assign."
         },
         "PDRHeaderVersion": {
           "type": "integer",
           "const": 1,
           "binaryFormat": "B",
-          "description": "uint8; must be 1"
+          "description": "uint8; PDR Header Version (1)"
         },
         "PDRType": {
           "type": "integer",
           "const": 2,
           "binaryFormat": "B",
-          "description": "uint8; Numeric Sensor PDR = 2"
+          "description": "uint8; PDR Type 2 = Numeric Sensor"
         },
         "recordChangeNumber": {
           "type": "integer",
-          "minimum": 0,
-          "maximum": 65535,
           "default": 0,
           "binaryFormat": "H",
-          "description": "uint16; incremented on changes (default 0)"
+          "description": "uint16; recordChangeNumber"
         },
         "dataLength": {
           "oneOf": [
             {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "auto"
+              ]
             },
             {
               "type": "integer",
-              "minimum": 0,
-              "maximum": 65535
+              "minimum": 0
             }
           ],
           "binaryFormat": "H",
-          "description": "uint16; calculated data length (TBD)"
+          "description": "uint16; Length of data following this header (calculated automatically)."
         }
       },
       "required": [
@@ -110,998 +126,396 @@
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
-      "default": 0,
       "binaryFormat": "H",
-      "description": "uint16; terminus handle"
+      "description": "uint16; PLDM Terminus Handle"
     },
     "sensorID": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; unique sensor ID"
+      "description": "uint16; Sensor ID"
     },
     "entityType": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; entity type (see 9.1)"
+      "description": "uint16; Entity Type"
     },
     "entityInstanceNumber": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; entity instance"
+      "description": "uint16; Entity Instance Number"
     },
     "containerID": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; container ID"
+      "description": "uint16; Container ID"
     },
     "sensorInit": {
       "type": "integer",
-      "enum": [
-        0,
-        1,
-        2,
-        3
-      ],
+      "minimum": 0,
+      "maximum": 3,
       "binaryFormat": "B",
-      "description": "enum8: 0=noInit, 1=useInitPDR, 2=enableSensor, 3=disableSensor"
+      "description": "uint8; Sensor Initialization: 0=noInit, 1=useInitPDR, 2=enableSensor, 3=enableAndInitSensor"
     },
-    "sensorAuxiliaryNamesPDR": {
-      "type": "boolean",
-      "default": false,
-      "binaryFormat": "B",
-      "description": "bool8; true if auxiliary names PDR exists"
-    },
-    "baseUnit": {
+    "hysteresisSupport": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 255,
+      "maximum": 3,
       "binaryFormat": "B",
-      "description": "enum8; base unit (Table 75)"
+      "description": "uint8; Hysteresis Support: 0=none, 1=readable, 2=readableAndSettable, 3=fixedUnreadable"
     },
-    "unitModifier": {
-      "type": "integer",
-      "minimum": -128,
-      "maximum": 127,
-      "binaryFormat": "b",
-      "description": "sint8; power-of-10 multiplier"
-    },
-    "rateUnit": {
+    "thresholdSupport": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 7,
+      "maximum": 3,
       "binaryFormat": "B",
-      "description": "enum8; rate qualifier (0-6 defined, 7 reserved)"
+      "description": "uint8; Threshold Support: 0=none, 1=readable, 2=readableAndSettable, 3=fixedUnreadable"
     },
-    "baseOEMUnitHandle": {
+    "eventMessageEnable": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 255,
+      "maximum": 3,
       "binaryFormat": "B",
-      "description": "uint8; OEM unit handle if baseUnit=OEM"
-    },
-    "auxUnit": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 255,
-      "binaryFormat": "B",
-      "description": "enum8; auxiliary unit"
-    },
-    "auxUnitModifier": {
-      "type": "integer",
-      "minimum": -128,
-      "maximum": 127,
-      "binaryFormat": "b",
-      "description": "sint8; aux multiplier"
-    },
-    "auxrateUnit": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 7,
-      "binaryFormat": "B",
-      "description": "enum8; aux rate qualifier (0-6 defined, 7 reserved)"
-    },
-    "rel": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 1,
-      "binaryFormat": "B",
-      "description": "enum8; base/aux relationship: 0=dividedBy, 1=multipliedBy"
-    },
-    "auxOEMUnitHandle": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 255,
-      "binaryFormat": "B",
-      "description": "uint8; OEM aux unit handle"
-    },
-    "isLinear": {
-      "type": "boolean",
-      "binaryFormat": "B",
-      "description": "bool8; true if linear range"
+      "description": "uint8; Event Message Enable: 0=noEventGeneration, 1=eventsOnly, 2=sensorOpStateOnly, 3=eventsAndSensorOpState"
     },
     "sensorDataSize": {
       "type": "integer",
-      "enum": [
-        0,
-        1,
-        2,
-        3,
-        4,
-        5,
-        6,
-        7
-      ],
+      "minimum": 1,
+      "maximum": 7,
       "binaryFormat": "B",
-      "description": "enum8: 0=uint8,1=sint8,...7=sint64"
+      "description": "uint8; Sensor Data Size: 1=uint8, 2=sint8, 3=uint16, 4=sint16, 5=uint32, 6=sint32, 7=real32"
     },
     "resolution": {
       "type": "number",
       "binaryFormat": "f",
-      "description": "real32; resolution"
+      "description": "real32; Resolution"
     },
     "offset": {
       "type": "number",
       "binaryFormat": "f",
-      "description": "real32; offset"
+      "description": "real32; Offset"
     },
     "accuracy": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 65535,
+      "maximum": 999999,
       "binaryFormat": "H",
-      "description": "uint16; accuracy in 1/100th %"
+      "description": "uint16; Accuracy (x 1e-6)"
     },
     "plusTolerance": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "uint8; +tolerance (raw)"
+      "description": "uint8; Plus Tolerance (x 0.001 * accuracy)"
     },
     "minusTolerance": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "uint8; -tolerance (raw)"
+      "description": "uint8; Minus Tolerance (x 0.001 * accuracy)"
     },
     "hysteresis": {
-      "anyOf": [
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 255
-        },
-        {
-          "type": "integer",
-          "minimum": -128,
-          "maximum": 127
-        },
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 65535
-        },
-        {
-          "type": "integer",
-          "minimum": -32768,
-          "maximum": 32767
-        },
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 4294967295
-        },
-        {
-          "type": "integer",
-          "minimum": -2147483648,
-          "maximum": 2147483647
-        },
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 18446744073709552000
-        },
-        {
-          "type": "integer",
-          "minimum": -9223372036854776000,
-          "maximum": 9223372036854776000
-        }
-      ],
+      "type": "number",
       "binaryFormat": "variable",
-      "typeResolver": {
-        "dependsOn": "sensorDataSize",
-        "mapping": {
-          "0": "uint8",
-          "1": "sint8",
-          "2": "uint16",
-          "3": "sint16",
-          "4": "uint32",
-          "5": "sint32",
-          "6": "uint64",
-          "7": "sint64"
-        }
+      "x-binary-type-field": "sensorDataSize",
+      "x-binary-type-mapping": {
+        "1": "B",
+        "2": "b",
+        "3": "H",
+        "4": "h",
+        "5": "I",
+        "6": "i",
+        "7": "f"
       },
-      "formatResolver": {
-        "dependsOn": "sensorDataSize",
-        "mapping": {
-          "0": "B",
-          "1": "b",
-          "2": "H",
-          "3": "h",
-          "4": "I",
-          "5": "i",
-          "6": "Q",
-          "7": "q"
-        }
+      "description": "Hysteresis value, format per sensorDataSize"
+    },
+    "lowerThresholdNonCritical": {
+      "type": "number",
+      "binaryFormat": "variable",
+      "x-binary-type-field": "sensorDataSize",
+      "x-binary-type-mapping": {
+        "1": "B",
+        "2": "b",
+        "3": "H",
+        "4": "h",
+        "5": "I",
+        "6": "i",
+        "7": "f"
       },
-      "description": "Variable; hysteresis (raw). 0=no hysteresis"
+      "description": "Lower Non-Critical Threshold, format per sensorDataSize"
     },
-    "supportedThresholds": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 255,
-      "binaryFormat": "B",
-      "description": "bitfield8; supported thresholds"
-    },
-    "thresholdAndHysteresisVolatility": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 255,
-      "binaryFormat": "B",
-      "description": "bitfield8; volatility conditions"
-    },
-    "stateTransitionInterval": {
+    "lowerThresholdCritical": {
       "type": "number",
-      "binaryFormat": "f",
-      "description": "real32; state transition time (s)"
+      "binaryFormat": "variable",
+      "x-binary-type-field": "sensorDataSize",
+      "x-binary-type-mapping": {
+        "1": "B",
+        "2": "b",
+        "3": "H",
+        "4": "h",
+        "5": "I",
+        "6": "i",
+        "7": "f"
+      },
+      "description": "Lower Critical Threshold, format per sensorDataSize"
     },
-    "updateInterval": {
+    "lowerThresholdFatal": {
       "type": "number",
-      "binaryFormat": "f",
-      "description": "real32; update interval (s)"
+      "binaryFormat": "variable",
+      "x-binary-type-field": "sensorDataSize",
+      "x-binary-type-mapping": {
+        "1": "B",
+        "2": "b",
+        "3": "H",
+        "4": "h",
+        "5": "I",
+        "6": "i",
+        "7": "f"
+      },
+      "description": "Lower Fatal Threshold, format per sensorDataSize"
+    },
+    "upperThresholdNonCritical": {
+      "type": "number",
+      "binaryFormat": "variable",
+      "x-binary-type-field": "sensorDataSize",
+      "x-binary-type-mapping": {
+        "1": "B",
+        "2": "b",
+        "3": "H",
+        "4": "h",
+        "5": "I",
+        "6": "i",
+        "7": "f"
+      },
+      "description": "Upper Non-Critical Threshold, format per sensorDataSize"
+    },
+    "upperThresholdCritical": {
+      "type": "number",
+      "binaryFormat": "variable",
+      "x-binary-type-field": "sensorDataSize",
+      "x-binary-type-mapping": {
+        "1": "B",
+        "2": "b",
+        "3": "H",
+        "4": "h",
+        "5": "I",
+        "6": "i",
+        "7": "f"
+      },
+      "description": "Upper Critical Threshold, format per sensorDataSize"
+    },
+    "upperThresholdFatal": {
+      "type": "number",
+      "binaryFormat": "variable",
+      "x-binary-type-field": "sensorDataSize",
+      "x-binary-type-mapping": {
+        "1": "B",
+        "2": "b",
+        "3": "H",
+        "4": "h",
+        "5": "I",
+        "6": "i",
+        "7": "f"
+      },
+      "description": "Upper Fatal Threshold, format per sensorDataSize"
     },
     "maxReadable": {
-      "anyOf": [
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 255
-        },
-        {
-          "type": "integer",
-          "minimum": -128,
-          "maximum": 127
-        },
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 65535
-        },
-        {
-          "type": "integer",
-          "minimum": -32768,
-          "maximum": 32767
-        },
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 4294967295
-        },
-        {
-          "type": "integer",
-          "minimum": -2147483648,
-          "maximum": 2147483647
-        },
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 18446744073709552000
-        },
-        {
-          "type": "integer",
-          "minimum": -9223372036854776000,
-          "maximum": 9223372036854776000
-        }
-      ],
+      "type": "number",
       "binaryFormat": "variable",
-      "typeResolver": {
-        "dependsOn": "sensorDataSize",
-        "mapping": {
-          "0": "uint8",
-          "1": "sint8",
-          "2": "uint16",
-          "3": "sint16",
-          "4": "uint32",
-          "5": "sint32",
-          "6": "uint64",
-          "7": "sint64"
-        }
+      "x-binary-type-field": "sensorDataSize",
+      "x-binary-type-mapping": {
+        "1": "B",
+        "2": "b",
+        "3": "H",
+        "4": "h",
+        "5": "I",
+        "6": "i",
+        "7": "f"
       },
-      "formatResolver": {
-        "dependsOn": "sensorDataSize",
-        "mapping": {
-          "0": "B",
-          "1": "b",
-          "2": "H",
-          "3": "h",
-          "4": "I",
-          "5": "i",
-          "6": "Q",
-          "7": "q"
-        }
-      },
-      "description": "Variable; max readable (raw)"
+      "description": "Max Readable, format per sensorDataSize"
     },
     "minReadable": {
-      "anyOf": [
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 255
-        },
-        {
-          "type": "integer",
-          "minimum": -128,
-          "maximum": 127
-        },
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 65535
-        },
-        {
-          "type": "integer",
-          "minimum": -32768,
-          "maximum": 32767
-        },
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 4294967295
-        },
-        {
-          "type": "integer",
-          "minimum": -2147483648,
-          "maximum": 2147483647
-        },
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 18446744073709552000
-        },
-        {
-          "type": "integer",
-          "minimum": -9223372036854776000,
-          "maximum": 9223372036854776000
-        }
-      ],
+      "type": "number",
       "binaryFormat": "variable",
-      "typeResolver": {
-        "dependsOn": "sensorDataSize",
-        "mapping": {
-          "0": "uint8",
-          "1": "sint8",
-          "2": "uint16",
-          "3": "sint16",
-          "4": "uint32",
-          "5": "sint32",
-          "6": "uint64",
-          "7": "sint64"
-        }
+      "x-binary-type-field": "sensorDataSize",
+      "x-binary-type-mapping": {
+        "1": "B",
+        "2": "b",
+        "3": "H",
+        "4": "h",
+        "5": "I",
+        "6": "i",
+        "7": "f"
       },
-      "formatResolver": {
-        "dependsOn": "sensorDataSize",
-        "mapping": {
-          "0": "B",
-          "1": "b",
-          "2": "H",
-          "3": "h",
-          "4": "I",
-          "5": "i",
-          "6": "Q",
-          "7": "q"
-        }
-      },
-      "description": "Variable; min readable (raw)"
+      "description": "Min Readable, format per sensorDataSize"
     },
     "rangeFieldFormat": {
       "type": "integer",
-      "enum": [
-        0,
-        1,
-        2,
-        3,
-        4,
-        5,
-        6,
-        7,
-        8
-      ],
+      "minimum": 1,
+      "maximum": 7,
       "binaryFormat": "B",
-      "description": "enum8: 0=uint8,...6=real32,7=uint64,8=sint64"
+      "description": "uint8; Range Field Format, same codes as sensorDataSize"
     },
     "rangeFieldSupport": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "bitfield8; supported range fields (calculated from presence)"
+      "description": "bitfield8; Support for range fields (bits 0-4: nominal, normalMax, normalMin, ratedMax, ratedMin)"
     },
     "nominalValue": {
-      "anyOf": [
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 255
-        },
-        {
-          "type": "integer",
-          "minimum": -128,
-          "maximum": 127
-        },
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 65535
-        },
-        {
-          "type": "integer",
-          "minimum": -32768,
-          "maximum": 32767
-        },
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 4294967295
-        },
-        {
-          "type": "integer",
-          "minimum": -2147483648,
-          "maximum": 2147483647
-        },
-        {
-          "type": "number"
-        },
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 18446744073709552000
-        },
-        {
-          "type": "integer",
-          "minimum": -9223372036854776000,
-          "maximum": 9223372036854776000
-        }
-      ],
+      "type": "number",
       "binaryFormat": "variable",
-      "typeResolver": {
-        "dependsOn": "rangeFieldFormat",
-        "mapping": {
-          "0": "uint8",
-          "1": "sint8",
-          "2": "uint16",
-          "3": "sint16",
-          "4": "uint32",
-          "5": "sint32",
-          "6": "real32",
-          "7": "uint64",
-          "8": "sint64"
-        }
+      "x-binary-type-field": "rangeFieldFormat",
+      "x-binary-type-mapping": {
+        "1": "B",
+        "2": "b",
+        "3": "H",
+        "4": "h",
+        "5": "I",
+        "6": "i",
+        "7": "f"
       },
-      "formatResolver": {
-        "dependsOn": "rangeFieldFormat",
-        "mapping": {
-          "0": "B",
-          "1": "b",
-          "2": "H",
-          "3": "h",
-          "4": "I",
-          "5": "i",
-          "6": "f",
-          "7": "Q",
-          "8": "q"
-        }
-      },
-      "conditional": {
-        "group": "range",
-        "bit": 0
-      },
-      "description": "Variable; nominal value"
+      "description": "Nominal Value, format per rangeFieldFormat"
     },
     "normalMax": {
-      "anyOf": [
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 255
-        },
-        {
-          "type": "integer",
-          "minimum": -128,
-          "maximum": 127
-        },
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 65535
-        },
-        {
-          "type": "integer",
-          "minimum": -32768,
-          "maximum": 32767
-        },
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 4294967295
-        },
-        {
-          "type": "integer",
-          "minimum": -2147483648,
-          "maximum": 2147483647
-        },
-        {
-          "type": "number"
-        },
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 18446744073709552000
-        },
-        {
-          "type": "integer",
-          "minimum": -9223372036854776000,
-          "maximum": 9223372036854776000
-        }
-      ],
+      "type": "number",
       "binaryFormat": "variable",
-      "typeResolver": {
-        "dependsOn": "rangeFieldFormat",
-        "mapping": {
-          "0": "uint8",
-          "1": "sint8",
-          "2": "uint16",
-          "3": "sint16",
-          "4": "uint32",
-          "5": "sint32",
-          "6": "real32",
-          "7": "uint64",
-          "8": "sint64"
-        }
+      "x-binary-type-field": "rangeFieldFormat",
+      "x-binary-type-mapping": {
+        "1": "B",
+        "2": "b",
+        "3": "H",
+        "4": "h",
+        "5": "I",
+        "6": "i",
+        "7": "f"
       },
-      "formatResolver": {
-        "dependsOn": "rangeFieldFormat",
-        "mapping": {
-          "0": "B",
-          "1": "b",
-          "2": "H",
-          "3": "h",
-          "4": "I",
-          "5": "i",
-          "6": "f",
-          "7": "Q",
-          "8": "q"
-        }
-      },
-      "conditional": {
-        "group": "range",
-        "bit": 1
-      },
-      "description": "Variable; normal max"
+      "description": "Normal Max, format per rangeFieldFormat"
     },
     "normalMin": {
-      "anyOf": [
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 255
-        },
-        {
-          "type": "integer",
-          "minimum": -128,
-          "maximum": 127
-        },
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 65535
-        },
-        {
-          "type": "integer",
-          "minimum": -32768,
-          "maximum": 32767
-        },
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 4294967295
-        },
-        {
-          "type": "integer",
-          "minimum": -2147483648,
-          "maximum": 2147483647
-        },
-        {
-          "type": "number"
-        },
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 18446744073709552000
-        },
-        {
-          "type": "integer",
-          "minimum": -9223372036854776000,
-          "maximum": 9223372036854776000
-        }
-      ],
+      "type": "number",
       "binaryFormat": "variable",
-      "typeResolver": {
-        "dependsOn": "rangeFieldFormat",
-        "mapping": {
-          "0": "uint8",
-          "1": "sint8",
-          "2": "uint16",
-          "3": "sint16",
-          "4": "uint32",
-          "5": "sint32",
-          "6": "real32",
-          "7": "uint64",
-          "8": "sint64"
-        }
+      "x-binary-type-field": "rangeFieldFormat",
+      "x-binary-type-mapping": {
+        "1": "B",
+        "2": "b",
+        "3": "H",
+        "4": "h",
+        "5": "I",
+        "6": "i",
+        "7": "f"
       },
-      "formatResolver": {
-        "dependsOn": "rangeFieldFormat",
-        "mapping": {
-          "0": "B",
-          "1": "b",
-          "2": "H",
-          "3": "h",
-          "4": "I",
-          "5": "i",
-          "6": "f",
-          "7": "Q",
-          "8": "q"
-        }
-      },
-      "conditional": {
-        "group": "range",
-        "bit": 2
-      },
-      "description": "Variable; normal min"
+      "description": "Normal Min, format per rangeFieldFormat"
     },
-    "criticalHigh": {
-      "anyOf": [
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 255
-        },
-        {
-          "type": "integer",
-          "minimum": -128,
-          "maximum": 127
-        },
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 65535
-        },
-        {
-          "type": "integer",
-          "minimum": -32768,
-          "maximum": 32767
-        },
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 4294967295
-        },
-        {
-          "type": "integer",
-          "minimum": -2147483648,
-          "maximum": 2147483647
-        },
-        {
-          "type": "number"
-        },
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 18446744073709552000
-        },
-        {
-          "type": "integer",
-          "minimum": -9223372036854776000,
-          "maximum": 9223372036854776000
-        }
-      ],
+    "ratedMax": {
+      "type": "number",
       "binaryFormat": "variable",
-      "typeResolver": {
-        "dependsOn": "rangeFieldFormat",
-        "mapping": {
-          "0": "uint8",
-          "1": "sint8",
-          "2": "uint16",
-          "3": "sint16",
-          "4": "uint32",
-          "5": "sint32",
-          "6": "real32",
-          "7": "uint64",
-          "8": "sint64"
-        }
+      "x-binary-type-field": "rangeFieldFormat",
+      "x-binary-type-mapping": {
+        "1": "B",
+        "2": "b",
+        "3": "H",
+        "4": "h",
+        "5": "I",
+        "6": "i",
+        "7": "f"
       },
-      "formatResolver": {
-        "dependsOn": "rangeFieldFormat",
-        "mapping": {
-          "0": "B",
-          "1": "b",
-          "2": "H",
-          "3": "h",
-          "4": "I",
-          "5": "i",
-          "6": "f",
-          "7": "Q",
-          "8": "q"
-        }
-      },
-      "conditional": {
-        "group": "range",
-        "bit": 3
-      },
-      "description": "Variable; critical high"
+      "description": "Rated Max, format per rangeFieldFormat"
     },
-    "criticalLow": {
-      "anyOf": [
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 255
-        },
-        {
-          "type": "integer",
-          "minimum": -128,
-          "maximum": 127
-        },
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 65535
-        },
-        {
-          "type": "integer",
-          "minimum": -32768,
-          "maximum": 32767
-        },
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 4294967295
-        },
-        {
-          "type": "integer",
-          "minimum": -2147483648,
-          "maximum": 2147483647
-        },
-        {
-          "type": "number"
-        },
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 18446744073709552000
-        },
-        {
-          "type": "integer",
-          "minimum": -9223372036854776000,
-          "maximum": 9223372036854776000
-        }
-      ],
+    "ratedMin": {
+      "type": "number",
       "binaryFormat": "variable",
-      "typeResolver": {
-        "dependsOn": "rangeFieldFormat",
-        "mapping": {
-          "0": "uint8",
-          "1": "sint8",
-          "2": "uint16",
-          "3": "sint16",
-          "4": "uint32",
-          "5": "sint32",
-          "6": "real32",
-          "7": "uint64",
-          "8": "sint64"
-        }
+      "x-binary-type-field": "rangeFieldFormat",
+      "x-binary-type-mapping": {
+        "1": "B",
+        "2": "b",
+        "3": "H",
+        "4": "h",
+        "5": "I",
+        "6": "i",
+        "7": "f"
       },
-      "formatResolver": {
-        "dependsOn": "rangeFieldFormat",
-        "mapping": {
-          "0": "B",
-          "1": "b",
-          "2": "H",
-          "3": "h",
-          "4": "I",
-          "5": "i",
-          "6": "f",
-          "7": "Q",
-          "8": "q"
-        }
-      },
-      "conditional": {
-        "group": "range",
-        "bit": 4
-      },
-      "description": "Variable; critical low"
+      "description": "Rated Min, format per rangeFieldFormat"
     },
-    "fatalHigh": {
-      "anyOf": [
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 255
-        },
-        {
-          "type": "integer",
-          "minimum": -128,
-          "maximum": 127
-        },
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 65535
-        },
-        {
-          "type": "integer",
-          "minimum": -32768,
-          "maximum": 32767
-        },
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 4294967295
-        },
-        {
-          "type": "integer",
-          "minimum": -2147483648,
-          "maximum": 2147483647
-        },
-        {
-          "type": "number"
-        },
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 18446744073709552000
-        },
-        {
-          "type": "integer",
-          "minimum": -9223372036854776000,
-          "maximum": 9223372036854776000
-        }
-      ],
-      "binaryFormat": "variable",
-      "typeResolver": {
-        "dependsOn": "rangeFieldFormat",
-        "mapping": {
-          "0": "uint8",
-          "1": "sint8",
-          "2": "uint16",
-          "3": "sint16",
-          "4": "uint32",
-          "5": "sint32",
-          "6": "real32",
-          "7": "uint64",
-          "8": "sint64"
-        }
-      },
-      "formatResolver": {
-        "dependsOn": "rangeFieldFormat",
-        "mapping": {
-          "0": "B",
-          "1": "b",
-          "2": "H",
-          "3": "h",
-          "4": "I",
-          "5": "i",
-          "6": "f",
-          "7": "Q",
-          "8": "q"
-        }
-      },
-      "conditional": {
-        "group": "range",
-        "bit": 5
-      },
-      "description": "Variable; fatal high"
+    "baseUnit": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "uint8; Base Unit"
     },
-    "fatalLow": {
-      "anyOf": [
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 255
-        },
-        {
-          "type": "integer",
-          "minimum": -128,
-          "maximum": 127
-        },
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 65535
-        },
-        {
-          "type": "integer",
-          "minimum": -32768,
-          "maximum": 32767
-        },
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 4294967295
-        },
-        {
-          "type": "integer",
-          "minimum": -2147483648,
-          "maximum": 2147483647
-        },
-        {
-          "type": "number"
-        },
-        {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 18446744073709552000
-        },
-        {
-          "type": "integer",
-          "minimum": -9223372036854776000,
-          "maximum": 9223372036854776000
-        }
-      ],
-      "binaryFormat": "variable",
-      "typeResolver": {
-        "dependsOn": "rangeFieldFormat",
-        "mapping": {
-          "0": "uint8",
-          "1": "sint8",
-          "2": "uint16",
-          "3": "sint16",
-          "4": "uint32",
-          "5": "sint32",
-          "6": "real32",
-          "7": "uint64",
-          "8": "sint64"
-        }
-      },
-      "formatResolver": {
-        "dependsOn": "rangeFieldFormat",
-        "mapping": {
-          "0": "B",
-          "1": "b",
-          "2": "H",
-          "3": "h",
-          "4": "I",
-          "5": "i",
-          "6": "f",
-          "7": "Q",
-          "8": "q"
-        }
-      },
-      "conditional": {
-        "group": "range",
-        "bit": 6
-      },
-      "description": "Variable; fatal low"
+    "unitModifier": {
+      "type": "integer",
+      "minimum": -128,
+      "maximum": 127,
+      "binaryFormat": "b",
+      "description": "sint8; Unit Modifier"
+    },
+    "rateUnit": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "uint8; Rate Unit"
+    },
+    "baseOEMUnitHandle": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295,
+      "binaryFormat": "I",
+      "description": "uint32; Base OEM Unit Handle"
+    },
+    "auxUnit": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "uint8; Aux Unit"
+    },
+    "auxUnitModifier": {
+      "type": "integer",
+      "minimum": -128,
+      "maximum": 127,
+      "binaryFormat": "b",
+      "description": "sint8; Aux Unit Modifier"
+    },
+    "auxRateUnit": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "uint8; Aux Rate Unit"
+    },
+    "rel": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1,
+      "binaryFormat": "B",
+      "description": "uint8; Relative: 0=aux independent, 1=aux relative to base"
+    },
+    "auxOEMUnitHandle": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295,
+      "binaryFormat": "I",
+      "description": "uint32; Aux OEM Unit Handle"
+    },
+    "isLinear": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 0,
+      "binaryFormat": "B",
+      "description": "uint8; Is Linear: 0=linear, others reserved"
     }
   },
   "required": [
@@ -1112,17 +526,9 @@
     "entityInstanceNumber",
     "containerID",
     "sensorInit",
-    "sensorAuxiliaryNamesPDR",
-    "baseUnit",
-    "unitModifier",
-    "rateUnit",
-    "baseOEMUnitHandle",
-    "auxUnit",
-    "auxUnitModifier",
-    "auxrateUnit",
-    "rel",
-    "auxOEMUnitHandle",
-    "isLinear",
+    "hysteresisSupport",
+    "thresholdSupport",
+    "eventMessageEnable",
     "sensorDataSize",
     "resolution",
     "offset",
@@ -1130,13 +536,30 @@
     "plusTolerance",
     "minusTolerance",
     "hysteresis",
-    "supportedThresholds",
-    "thresholdAndHysteresisVolatility",
-    "stateTransitionInterval",
-    "updateInterval",
+    "lowerThresholdNonCritical",
+    "lowerThresholdCritical",
+    "lowerThresholdFatal",
+    "upperThresholdNonCritical",
+    "upperThresholdCritical",
+    "upperThresholdFatal",
     "maxReadable",
     "minReadable",
     "rangeFieldFormat",
-    "rangeFieldSupport"
+    "rangeFieldSupport",
+    "nominalValue",
+    "normalMax",
+    "normalMin",
+    "ratedMax",
+    "ratedMin",
+    "baseUnit",
+    "unitModifier",
+    "rateUnit",
+    "baseOEMUnitHandle",
+    "auxUnit",
+    "auxUnitModifier",
+    "auxRateUnit",
+    "rel",
+    "auxOEMUnitHandle",
+    "isLinear"
   ]
 }
