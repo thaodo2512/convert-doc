@@ -87,31 +87,57 @@ def assign_handle(next_handle, reserved_handles, yaml_file, handle):
         return handle
 
 def pack_field(field_schema, value, field_name):
+    field_type = field_schema.get('type')
     bf = field_schema.get('binaryFormat', '')
-    if bf == 'variable':
-        # Handle variable-length (e.g., strings, arrays)
-        if field_schema.get('type') == 'string':
-            encoding = field_schema.get('pldmEncoding', 'utf-8')  # Default UTF-8, or UTF-16BE
-            if encoding == 'utf-16be':
-                encoded = value.encode('utf-16-be')
+    
+    if bf and bf != 'variable':
+        try:
+            if field_type == 'array':
+                return struct.pack(bf, *value)
             else:
-                encoded = value.encode(encoding)
-            return encoded + b'\x00' if 'null-terminated' in field_schema.get('description', '').lower() else encoded
-        elif field_schema.get('type') == 'array':
+                return struct.pack(bf, value)
+        except struct.error as e:
+            raise ValueError(f"Packing error for {field_name}: {e}")
+    
+    if field_type == 'object':
+        packed = b''
+        sub_order = field_schema.get('binaryOrder', list(value.keys()))
+        sub_props = field_schema.get('properties', {})
+        for sub_field in sub_order:
+            sub_value = value.get(sub_field)
+            sub_schema = sub_props.get(sub_field, {})
+            packed += pack_field(sub_schema, sub_value, f"{field_name}.{sub_field}")
+        return packed
+    
+    elif field_type == 'array':
+        packed = b''
+        item_schema = field_schema.get('items', {})
+        for item in value:
+            packed += pack_field(item_schema, item, field_name)
+        return packed
+    
+    elif field_type == 'string':
+        encoding = field_schema.get('pldmEncoding', 'utf-8')
+        if encoding == 'utf-16be':
+            encoded = value.encode('utf-16-be')
+        else:
+            encoded = value.encode(encoding)
+        return encoded + b'\x00' if 'null-terminated' in field_schema.get('description', '').lower() else encoded
+    
+    elif bf == 'variable':
+        if field_type == 'array':
             packed = b''
-            item_schema = field_schema.get('items', {})
+            item_schema = field_schema.get('items', {'binaryFormat': 'B'})
             for item in value:
                 packed += pack_field(item_schema, item, field_name)
             return packed
+        elif field_type == 'string':
+            return pack_field(field_schema, value, field_name)  # Use string handling above
         else:
-            raise ValueError(f"Unsupported variable field: {field_name}")
-    elif bf:
-        try:
-            return struct.pack(bf, value)
-        except struct.error as e:
-            raise ValueError(f"Packing error for {field_name}: {e}")
+            raise ValueError(f"Unsupported variable field type {field_type} for {field_name}")
+    
     else:
-        raise ValueError(f"No binaryFormat for {field_name}")
+        raise ValueError(f"No binaryFormat or unsupported type {field_type} for {field_name}")
 
 def process_single_yaml(yaml_file, schema_dir, reserved_handles, next_handle_ref):
     filename = os.path.basename(yaml_file)
@@ -143,8 +169,6 @@ def process_single_yaml(yaml_file, schema_dir, reserved_handles, next_handle_ref
     
     pdr_header = cleaned_data.get('pdrHeader', {})
     handle = pdr_header.get('recordHandle')
-    if isinstance(handle, dict):
-        handle = handle.get('value')
     handle = coerce_int(handle, 'recordHandle', filename)
     assigned_handle = assign_handle(next_handle_ref[0], reserved_handles, filename, handle)
     if assigned_handle != handle:
@@ -156,7 +180,7 @@ def process_single_yaml(yaml_file, schema_dir, reserved_handles, next_handle_ref
     
     # Pack body in binaryOrder
     body_buffer = b''
-    order = schema.get('binaryOrder', list(cleaned_data.keys()))  # Use schema order or YAML keys
+    order = schema.get('binaryOrder', list(cleaned_data.keys()))
     root_schema = schema
     condition_data = cleaned_data
     for field in order:
@@ -165,8 +189,8 @@ def process_single_yaml(yaml_file, schema_dir, reserved_handles, next_handle_ref
         value = cleaned_data.get(field)
         field_schema = schema_props.get(field, {})
         field_schema = resolve_subschema(condition_data, root_schema, field_schema, field)
-        if not is_hidden(raw_data.get(field)):  # Include even if hidden? For binary: yes, but flag if needed
-            body_buffer += pack_field(field_schema, value, field)
+        # Include even if hidden, since for binary
+        body_buffer += pack_field(field_schema, value, field)
     
     # Update data_len in header
     data_len = len(body_buffer)
