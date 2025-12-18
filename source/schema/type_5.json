@@ -1,17 +1,16 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "State Sensor Initialization PDR Schema (DSP0248 1.3.0, Clause 28.7)",
+  "title": "State Sensor Initialization PDR (DSP0248 Type 5)",
+  "description": "Per DSP0248 v1.3.0 Clause 28.7 and DSP0240 v1.2.0 Section 2.5",
   "type": "object",
   "additionalProperties": false,
   "binaryOrder": [
+    "pdrHeader",
     "PLDMTerminusHandle",
     "sensorID",
     "initConditions",
     "sensorEnable",
     "sensorInitMask",
-    "sensorOpStateEventEnableMask",
-    "sensorStateEventEnableMask",
-    "sensorEventRearm",
     "stateValue0",
     "stateValue1",
     "stateValue2",
@@ -19,181 +18,156 @@
     "stateValue4",
     "stateValue5",
     "stateValue6",
-    "stateValue7"
+    "stateValue7",
+    "eventConditions"
   ],
+  "x-c-struct-packing": 1,
   "properties": {
     "pdrHeader": {
       "type": "object",
+      "description": "Common PDR Header (DSP0248)",
       "additionalProperties": false,
-      "properties": {
-        "recordHandle": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 4294967295
-            }
-          ],
-          "binaryFormat": "I",
-          "description": "uint32; opaque handle (TBD or auto-generated)"
-        },
-        "PDRHeaderVersion": {
-          "type": "integer",
-          "const": 1,
-          "binaryFormat": "B",
-          "description": "uint8; must be 1"
-        },
-        "PDRType": {
-          "type": "integer",
-          "const": 5,
-          "binaryFormat": "B",
-          "description": "uint8; State Sensor Initialization PDR = 5"
-        },
-        "recordChangeNumber": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 65535,
-          "default": 0,
-          "binaryFormat": "H",
-          "description": "uint16; incremented on changes (default 0)"
-        },
-        "dataLength": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 65535
-            }
-          ],
-          "binaryFormat": "H",
-          "description": "uint16; calculated data length (TBD)"
-        }
-      },
-      "required": [
+      "binaryOrder": [
         "recordHandle",
         "PDRHeaderVersion",
         "PDRType",
         "recordChangeNumber",
         "dataLength"
-      ]
+      ],
+      "properties": {
+        "recordHandle": {
+          "oneOf": [
+            { "type": "string", "enum": ["auto"] },
+            { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+          ],
+          "binaryFormat": "I",
+          "description": "uint32; PDR Record Handle. 0 = auto-assign."
+        },
+        "PDRHeaderVersion": {
+          "type": "integer",
+          "const": 1,
+          "binaryFormat": "B",
+          "description": "uint8; PDR Header Version (1)"
+        },
+        "PDRType": {
+          "type": "integer",
+          "const": 5,
+          "binaryFormat": "B",
+          "description": "uint8; PDR Type 5 = State Sensor Initialization"
+        },
+        "recordChangeNumber": {
+          "type": "integer",
+          "default": 0,
+          "binaryFormat": "H",
+          "description": "uint16; recordChangeNumber"
+        },
+        "dataLength": {
+          "oneOf": [
+            { "type": "string", "enum": ["auto"] },
+            { "type": "integer", "minimum": 0 }
+          ],
+          "binaryFormat": "H",
+          "description": "uint16; Length of data following this header (calculated automatically)."
+        }
+      },
+      "required": ["recordHandle", "PDRHeaderVersion", "PDRType", "recordChangeNumber", "dataLength"]
     },
     "PLDMTerminusHandle": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; Handle identifying PDRs for a specific PLDM terminus"
+      "description": "uint16; A handle that identifies PDRs that belong to a particular PLDM terminus"
     },
     "sensorID": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; Unique ID of the sensor within the terminus"
+      "description": "uint16; ID of the sensor relative to the given PLDM terminus"
     },
     "initConditions": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "bitfield8: Conditions for initialization/reinitialization. [7:5]=reserved, [4]=PLDM terminus online, [3]=system warm reset, [2]=system hard reset, [1]=PLDM subsystem power up, [0]=Initialization Agent restart/update"
+      "description": "bitfield8; Conditions for initialization: [7:5] reserved, [4] terminus online, [3] warm reset, [2] hard reset, [1] subsystem power up, [0] agent restart/update"
     },
     "sensorEnable": {
       "type": "integer",
-      "minimum": 0,
-      "maximum": 255,
+      "enum": [0, 1, 255],
       "binaryFormat": "B",
-      "description": "enum8: Operational state after init (e.g., 0=enabled, 1=disabled); 0xFF=do not change"
+      "description": "enum8; Initial operational state: 0 disabled, 1 enabled, 255 do not set"
     },
     "sensorInitMask": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "bitfield8: Which sensors require initialization. [7:0] for offsets 7 to 0: 1b=requires init, 0b=does not"
-    },
-    "sensorOpStateEventEnableMask": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 255,
-      "binaryFormat": "B",
-      "description": "bitfield8: Enable operational state event messages. [7:0] for offsets 7 to 0: 1b=enable, 0b=disable"
-    },
-    "sensorStateEventEnableMask": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 255,
-      "binaryFormat": "B",
-      "description": "bitfield8: Enable state event messages. [7:0] for offsets 7 to 0: 1b=enable, 0b=disable"
-    },
-    "sensorEventRearm": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 255,
-      "binaryFormat": "B",
-      "description": "bitfield8: Rearm behavior. [7:0] for offsets 7 to 0: 1b=trigger event if mismatch, 0b=accept init value"
+      "description": "bitfield8; Mask indicating which of the 8 sensors require initialization (bit 0 for offset 0, etc.)"
     },
     "stateValue0": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "uint8; Initialization value for sensor at offset 0 (0x00 if dummy)"
+      "description": "uint8; Initial state for sensor at offset 0: 0-254 value, 255 do not set"
     },
     "stateValue1": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "uint8; Initialization value for sensor at offset 1 (0x00 if dummy)"
+      "description": "uint8; Initial state for sensor at offset 1: 0-254 value, 255 do not set"
     },
     "stateValue2": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "uint8; Initialization value for sensor at offset 2 (0x00 if dummy)"
+      "description": "uint8; Initial state for sensor at offset 2: 0-254 value, 255 do not set"
     },
     "stateValue3": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "uint8; Initialization value for sensor at offset 3 (0x00 if dummy)"
+      "description": "uint8; Initial state for sensor at offset 3: 0-254 value, 255 do not set"
     },
     "stateValue4": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "uint8; Initialization value for sensor at offset 4 (0x00 if dummy)"
+      "description": "uint8; Initial state for sensor at offset 4: 0-254 value, 255 do not set"
     },
     "stateValue5": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "uint8; Initialization value for sensor at offset 5 (0x00 if dummy)"
+      "description": "uint8; Initial state for sensor at offset 5: 0-254 value, 255 do not set"
     },
     "stateValue6": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "uint8; Initialization value for sensor at offset 6 (0x00 if dummy)"
+      "description": "uint8; Initial state for sensor at offset 6: 0-254 value, 255 do not set"
     },
     "stateValue7": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "uint8; Initialization value for sensor at offset 7 (0x00 if dummy)"
+      "description": "uint8; Initial state for sensor at offset 7: 0-254 value, 255 do not set"
+    },
+    "eventConditions": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "bitfield8; Conditions to assess event on mismatch: [7:4] reserved, [3] warm reset, [2] hard reset, [1] power up, [0] agent restart/update"
     }
   },
   "required": [
@@ -203,9 +177,6 @@
     "initConditions",
     "sensorEnable",
     "sensorInitMask",
-    "sensorOpStateEventEnableMask",
-    "sensorStateEventEnableMask",
-    "sensorEventRearm",
     "stateValue0",
     "stateValue1",
     "stateValue2",
@@ -213,6 +184,7 @@
     "stateValue4",
     "stateValue5",
     "stateValue6",
-    "stateValue7"
+    "stateValue7",
+    "eventConditions"
   ]
 }
