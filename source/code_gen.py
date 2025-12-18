@@ -18,6 +18,8 @@ HEADER_FIELD_TYPES = {
 }
 
 def extract_value(value):
+    if isinstance(value, dict):
+        return value.get('value')
     return value
 
 def is_auto_value(value):
