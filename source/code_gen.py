@@ -10,6 +10,11 @@ from jsonschema import validate, ValidationError
 
 DOC_META_KEYS = {"docHidden", "_doc_hidden", "_docHide", "_doc"}
 
+FMT_MAP = {
+    'ver32': 'I',
+    # Add more special formats if needed, e.g., 'time64': 'Q'
+}
+
 def is_hidden(node):
     if not isinstance(node, dict):
         return False
@@ -86,16 +91,55 @@ def assign_handle(next_handle, reserved_handles, yaml_file, handle):
     else:
         return handle
 
-def pack_field(field_schema, value, field_name):
+def infer_format(field_schema, field_type):
+    if field_type == 'integer':
+        min_val = field_schema.get('minimum', 0)
+        max_val = field_schema.get('maximum', 4294967295)
+        signed = min_val < 0 or 'signed' in field_schema.get('description', '').lower()
+        if signed:
+            if max_val <= 127:
+                return 'b'
+            elif max_val <= 32767:
+                return 'h'
+            elif max_val <= 2147483647:
+                return 'i'
+            else:
+                return 'q'
+        else:
+            if max_val <= 255:
+                return 'B'
+            elif max_val <= 65535:
+                return 'H'
+            elif max_val <= 4294967295:
+                return 'I'
+            else:
+                return 'Q'
+    elif field_type == 'number':
+        return 'd' if 'double' in field_schema.get('description', '').lower() else 'f'
+    elif field_type == 'boolean':
+        return 'B'
+    raise ValueError(f"Cannot infer format for type {field_type}")
+
+def pack_field(field_schema, value, field_name, full_data=None):
     field_type = field_schema.get('type')
     bf = field_schema.get('binaryFormat', '')
     
+    if full_data is not None and 'formatResolver' in field_schema:
+        resolver = field_schema['formatResolver']
+        depends_on = resolver.get('dependsOn')
+        if depends_on in full_data:
+            key = str(full_data[depends_on])
+            bf = resolver['mapping'].get(key, bf)
+    
+    bf = FMT_MAP.get(bf, bf)
+    
     if bf and bf != 'variable':
         try:
-            if field_type == 'array':
-                return struct.pack(bf, *value)
+            if field_type == 'array' and bf.isdigit() or any(c.isdigit() for c in bf):
+                # For '16B' etc., unpack value as list
+                return struct.pack('<' + bf, *value)
             else:
-                return struct.pack(bf, value)
+                return struct.pack('<' + bf, value)
         except struct.error as e:
             raise ValueError(f"Packing error for {field_name}: {e}")
     
@@ -106,14 +150,14 @@ def pack_field(field_schema, value, field_name):
         for sub_field in sub_order:
             sub_value = value.get(sub_field)
             sub_schema = sub_props.get(sub_field, {})
-            packed += pack_field(sub_schema, sub_value, f"{field_name}.{sub_field}")
+            packed += pack_field(sub_schema, sub_value, f"{field_name}.{sub_field}", full_data=full_data)
         return packed
     
     elif field_type == 'array':
         packed = b''
         item_schema = field_schema.get('items', {})
         for item in value:
-            packed += pack_field(item_schema, item, field_name)
+            packed += pack_field(item_schema, item, field_name, full_data=full_data)
         return packed
     
     elif field_type == 'string':
@@ -125,16 +169,36 @@ def pack_field(field_schema, value, field_name):
         return encoded + b'\x00' if 'null-terminated' in field_schema.get('description', '').lower() else encoded
     
     elif bf == 'variable':
-        if field_type == 'array':
-            packed = b''
-            item_schema = field_schema.get('items', {'binaryFormat': 'B'})
-            for item in value:
-                packed += pack_field(item_schema, item, field_name)
-            return packed
-        elif field_type == 'string':
-            return pack_field(field_schema, value, field_name)  # Use string handling above
+        bytes_list = None
+        if isinstance(value, list):
+            bytes_list = value
+        elif isinstance(value, bytes):
+            return value
+        elif isinstance(value, str):
+            try:
+                if '0x' in value:
+                    bytes_list = [int(b, 16) for b in value.split()]
+                else:
+                    bytes_list = [int(value[i:i+2], 16) for i in range(0, len(value), 2)]
+            except ValueError:
+                raise ValueError(f"Invalid hex string for {field_name}")
+        elif isinstance(value, int):
+            if value == 0:
+                return b''
+            byte_length = (value.bit_length() + 7) // 8
+            return value.to_bytes(byte_length, 'little', signed=value < 0)
         else:
-            raise ValueError(f"Unsupported variable field type {field_type} for {field_name}")
+            raise ValueError(f"Unsupported type {type(value)} for variable field {field_name}: expected list of ints, bytes, or hex str")
+        return struct.pack(f'<{len(bytes_list)}B', *bytes_list)
+    
+    elif field_type in ('integer', 'number', 'boolean'):
+        fmt = infer_format(field_schema, field_type)
+        try:
+            if field_type == 'boolean':
+                value = 1 if value else 0
+            return struct.pack('<' + fmt, value)
+        except struct.error as e:
+            raise ValueError(f"Packing error for inferred {fmt} in {field_name}: {e}")
     
     else:
         raise ValueError(f"No binaryFormat or unsupported type {field_type} for {field_name}")
@@ -190,7 +254,7 @@ def process_single_yaml(yaml_file, schema_dir, reserved_handles, next_handle_ref
         field_schema = schema_props.get(field, {})
         field_schema = resolve_subschema(condition_data, root_schema, field_schema, field)
         # Include even if hidden, since for binary
-        body_buffer += pack_field(field_schema, value, field)
+        body_buffer += pack_field(field_schema, value, field, full_data=condition_data)
     
     # Update data_len in header
     data_len = len(body_buffer)
