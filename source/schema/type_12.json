@@ -1,9 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "State Effecter Initialization PDR Schema (DSP0248 1.3.0, Clause 28.14)",
+  "title": "State Effecter Initialization PDR (DSP0248 Type 12)",
+  "description": "Per DSP0248 v1.3.0 Clause 28.14 and DSP0240 v1.2.0 Section 2.5",
   "type": "object",
   "additionalProperties": false,
   "binaryOrder": [
+    "pdrHeader",
     "PLDMTerminusHandle",
     "effecterID",
     "entityType",
@@ -13,8 +15,6 @@
     "effecterEnable",
     "effecterInitMask",
     "effecterOpStateEventEnableMask",
-    "effecterStateEventEnableMask",
-    "effecterEventRearm",
     "stateValue0",
     "stateValue1",
     "stateValue2",
@@ -24,200 +24,178 @@
     "stateValue6",
     "stateValue7"
   ],
+  "x-c-struct-packing": 1,
   "properties": {
     "pdrHeader": {
       "type": "object",
+      "description": "Common PDR Header (DSP0248)",
       "additionalProperties": false,
-      "properties": {
-        "recordHandle": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 4294967295
-            }
-          ],
-          "binaryFormat": "I",
-          "description": "uint32; opaque handle (TBD or auto-generated)"
-        },
-        "PDRHeaderVersion": {
-          "type": "integer",
-          "const": 1,
-          "binaryFormat": "B",
-          "description": "uint8; must be 1"
-        },
-        "PDRType": {
-          "type": "integer",
-          "const": 12,
-          "binaryFormat": "B",
-          "description": "uint8; State Effecter Initialization PDR = 12"
-        },
-        "recordChangeNumber": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 65535,
-          "default": 0,
-          "binaryFormat": "H",
-          "description": "uint16; incremented on changes (default 0)"
-        },
-        "dataLength": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 65535
-            }
-          ],
-          "binaryFormat": "H",
-          "description": "uint16; calculated data length (TBD)"
-        }
-      },
-      "required": [
+      "binaryOrder": [
         "recordHandle",
         "PDRHeaderVersion",
         "PDRType",
         "recordChangeNumber",
         "dataLength"
-      ]
+      ],
+      "properties": {
+        "recordHandle": {
+          "oneOf": [
+            { "type": "string", "enum": ["auto"] },
+            { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+          ],
+          "binaryFormat": "I",
+          "description": "uint32; PDR Record Handle. 0 = auto-assign."
+        },
+        "PDRHeaderVersion": {
+          "type": "integer",
+          "const": 1,
+          "binaryFormat": "B",
+          "description": "uint8; PDR Header Version (1)"
+        },
+        "PDRType": {
+          "type": "integer",
+          "const": 12,
+          "binaryFormat": "B",
+          "description": "uint8; PDR Type 12 = State Effecter Initialization"
+        },
+        "recordChangeNumber": {
+          "type": "integer",
+          "default": 0,
+          "binaryFormat": "H",
+          "description": "uint16; recordChangeNumber"
+        },
+        "dataLength": {
+          "oneOf": [
+            { "type": "string", "enum": ["auto"] },
+            { "type": "integer", "minimum": 0 }
+          ],
+          "binaryFormat": "H",
+          "description": "uint16; Length of data following this header (calculated automatically)."
+        }
+      },
+      "required": ["recordHandle", "PDRHeaderVersion", "PDRType", "recordChangeNumber", "dataLength"]
     },
     "PLDMTerminusHandle": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; Handle identifying PDRs for a specific PLDM terminus"
+      "description": "uint16; A handle that identifies PDRs that belong to a particular PLDM terminus"
     },
     "effecterID": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; Unique ID of the effecter within the terminus"
+      "description": "uint16; ID of the effecter relative to the given PLDM terminus"
     },
     "entityType": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
+      "default": 0,
       "binaryFormat": "H",
-      "description": "uint16; Deprecated - set to 0"
+      "description": "uint16; Deprecated - set to 0. The Type value for the entity that is associated with this effecter."
     },
     "entityInstanceNumber": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
+      "default": 0,
       "binaryFormat": "H",
-      "description": "uint16; Deprecated - set to 0"
+      "description": "uint16; Deprecated - set to 0. The Instance Number for the entity that is associated with this effecter."
     },
     "containerID": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
+      "default": 0,
       "binaryFormat": "H",
-      "description": "uint16; Deprecated - set to 0"
+      "description": "uint16; Deprecated - set to 0. The containerID for the containing entity that is associated with this effecter."
     },
     "initConditions": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "bitfield8: Identifies under which conditions the Initialization Agent must initialize or reinitialize this effecter [7:5]=reserved, [4]=PLDM terminus online, [3]=system warm reset, [2]=system hard reset, [1]=PLDM subsystem power up, [0]=Initialization Agent restart/update"
+      "description": "bitfield8; Identifies the conditions under which the Initialization Agent must initialize or reinitialize this effecter. Bits [7:5] reserved."
     },
     "effecterEnable": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "enum8: Operational state after init (e.g., 0=enabled, 1=disabled); 0xFF=do not change"
+      "description": "enum8; The operational state of the overall composite state effecter after it has been initialized. Special: 0xFF = do not set."
     },
     "effecterInitMask": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "bitfield8: Which effecters require initialization. [7:0] for offsets 7 to 0: 1b=requires init, 0b=does not"
+      "description": "bitfield8; Identifies which effecters within the composite state effecter require initialization."
     },
     "effecterOpStateEventEnableMask": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "bitfield8: Enable operational state event messages. [7:0] for offsets 7 to 0: 1b=enable, 0b=disable"
-    },
-    "effecterStateEventEnableMask": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 255,
-      "binaryFormat": "B",
-      "description": "bitfield8: Enable state event messages. [7:0] for offsets 7 to 0: 1b=enable, 0b=disable"
-    },
-    "effecterEventRearm": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 255,
-      "binaryFormat": "B",
-      "description": "bitfield8: Rearm behavior. [7:0] for offsets 7 to 0: 1b=trigger event if mismatch, 0b=accept init value"
+      "description": "bitfield8; Identifies which effecters within the composite state effecter should have their operational state event message generation enabled after initialization."
     },
     "stateValue0": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "uint8; Initialization value for effecter at offset 0 (0x00 if dummy)"
+      "description": "uint8; State value to write to effecter offset 0 for initialization. Special: 0x00 as placeholder if not required."
     },
     "stateValue1": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "uint8; Initialization value for effecter at offset 1 (0x00 if dummy)"
+      "description": "uint8; State value to write to effecter offset 1 for initialization. Special: 0x00 as placeholder if not required."
     },
     "stateValue2": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "uint8; Initialization value for effecter at offset 2 (0x00 if dummy)"
+      "description": "uint8; State value to write to effecter offset 2 for initialization. Special: 0x00 as placeholder if not required."
     },
     "stateValue3": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "uint8; Initialization value for effecter at offset 3 (0x00 if dummy)"
+      "description": "uint8; State value to write to effecter offset 3 for initialization. Special: 0x00 as placeholder if not required."
     },
     "stateValue4": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "uint8; Initialization value for effecter at offset 4 (0x00 if dummy)"
+      "description": "uint8; State value to write to effecter offset 4 for initialization. Special: 0x00 as placeholder if not required."
     },
     "stateValue5": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "uint8; Initialization value for effecter at offset 5 (0x00 if dummy)"
+      "description": "uint8; State value to write to effecter offset 5 for initialization. Special: 0x00 as placeholder if not required."
     },
     "stateValue6": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "uint8; Initialization value for effecter at offset 6 (0x00 if dummy)"
+      "description": "uint8; State value to write to effecter offset 6 for initialization. Special: 0x00 as placeholder if not required."
     },
     "stateValue7": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "uint8; Initialization value for effecter at offset 7 (0x00 if dummy)"
+      "description": "uint8; State value to write to effecter offset 7 for initialization. Special: 0x00 as placeholder if not required."
     }
   },
   "required": [
@@ -231,8 +209,6 @@
     "effecterEnable",
     "effecterInitMask",
     "effecterOpStateEventEnableMask",
-    "effecterStateEventEnableMask",
-    "effecterEventRearm",
     "stateValue0",
     "stateValue1",
     "stateValue2",
