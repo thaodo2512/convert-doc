@@ -1,85 +1,76 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "FRU Record Set PDR Schema (DSP0248 1.3.0, Clause 28.22)",
+  "title": "FRU Record Set PDR (DSP0248 Type 20)",
+  "description": "Per DSP0248 v1.3.0 Clause 28.22 and DSP0240 v1.2.0 Section 2.5",
   "type": "object",
   "additionalProperties": false,
   "binaryOrder": [
-    "PLDMTerminusHandle",
-    "FRURecordSetIdentifier",
+    "pdrHeader",
+    "pldmTerminusHandle",
+    "fruRecordSetIdentifier",
     "entityType",
     "entityInstanceNumber",
-    "containerID"
+    "containerId"
   ],
+  "x-c-struct-packing": 1,
   "properties": {
     "pdrHeader": {
       "type": "object",
+      "description": "Common PDR Header (DSP0248)",
       "additionalProperties": false,
-      "properties": {
-        "recordHandle": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 4294967295
-            }
-          ],
-          "binaryFormat": "I",
-          "description": "uint32; opaque handle (TBD or auto-generated)"
-        },
-        "PDRHeaderVersion": {
-          "type": "integer",
-          "const": 1,
-          "binaryFormat": "B",
-          "description": "uint8; must be 1"
-        },
-        "PDRType": {
-          "type": "integer",
-          "const": 20,
-          "binaryFormat": "B",
-          "description": "uint8; FRU Record Set PDR = 20"
-        },
-        "recordChangeNumber": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 65535,
-          "default": 0,
-          "binaryFormat": "H",
-          "description": "uint16; incremented on changes (default 0)"
-        },
-        "dataLength": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 65535
-            }
-          ],
-          "binaryFormat": "H",
-          "description": "uint16; calculated data length (TBD)"
-        }
-      },
-      "required": [
+      "binaryOrder": [
         "recordHandle",
         "PDRHeaderVersion",
         "PDRType",
         "recordChangeNumber",
         "dataLength"
-      ]
+      ],
+      "properties": {
+        "recordHandle": {
+          "oneOf": [
+            { "type": "string", "enum": ["auto"] },
+            { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+          ],
+          "binaryFormat": "I",
+          "description": "uint32; PDR Record Handle. 0 = auto-assign."
+        },
+        "PDRHeaderVersion": {
+          "type": "integer",
+          "const": 1,
+          "binaryFormat": "B",
+          "description": "uint8; PDR Header Version (1)"
+        },
+        "PDRType": {
+          "type": "integer",
+          "const": 20,
+          "binaryFormat": "B",
+          "description": "uint8; PDR Type 20 = FRU Record Set"
+        },
+        "recordChangeNumber": {
+          "type": "integer",
+          "default": 0,
+          "binaryFormat": "H",
+          "description": "uint16; recordChangeNumber"
+        },
+        "dataLength": {
+          "oneOf": [
+            { "type": "string", "enum": ["auto"] },
+            { "type": "integer", "minimum": 0 }
+          ],
+          "binaryFormat": "H",
+          "description": "uint16; Length of data following this header (calculated automatically)."
+        }
+      },
+      "required": ["recordHandle", "PDRHeaderVersion", "PDRType", "recordChangeNumber", "dataLength"]
     },
-    "PLDMTerminusHandle": {
+    "pldmTerminusHandle": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
       "description": "uint16; The terminus that originated or maintains this PDR."
     },
-    "FRURecordSetIdentifier": {
+    "fruRecordSetIdentifier": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
@@ -100,7 +91,7 @@
       "binaryFormat": "H",
       "description": "uint16; The Instance Number for the entity that is associated with this FRU data."
     },
-    "containerID": {
+    "containerId": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
@@ -110,10 +101,10 @@
   },
   "required": [
     "pdrHeader",
-    "PLDMTerminusHandle",
-    "FRURecordSetIdentifier",
+    "pldmTerminusHandle",
+    "fruRecordSetIdentifier",
     "entityType",
     "entityInstanceNumber",
-    "containerID"
+    "containerId"
   ]
 }
