@@ -1,95 +1,106 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "OEM PDR Schema (DSP0248 1.3.0, Clause 28.24)",
+  "title": "OEM PDR (DSP0248 Type 127)",
+  "description": "Per DSP0248 v1.3.0 Clause 28.24 and DSP0240 v1.2.0 Section 2.5",
   "type": "object",
   "additionalProperties": false,
   "binaryOrder": [
+    "pdrHeader",
     "vendorIANA",
-    "OEMPDRData"
+    "OEMRecordID",
+    "dataLength",
+    "vendorSpecificData"
   ],
+  "x-c-struct-packing": 1,
   "properties": {
     "pdrHeader": {
       "type": "object",
+      "description": "Common PDR Header (DSP0248)",
       "additionalProperties": false,
-      "properties": {
-        "recordHandle": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 4294967295
-            }
-          ],
-          "binaryFormat": "I",
-          "description": "uint32; opaque handle (TBD or auto-generated)"
-        },
-        "PDRHeaderVersion": {
-          "type": "integer",
-          "const": 1,
-          "binaryFormat": "B",
-          "description": "uint8; must be 1"
-        },
-        "PDRType": {
-          "type": "integer",
-          "const": 127,
-          "binaryFormat": "B",
-          "description": "uint8; OEM PDR = 127"
-        },
-        "recordChangeNumber": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 65535,
-          "default": 0,
-          "binaryFormat": "H",
-          "description": "uint16; incremented on changes (default 0)"
-        },
-        "dataLength": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 65535
-            }
-          ],
-          "binaryFormat": "H",
-          "description": "uint16; calculated data length (TBD)"
-        }
-      },
-      "required": [
+      "binaryOrder": [
         "recordHandle",
         "PDRHeaderVersion",
         "PDRType",
         "recordChangeNumber",
         "dataLength"
-      ]
+      ],
+      "properties": {
+        "recordHandle": {
+          "oneOf": [
+            { "type": "string", "enum": ["auto"] },
+            { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+          ],
+          "binaryFormat": "I",
+          "description": "uint32; PDR Record Handle. 0 = auto-assign."
+        },
+        "PDRHeaderVersion": {
+          "type": "integer",
+          "const": 1,
+          "binaryFormat": "B",
+          "description": "uint8; PDR Header Version (1)"
+        },
+        "PDRType": {
+          "type": "integer",
+          "const": 127,
+          "binaryFormat": "B",
+          "description": "uint8; PDR Type 127 = OEM PDR"
+        },
+        "recordChangeNumber": {
+          "type": "integer",
+          "default": 0,
+          "binaryFormat": "H",
+          "description": "uint16; recordChangeNumber"
+        },
+        "dataLength": {
+          "oneOf": [
+            { "type": "string", "enum": ["auto"] },
+            { "type": "integer", "minimum": 0 }
+          ],
+          "binaryFormat": "H",
+          "description": "uint16; Length of data following this header (calculated automatically)."
+        }
+      },
+      "required": ["recordHandle", "PDRHeaderVersion", "PDRType", "recordChangeNumber", "dataLength"]
     },
     "vendorIANA": {
       "type": "integer",
       "minimum": 0,
       "maximum": 4294967295,
       "binaryFormat": "I",
-      "description": "uint32; IANA Enterprise Number for the vendor defining the OEM PDR"
+      "description": "uint32; IANA Enterprise Number for the vendor. 0 = unspecified."
     },
-    "OEMPDRData": {
+    "OEMRecordID": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; Vendor-assigned unique ID for this record within vendorIANA."
+    },
+    "dataLength": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; Number of vendorSpecificData bytes - 1 (0=1 byte, 1=2 bytes, etc.)."
+    },
+    "vendorSpecificData": {
       "type": "array",
+      "description": "Array of vendor-specific bytes. Length must match 'dataLength' + 1. Min length 1.",
+      "minItems": 1,
       "items": {
         "type": "integer",
         "minimum": 0,
-        "maximum": 255
+        "maximum": 255,
+        "binaryFormat": "B"
       },
-      "binaryFormat": "variable",
-      "description": "Variable bytes; OEM-specific PDR data"
+      "binaryFormat": "variable"
     }
   },
   "required": [
     "pdrHeader",
     "vendorIANA",
-    "OEMPDRData"
+    "OEMRecordID",
+    "dataLength",
+    "vendorSpecificData"
   ]
 }
