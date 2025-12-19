@@ -1,9 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Compact Numeric Sensor PDR Schema (DSP0248 1.3.0, Clause 28.25)",
+  "title": "Compact Numeric Sensor PDR (DSP0248 Type 21)",
+  "description": "Per DSP0248 v1.3.0 Clause 28.25 and DSP0240 v1.2.0 Section 2.5",
   "type": "object",
   "additionalProperties": false,
   "binaryOrder": [
+    "pdrHeader",
     "PLDMTerminusHandle",
     "sensorID",
     "entityType",
@@ -22,194 +24,177 @@
     "fatalLow",
     "sensorNameString"
   ],
+  "x-c-struct-packing": 1,
   "properties": {
     "pdrHeader": {
       "type": "object",
+      "description": "Common PDR Header (DSP0248)",
       "additionalProperties": false,
-      "properties": {
-        "recordHandle": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 4294967295
-            }
-          ],
-          "binaryFormat": "I",
-          "description": "uint32; opaque handle (TBD or auto-generated)"
-        },
-        "PDRHeaderVersion": {
-          "type": "integer",
-          "const": 1,
-          "binaryFormat": "B",
-          "description": "uint8; must be 1"
-        },
-        "PDRType": {
-          "type": "integer",
-          "const": 21,
-          "binaryFormat": "B",
-          "description": "uint8; Compact Numeric Sensor PDR = 21"
-        },
-        "recordChangeNumber": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 65535,
-          "default": 0,
-          "binaryFormat": "H",
-          "description": "uint16; incremented on changes (default 0)"
-        },
-        "dataLength": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 65535
-            }
-          ],
-          "binaryFormat": "H",
-          "description": "uint16; calculated data length (TBD)"
-        }
-      },
-      "required": [
+      "binaryOrder": [
         "recordHandle",
         "PDRHeaderVersion",
         "PDRType",
         "recordChangeNumber",
         "dataLength"
-      ]
+      ],
+      "properties": {
+        "recordHandle": {
+          "oneOf": [
+            { "type": "string", "enum": ["auto"] },
+            { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+          ],
+          "binaryFormat": "I",
+          "description": "uint32; PDR Record Handle. 0 = auto-assign."
+        },
+        "PDRHeaderVersion": {
+          "type": "integer",
+          "const": 1,
+          "binaryFormat": "B",
+          "description": "uint8; PDR Header Version (1)"
+        },
+        "PDRType": {
+          "type": "integer",
+          "const": 21,
+          "binaryFormat": "B",
+          "description": "uint8; PDR Type 21 = Compact Numeric Sensor"
+        },
+        "recordChangeNumber": {
+          "type": "integer",
+          "default": 0,
+          "binaryFormat": "H",
+          "description": "uint16; recordChangeNumber"
+        },
+        "dataLength": {
+          "oneOf": [
+            { "type": "string", "enum": ["auto"] },
+            { "type": "integer", "minimum": 0 }
+          ],
+          "binaryFormat": "H",
+          "description": "uint16; Length of data following this header (calculated automatically)."
+        }
+      },
+      "required": ["recordHandle", "PDRHeaderVersion", "PDRType", "recordChangeNumber", "dataLength"]
     },
     "PLDMTerminusHandle": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; A handle that identifies PDRs that belong to a particular PLDM terminus."
+      "description": "uint16; PLDM Terminus Handle"
     },
     "sensorID": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; ID of the sensor relative to the given PLDM Terminus ID."
+      "description": "uint16; Sensor ID"
     },
     "entityType": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; The Type value for the entity that is associated with this sensor. See 9.1 for more information."
+      "description": "uint16; Entity Type"
     },
     "entityInstanceNumber": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; The Instance Number for the entity that is associated with this sensor. See 9.1 for more information."
+      "description": "uint16; Entity Instance Number"
     },
     "containerID": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; The containerID for the containing entity that is associated with this sensor. See 9.1 for more information."
+      "description": "uint16; Container ID"
     },
     "sensorNameStringByteLength": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 255,
+      "maximum": 96,
       "binaryFormat": "B",
-      "description": "uint8; If this is greater than zero, then the “sensorNameString” is present at the end of this PDR. This field is a vendor supplied sensor name. The recommended maximum length is 96 bytes."
+      "description": "uint8; If >0, 'sensorNameString' must be provided. Recommended max 96."
     },
     "baseUnit": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "enum8; The base unit of the reading returned by this sensor. See 27.4 and Table 75 for more information."
+      "description": "enum8; Base Unit (see Table 75)"
     },
     "unitModifier": {
       "type": "integer",
       "minimum": -128,
       "maximum": 127,
       "binaryFormat": "b",
-      "description": "sint8; A power-of-10 multiplier for the baseUnit. See 27.4 for more information."
+      "description": "sint8; Unit Modifier"
     },
     "rateUnit": {
       "type": "integer",
-      "enum": [
-        0,
-        1,
-        2,
-        3,
-        4,
-        5,
-        6,
-        7,
-        8,
-        9
-      ],
+      "minimum": 0,
+      "maximum": 9,
       "binaryFormat": "B",
-      "description": "enum8; value: { 0=None, 1=Per MicroSecond, 2=Per MilliSecond, 3=Per Second, 4=Per Minute, 5=Per Hour, 6=Per Day, 7=Per Week, 8=Per Month, 9=Per Year }"
+      "description": "enum8; Rate Unit: 0=None,1=Per μs,2=Per ms,3=Per s,4=Per min,5=Per hour,6=Per day,7=Per week,8=Per month,9=Per year"
     },
     "rangeFieldSupport": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 255,
+      "maximum": 63,
       "binaryFormat": "B",
-      "description": "bitfield8; Indicates which of the fields that identify the operating ranges of the parameter monitored by the sensor are supported. [7:6]=reserved, [5]=fatalLow, [4]=fatalHigh, [3]=criticalLow, [2]=criticalHigh, [1]=warningLow, [0]=warningHigh"
+      "description": "bitfield8; Supported thresholds: bit0=warningHigh, bit1=warningLow, bit2=criticalHigh, bit3=criticalLow, bit4=fatalHigh, bit5=fatalLow (bits6-7 reserved). Provide corresponding fields only if bit set."
     },
     "warningHigh": {
       "type": "integer",
       "minimum": -2147483648,
       "maximum": 2147483647,
       "binaryFormat": "i",
-      "description": "sint32; A warning condition that occurs when the monitored value is greater than the value reported by warningHigh. This value is given directly in the specified units without the use of any conversion formula."
+      "description": "sint32; Warning High threshold (provide only if rangeFieldSupport bit0=1)"
     },
     "warningLow": {
       "type": "integer",
       "minimum": -2147483648,
       "maximum": 2147483647,
       "binaryFormat": "i",
-      "description": "sint32; A warning condition that occurs when the monitored value is less than or equal to the value reported by warningLow. This value is given directly in the specified units without the use of any conversion formula."
+      "description": "sint32; Warning Low threshold (provide only if rangeFieldSupport bit1=1)"
     },
     "criticalHigh": {
       "type": "integer",
       "minimum": -2147483648,
       "maximum": 2147483647,
       "binaryFormat": "i",
-      "description": "sint32; A critical condition that occurs when the monitored value is greater than or equal to the value reported by criticalHigh. This value is given directly in the specified units without the use of any conversion formula."
+      "description": "sint32; Critical High threshold (provide only if rangeFieldSupport bit2=1)"
     },
     "criticalLow": {
       "type": "integer",
       "minimum": -2147483648,
       "maximum": 2147483647,
       "binaryFormat": "i",
-      "description": "sint32; A critical condition that occurs when the monitored value is less than or equal to the value reported by criticalLow. This value is given directly in the specified units without the use of any conversion formula."
+      "description": "sint32; Critical Low threshold (provide only if rangeFieldSupport bit3=1)"
     },
     "fatalHigh": {
       "type": "integer",
       "minimum": -2147483648,
       "maximum": 2147483647,
       "binaryFormat": "i",
-      "description": "sint32; A fatal condition that occurs when the monitored value is greater than or equal to the value reported by fatalHigh. This value is given directly in the specified units without the use of any conversion formula."
+      "description": "sint32; Fatal High threshold (provide only if rangeFieldSupport bit4=1)"
     },
     "fatalLow": {
       "type": "integer",
       "minimum": -2147483648,
       "maximum": 2147483647,
       "binaryFormat": "i",
-      "description": "sint32; A fatal condition that occurs when the monitored value is less than or equal to the value reported by fatalLow. This value is given directly in the specified units without the use of any conversion formula."
+      "description": "sint32; Fatal Low threshold (provide only if rangeFieldSupport bit5=1)"
     },
     "sensorNameString": {
       "type": "string",
+      "description": "strUTF-8; Vendor-defined display name (no terminator). Byte length must exactly match sensorNameStringByteLength. Provide only if sensorNameStringByteLength > 0.",
       "binaryFormat": "variable",
-      "description": "strUTF8; A null-terminated UTF-8 string that contains the sensor name. This field is only present if sensorNameStringByteLength > 0. The length in bytes includes the null terminator."
+      "x-binary-encoding": "utf-8",
+      "x-binary-terminator": "none",
+      "x-binary-length-ref": "sensorNameStringByteLength",
+      "maxLength": 96
     }
   },
   "required": [
@@ -223,17 +208,16 @@
     "baseUnit",
     "unitModifier",
     "rateUnit",
-    "rangeFieldSupport",
-    "warningHigh",
-    "warningLow",
-    "criticalHigh",
-    "criticalLow",
-    "fatalHigh",
-    "fatalLow"
+    "rangeFieldSupport"
   ],
-  "dependencies": {
-    "sensorNameString": [
-      "sensorNameStringByteLength"
-    ]
-  }
+  "allOf": [
+    {
+      "if": {
+        "properties": { "sensorNameStringByteLength": { "minimum": 1 } }
+      },
+      "then": {
+        "required": ["sensorNameString"]
+      }
+    }
+  ]
 }
