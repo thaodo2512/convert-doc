@@ -1,111 +1,113 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Redfish Parallel Resource PDR Schema (DSP0248 1.3.0, Clause 28.29)",
+  "title": "Redfish Parallel Resource PDR (DSP0248 Type 25)",
+  "description": "Per DSP0248 v1.3.0 Clause 28.29 and DSP0240 v1.2.0 Section 2.5",
   "type": "object",
   "additionalProperties": false,
   "binaryOrder": [
+    "pdrHeader",
     "ResourceID",
     "ResourceFlags",
     "ContainingResourceID",
     "AdditionalResourceIDCount",
+    "AdditionalResources",
     "ProposedContainingResourceLengthBytes",
     "ProposedContainingResourceName",
     "SubURILengthBytes",
-    "SubURI"
+    "SubURI",
+    "MajorSchemaVersion",
+    "MajorSchemaDictionaryLengthBytes",
+    "MajorSchemaDictionarySignature",
+    "MajorSchemaNameLength",
+    "MajorSchemaName",
+    "OEMCount",
+    "OEMNames"
   ],
+  "x-c-struct-packing": 1,
   "properties": {
     "pdrHeader": {
       "type": "object",
+      "description": "Common PDR Header (DSP0248)",
       "additionalProperties": false,
-      "properties": {
-        "recordHandle": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 4294967295
-            }
-          ],
-          "binaryFormat": "I",
-          "description": "uint32; opaque handle (TBD or auto-generated)"
-        },
-        "PDRHeaderVersion": {
-          "type": "integer",
-          "const": 1,
-          "binaryFormat": "B",
-          "description": "uint8; must be 1"
-        },
-        "PDRType": {
-          "type": "integer",
-          "const": 25,
-          "binaryFormat": "B",
-          "description": "uint8; Redfish Parallel Resource PDR = 25"
-        },
-        "recordChangeNumber": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 65535,
-          "default": 0,
-          "binaryFormat": "H",
-          "description": "uint16; incremented on changes (default 0)"
-        },
-        "dataLength": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 65535
-            }
-          ],
-          "binaryFormat": "H",
-          "description": "uint16; calculated data length (TBD)"
-        }
-      },
-      "required": [
+      "binaryOrder": [
         "recordHandle",
         "PDRHeaderVersion",
         "PDRType",
         "recordChangeNumber",
         "dataLength"
-      ]
+      ],
+      "properties": {
+        "recordHandle": {
+          "oneOf": [
+            { "type": "string", "enum": ["auto"] },
+            { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+          ],
+          "binaryFormat": "I",
+          "description": "uint32; PDR Record Handle. 0 = auto-assign."
+        },
+        "PDRHeaderVersion": {
+          "type": "integer",
+          "const": 1,
+          "binaryFormat": "B",
+          "description": "uint8; PDR Header Version (1)"
+        },
+        "PDRType": {
+          "type": "integer",
+          "const": 25,
+          "binaryFormat": "B",
+          "description": "uint8; PDR Type 25 = Redfish Parallel Resource"
+        },
+        "recordChangeNumber": {
+          "type": "integer",
+          "default": 0,
+          "binaryFormat": "H",
+          "description": "uint16; recordChangeNumber"
+        },
+        "dataLength": {
+          "oneOf": [
+            { "type": "string", "enum": ["auto"] },
+            { "type": "integer", "minimum": 0 }
+          ],
+          "binaryFormat": "H",
+          "description": "uint16; Length of data following this header (calculated automatically)."
+        }
+      },
+      "required": ["recordHandle", "PDRHeaderVersion", "PDRType", "recordChangeNumber", "dataLength"]
     },
     "ResourceID": {
       "type": "integer",
       "minimum": 0,
       "maximum": 4294967295,
       "binaryFormat": "I",
-      "description": "uint32; The primary ResourceID among the resources described by this PDR. All ResourceIDs across all Redfish Resource PDRs presented by an RDE Device shall be unique to that device."
+      "description": "uint32; The primary ResourceID among the resources described by this PDR."
     },
     "ResourceFlags": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
+      "default": 0,
       "binaryFormat": "B",
-      "description": "bitfield8: [7:0] - reserved for future use"
+      "description": "bitfield8; Flags associated with this Resource: [7:0] - reserved for future use."
     },
     "ContainingResourceID": {
       "type": "integer",
-      "minimum": 0,
-      "maximum": 4294967295,
+      "minimum": 1,
+      "maximum": 4294967294,
       "binaryFormat": "I",
-      "description": "uint32; An opaque number that references a Redfish Resource PDR in the hierarchy of containment. Special: 0x00000000 = EXTERNAL, 0xFFFFFFFF reserved"
+      "description": "uint32; ContainingResourceID. Value: 0x00000001 to 0xFFFFFFFE. Special value 0x00000000 = EXTERNAL shall not be used. 0xFFFFFFFF reserved."
     },
     "AdditionalResourceIDCount": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 65535,
+      "maximum": 8,
       "binaryFormat": "H",
-      "description": "uint16; Number NA of additional resourceIDs, each of which represents a separate instance of a Redfish resource that shares all the same schema data with the primary resourceID"
+      "description": "uint16; Number NA of additional resourceIDs (tightened to practical max 8)."
     },
-    "additionalResources": {
+    "AdditionalResources": {
       "type": "array",
+      "description": "Array of additional resources. Length must match 'AdditionalResourceIDCount'.",
       "minItems": 0,
+      "maxItems": 8,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -119,46 +121,158 @@
             "minimum": 0,
             "maximum": 4294967295,
             "binaryFormat": "I",
-            "description": "uint32; The resourceID for another resource instance that shares all the same schema data detailed in this PDR with the primary resource instance. All ResourceIDs across all Redfish Resource PDRs presented by an RDE Device shall be unique to that device."
+            "description": "uint32; AdditionalResourceID."
           },
           "AdditionalContainingResourceID": {
             "type": "integer",
-            "minimum": 0,
-            "maximum": 4294967295,
+            "minimum": 1,
+            "maximum": 4294967294,
             "binaryFormat": "I",
-            "description": "uint32; An opaque number that references a Redfish Resource PDR in the hierarchy of containment. Special: 0x00000000 = EXTERNAL, 0xFFFFFFFF reserved"
+            "description": "uint32; AdditionalContainingResourceID. Value: 0x00000001 to 0xFFFFFFFE. Special value 0x00000000 = EXTERNAL shall not be used. 0xFFFFFFFF reserved."
           }
         },
-        "required": [
-          "AdditionalResourceID",
-          "AdditionalContainingResourceID"
-        ]
-      },
-      "description": "Array of additional resource pairs, length = AdditionalResourceIDCount"
+        "required": ["AdditionalResourceID", "AdditionalContainingResourceID"]
+      }
     },
     "ProposedContainingResourceLengthBytes": {
       "type": "integer",
-      "minimum": 0,
+      "minimum": 1,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; Length in bytes of the proposed parent resource that the resource this PDR represents should be subordinate to. Shall be 1 if ContainingResourceID is not EXTERNAL"
+      "description": "uint16; Length in bytes of ProposedContainingResourceName (including null terminator). Shall be 1 if ContainingResourceID is not EXTERNAL."
     },
     "ProposedContainingResourceName": {
       "type": "string",
+      "description": "strUTF-8; Null-terminated UTF-8 string. Binary length (including terminator) must equal 'ProposedContainingResourceLengthBytes'. Shall be a null byte if ContainingResourceID is not EXTERNAL.",
       "binaryFormat": "variable",
-      "description": "strUTF-8; Name of the schema for the proposed parent resource to which this PDR’s primary resource (and any additional resources) should be subordinate. Shall be a null byte if ContainingResourceID is not EXTERNAL. The format and usage of this field is defined in DSP0218."
+      "x-binary-encoding": "utf-8",
+      "x-binary-terminator": "0x00",
+      "maxLength": 64
     },
     "SubURILengthBytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; Length in bytes of SubURI (including null terminator)."
+    },
+    "SubURI": {
+      "type": "string",
+      "description": "strUTF-8; Null-terminated UTF-8 string. Binary length (including terminator) must equal 'SubURILengthBytes'. Shall be a null byte if ContainingResourceID is EXTERNAL, except for settings resources.",
+      "binaryFormat": "variable",
+      "x-binary-encoding": "utf-8",
+      "x-binary-terminator": "0x00",
+      "maxLength": 128
+    },
+    "MajorSchemaVersion": {
+      "type": "object",
+      "additionalProperties": false,
+      "binaryOrder": [
+        "major",
+        "minor",
+        "update",
+        "alpha"
+      ],
+      "properties": {
+        "major": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255,
+          "binaryFormat": "B",
+          "description": "uint8; Major version."
+        },
+        "minor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255,
+          "binaryFormat": "B",
+          "description": "uint8; Minor version."
+        },
+        "update": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255,
+          "binaryFormat": "B",
+          "description": "uint8; Update version."
+        },
+        "alpha": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255,
+          "binaryFormat": "B",
+          "description": "uint8; Alpha version."
+        }
+      },
+      "required": ["major", "minor", "update", "alpha"],
+      "description": "ver32; MajorSchemaVersion. 0xFFFFFFFF for unversioned schema."
+    },
+    "MajorSchemaDictionaryLengthBytes": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; Length in bytes of the SubURI path fragment (including the null terminator) for the primary resource"
+      "description": "uint16; Length of dictionary data for the major schema."
     },
-    "SubURI": {
+    "MajorSchemaDictionarySignature": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295,
+      "binaryFormat": "I",
+      "description": "uint32; 32-bit CRC for the major schema dictionary, including all OEM extensions."
+    },
+    "MajorSchemaNameLength": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "uint8; Length of MajorSchemaName (including null terminator)."
+    },
+    "MajorSchemaName": {
       "type": "string",
+      "description": "strUTF-8; Null-terminated UTF-8 string. Binary length (including terminator) must equal 'MajorSchemaNameLength'.",
       "binaryFormat": "variable",
-      "description": "strUTF-8; Null-terminated SubURI path fragment corresponding to the primary resource’s portion of the canonical OpenAPI pathname for this resource. Shall neither begin nor end with a slash (‘/’) character, except as defined for settings resources. Shall be a null byte if ContainingResourceID is EXTERNAL, except as defined for settings resources."
+      "x-binary-encoding": "utf-8",
+      "x-binary-terminator": "0x00",
+      "maxLength": 64
+    },
+    "OEMCount": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 8,
+      "binaryFormat": "H",
+      "description": "uint16; Number NO of OEMs (tightened to practical max 8)."
+    },
+    "OEMNames": {
+      "type": "array",
+      "description": "Array of OEM names. Length must match 'OEMCount'.",
+      "minItems": 0,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "binaryOrder": [
+          "OEMNameLengthBytes",
+          "OEMName"
+        ],
+        "properties": {
+          "OEMNameLengthBytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535,
+            "binaryFormat": "H",
+            "description": "uint16; Length in bytes of OEMName (including null terminator)."
+          },
+          "OEMName": {
+            "type": "string",
+            "description": "strUTF-8; Null-terminated UTF-8 string. Binary length (including terminator) must equal 'OEMNameLengthBytes'.",
+            "binaryFormat": "variable",
+            "x-binary-encoding": "utf-8",
+            "x-binary-terminator": "0x00",
+            "maxLength": 64
+          }
+        },
+        "required": ["OEMNameLengthBytes", "OEMName"]
+      }
     }
   },
   "required": [
@@ -167,10 +281,17 @@
     "ResourceFlags",
     "ContainingResourceID",
     "AdditionalResourceIDCount",
-    "additionalResources",
+    "AdditionalResources",
     "ProposedContainingResourceLengthBytes",
     "ProposedContainingResourceName",
     "SubURILengthBytes",
-    "SubURI"
+    "SubURI",
+    "MajorSchemaVersion",
+    "MajorSchemaDictionaryLengthBytes",
+    "MajorSchemaDictionarySignature",
+    "MajorSchemaNameLength",
+    "MajorSchemaName",
+    "OEMCount",
+    "OEMNames"
   ]
 }
