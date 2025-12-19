@@ -1,9 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "File Descriptor PDR Schema (DSP0248 1.3.0, Clause 28.30)",
+  "title": "File Descriptor PDR (DSP0248 Type 30)",
+  "description": "Per DSP0248 v1.3.0 Clause 28.30 and DSP0240 v1.2.0 Section 2.5",
   "type": "object",
   "additionalProperties": false,
   "binaryOrder": [
+    "pdrHeader",
     "PLDMTerminusHandle",
     "FileIdentifier",
     "EntityType",
@@ -12,70 +14,65 @@
     "SuperiorDirectoryFileIdentifier",
     "FileClassification",
     "OemFileClassification",
-    "oemFileClassificationNameLength",
-    "oemFileClassificationName"
+    "FileCapabilities",
+    "FileVersion",
+    "FileMaximumSize",
+    "FileMaximumFileDescriptorCount",
+    "FileNameLength",
+    "FileName",
+    "OemFileClassificationNameLength",
+    "OemFileClassificationName"
   ],
+  "x-c-struct-packing": 1,
   "properties": {
     "pdrHeader": {
       "type": "object",
+      "description": "Common PDR Header (DSP0248)",
       "additionalProperties": false,
-      "properties": {
-        "recordHandle": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 4294967295
-            }
-          ],
-          "binaryFormat": "I",
-          "description": "uint32; opaque handle (TBD or auto-generated)"
-        },
-        "PDRHeaderVersion": {
-          "type": "integer",
-          "const": 1,
-          "binaryFormat": "B",
-          "description": "uint8; must be 1"
-        },
-        "PDRType": {
-          "type": "integer",
-          "const": 30,
-          "binaryFormat": "B",
-          "description": "uint8; File Descriptor PDR = 30"
-        },
-        "recordChangeNumber": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 65535,
-          "default": 0,
-          "binaryFormat": "H",
-          "description": "uint16; incremented on changes (default 0)"
-        },
-        "dataLength": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 65535
-            }
-          ],
-          "binaryFormat": "H",
-          "description": "uint16; calculated data length (TBD)"
-        }
-      },
-      "required": [
+      "binaryOrder": [
         "recordHandle",
         "PDRHeaderVersion",
         "PDRType",
         "recordChangeNumber",
         "dataLength"
-      ]
+      ],
+      "properties": {
+        "recordHandle": {
+          "oneOf": [
+            { "type": "string", "enum": ["auto"] },
+            { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+          ],
+          "binaryFormat": "I",
+          "description": "uint32; PDR Record Handle. 0 = auto-assign."
+        },
+        "PDRHeaderVersion": {
+          "type": "integer",
+          "const": 1,
+          "binaryFormat": "B",
+          "description": "uint8; PDR Header Version (1)"
+        },
+        "PDRType": {
+          "type": "integer",
+          "const": 30,
+          "binaryFormat": "B",
+          "description": "uint8; PDR Type 30 = File Descriptor"
+        },
+        "recordChangeNumber": {
+          "type": "integer",
+          "default": 0,
+          "binaryFormat": "H",
+          "description": "uint16; recordChangeNumber"
+        },
+        "dataLength": {
+          "oneOf": [
+            { "type": "string", "enum": ["auto"] },
+            { "type": "integer", "minimum": 0 }
+          ],
+          "binaryFormat": "H",
+          "description": "uint16; Length of data following this header (calculated automatically)."
+        }
+      },
+      "required": ["recordHandle", "PDRHeaderVersion", "PDRType", "recordChangeNumber", "dataLength"]
     },
     "PLDMTerminusHandle": {
       "type": "integer",
@@ -89,14 +86,14 @@
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; A unique numeric file identifier relative to the given PLDM Terminus ID. The file identifer represents the file name and the topology (which is represented by EntityType / EntityInstanceNumber / ContainerID)."
+      "description": "uint16; A unique numeric file identifier relative to the given PLDM Terminus ID."
     },
     "EntityType": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; The Type value for the entity that is associated with this file or directory. For the File Descriptor PDR format, the entity type shall be Device File or Device File Directory and may be either a Physical or Logical entity. Directories should be a logical entity as a directory, as a file type object, do not have a size."
+      "description": "uint16; The Type value for the entity that is associated with this file or directory. Shall be Device File (9 physical, 32777 logical) or Device File Directory (10 physical, 32778 logical). See DSP0249 for Entity IDs."
     },
     "EntityInstanceNumber": {
       "type": "integer",
@@ -117,57 +114,121 @@
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; The SuperiorDirectoryFileIdentifier field allows a file or directory to be directly placed into a hierarchy without being placed in an Entity Association PDR (EAR). This field shall be the value of the FileIdentifier of a PDR whose EntityType value is set to Device File Directory and is the parent (object) to this file or directory. Special Values: 0x0000 : This field is not used to establish file or directory hierarchy. There shall be an EAR containing this PDR if contained in a hierarchial data model. 0xFFFF : If the EntityType is a Device File, then this PDR is not part of any hierarchy or if the EntityType is a Device File Directory, then this PDR is a top most element of the hierarchy."
+      "description": "uint16; The FileIdentifier of the parent directory PDR (EntityType = Device File Directory). Special: 0x0000 = not used (use EAR), 0xFFFF = top level or not in hierarchy."
     },
     "FileClassification": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "enum8; This indicates the classification of this file. This specificaton will have standard file enumerations but OEM enumerations are permitted as well. Value {OEM, BootLog, SerialTxFIFO, SerialRxFIFO, DiagnosticLog, CrashDumpFile, SecurityLog, FRUDataFile, TelemetryDataFile, TelemetryDataLog, OtherLog=0xFD, OtherFile=0xFE, FileDirectory = 0xFF} If the FileClassificaiton is set to OEM, then the OEMFileClassification in this PDR shall not be the special value: 0x00"
+      "description": "enum8; File classification: 0=OEM, 1=BootLog, 2=SerialTxFIFO, 3=SerialRxFIFO, 4=DiagnosticLog, 5=CrashDumpFile, 6=SecurityLog, 7=FRUDataFile, 8=TelemetryDataFile, 9=TelemetryDataLog, 0xFD=OtherLog, 0xFE=OtherFile, 0xFF=FileDirectory. If OEM, OemFileClassification !=0."
     },
     "OemFileClassification": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "enum8; OEM Specific and enumeration provided by the OEM. Special Value: 0x00 is no oemFileClassification. This cannot be zero if FileClassification is equal to OEM, then this value must not be zero. If oemFileClassification is not equal to zero (0), then the oemFileClassificationNameLength and oemFileClassificationName fields shall be present and populated."
+      "description": "enum8; OEM Specific classification. 0 = none. Must not be 0 if FileClassification=0 (OEM)."
     },
-    "oemFileClassificationNameLength": {
+    "FileCapabilities": {
       "type": "integer",
       "minimum": 0,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "bitfield16; File capabilities bits: [0]=ExReadOpen, [1]=ExWriteOpen, [2]=FileTrunc, [3]=DataType, [4]=Polled, [5]=Pushed, [6]=DataVolatility, [7]=FileModify, [8]=FcZeroLengthPermitted, [9]=FcWritesPermitted, [10-15]=Reserved."
+    },
+    "FileVersion": {
+      "type": "object",
+      "additionalProperties": false,
+      "binaryOrder": [
+        "major",
+        "minor",
+        "update",
+        "alpha"
+      ],
+      "properties": {
+        "major": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255,
+          "binaryFormat": "B",
+          "description": "uint8; Major version number"
+        },
+        "minor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255,
+          "binaryFormat": "B",
+          "description": "uint8; Minor version number"
+        },
+        "update": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255,
+          "binaryFormat": "B",
+          "description": "uint8; Update number"
+        },
+        "alpha": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255,
+          "binaryFormat": "B",
+          "description": "uint8; Alpha number (0=not alpha)"
+        }
+      },
+      "required": [
+        "major",
+        "minor",
+        "update",
+        "alpha"
+      ],
+      "description": "ver32; All 255 for unversioned file or directory."
+    },
+    "FileMaximumSize": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295,
+      "binaryFormat": "I",
+      "description": "uint32; Maximum size in bytes before truncation/wrapping. 0xFFFFFFFF = unlimited or for directories."
+    },
+    "FileMaximumFileDescriptorCount": {
+      "type": "integer",
+      "minimum": 1,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "uint8; Length of oemFileClassificationName including null terminator"
+      "description": "uint8; Maximum number of open file descriptors (min 1)."
     },
-    "oemFileClassificationName": {
+    "FileNameLength": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "uint8; Length of FileName including NULL terminator."
+    },
+    "FileName": {
       "type": "string",
+      "description": "strASCII per DSP0240. Null-terminated (0x00). Includes terminator in length. Unique file name for the device.",
       "binaryFormat": "variable",
-      "description": "strUTF-16BE; Null-terminated OEM file classification name"
+      "x-binary-encoding": "us-ascii",
+      "x-binary-terminator": "0x00",
+      "maxLength": 255
+    },
+    "OemFileClassificationNameLength": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "uint8; Length of OemFileClassificationName including NULL terminator. Present if OemFileClassification !=0."
+    },
+    "OemFileClassificationName": {
+      "type": "string",
+      "description": "strASCII per DSP0240. Null-terminated (0x00). Includes terminator in length. Present if OemFileClassification !=0.",
+      "binaryFormat": "variable",
+      "x-binary-encoding": "us-ascii",
+      "x-binary-terminator": "0x00",
+      "maxLength": 255
     }
   },
-  "allOf": [
-    {
-      "if": {
-        "properties": {
-          "OemFileClassification": {
-            "not": {
-              "const": 0
-            }
-          }
-        },
-        "required": [
-          "OemFileClassification"
-        ]
-      },
-      "then": {
-        "required": [
-          "oemFileClassificationNameLength",
-          "oemFileClassificationName"
-        ]
-      }
-    }
-  ],
   "required": [
     "pdrHeader",
     "PLDMTerminusHandle",
@@ -177,6 +238,27 @@
     "ContainerID",
     "SuperiorDirectoryFileIdentifier",
     "FileClassification",
-    "OemFileClassification"
-  ]
+    "OemFileClassification",
+    "FileCapabilities",
+    "FileVersion",
+    "FileMaximumSize",
+    "FileMaximumFileDescriptorCount",
+    "FileNameLength",
+    "FileName"
+  ],
+  "if": {
+    "properties": {
+      "OemFileClassification": {
+        "not": {
+          "const": 0
+        }
+      }
+    }
+  },
+  "then": {
+    "required": [
+      "OemFileClassificationNameLength",
+      "OemFileClassificationName"
+    ]
+  }
 }
