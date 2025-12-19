@@ -1,139 +1,135 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Entity Auxiliary Names PDR Schema (DSP0248 1.3.0, Clause 28.18)",
+  "title": "Entity Auxiliary Names PDR (DSP0248 Type 16)",
+  "description": "Per DSP0248 v1.3.0 Clause 28.18 and DSP0240 v1.2.0 Section 2.5",
   "type": "object",
   "additionalProperties": false,
   "binaryOrder": [
+    "pdrHeader",
     "entityType",
     "entityInstanceNumber",
-    "entityContainerID",
-    "nameStringCount"
+    "containerID",
+    "nameStringCount",
+    "names"
   ],
+  "x-c-struct-packing": 1,
   "properties": {
     "pdrHeader": {
       "type": "object",
+      "description": "Common PDR Header (DSP0248)",
       "additionalProperties": false,
-      "properties": {
-        "recordHandle": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 4294967295
-            }
-          ],
-          "binaryFormat": "I",
-          "description": "uint32; opaque handle (TBD or auto-generated)"
-        },
-        "PDRHeaderVersion": {
-          "type": "integer",
-          "const": 1,
-          "binaryFormat": "B",
-          "description": "uint8; must be 1"
-        },
-        "PDRType": {
-          "type": "integer",
-          "const": 16,
-          "binaryFormat": "B",
-          "description": "uint8; Entity Auxiliary Names PDR = 16"
-        },
-        "recordChangeNumber": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 65535,
-          "default": 0,
-          "binaryFormat": "H",
-          "description": "uint16; incremented on changes (default 0)"
-        },
-        "dataLength": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 65535
-            }
-          ],
-          "binaryFormat": "H",
-          "description": "uint16; calculated data length (TBD)"
-        }
-      },
-      "required": [
+      "binaryOrder": [
         "recordHandle",
         "PDRHeaderVersion",
         "PDRType",
         "recordChangeNumber",
         "dataLength"
-      ]
+      ],
+      "properties": {
+        "recordHandle": {
+          "oneOf": [
+            { "type": "string", "enum": ["auto"] },
+            { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+          ],
+          "binaryFormat": "I",
+          "description": "uint32; PDR Record Handle. 0 = auto-assign."
+        },
+        "PDRHeaderVersion": {
+          "type": "integer",
+          "const": 1,
+          "binaryFormat": "B",
+          "description": "uint8; PDR Header Version (1)"
+        },
+        "PDRType": {
+          "type": "integer",
+          "const": 16,
+          "binaryFormat": "B",
+          "description": "uint8; PDR Type 16 = Entity Auxiliary Names"
+        },
+        "recordChangeNumber": {
+          "type": "integer",
+          "default": 0,
+          "binaryFormat": "H",
+          "description": "uint16; recordChangeNumber"
+        },
+        "dataLength": {
+          "oneOf": [
+            { "type": "string", "enum": ["auto"] },
+            { "type": "integer", "minimum": 0 }
+          ],
+          "binaryFormat": "H",
+          "description": "uint16; Length of data following this header (calculated automatically)."
+        }
+      },
+      "required": ["recordHandle", "PDRHeaderVersion", "PDRType", "recordChangeNumber", "dataLength"]
     },
     "entityType": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; Entity type that the names are associated with"
+      "description": "uint16; Entity Type per DSP0245"
     },
     "entityInstanceNumber": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; Entity instance number"
+      "description": "uint16; Entity Instance Number"
     },
-    "entityContainerID": {
+    "containerID": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; Container ID of the entity"
+      "description": "uint16; Container ID"
     },
     "nameStringCount": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 255,
+      "maximum": 16,
       "binaryFormat": "B",
-      "description": "uint8; Number of name pairs following"
+      "description": "uint8; Number of name pairs (Language Tag + Entity Name). If 0, 'names' array must be empty."
     },
     "names": {
       "type": "array",
+      "description": "List of string pairs. Length must match 'nameStringCount'.",
       "minItems": 0,
+      "maxItems": 16,
       "items": {
         "type": "object",
         "additionalProperties": false,
         "binaryOrder": [
-          "entityLanguageTag",
+          "nameLanguageTag",
           "entityName"
         ],
         "properties": {
-          "entityLanguageTag": {
+          "nameLanguageTag": {
             "type": "string",
+            "description": "strASCII per DSP0240. RFC 5646 tag (e.g., 'en'). Null-terminated (0x00). Includes terminator in binary length. Empty: just terminator.",
             "binaryFormat": "variable",
-            "description": "strASCII; Null-terminated language tag per RFC4646; empty=unspecified"
+            "x-binary-encoding": "us-ascii",
+            "x-binary-terminator": "0x00",
+            "maxLength": 32
           },
           "entityName": {
             "type": "string",
+            "description": "strUTF-16BE per DSP0240. Null-terminated (0x0000). No BOM required; empty string is just the terminator. Includes terminator in binary length.",
             "binaryFormat": "variable",
-            "description": "strUTF-16BE; Null-terminated entity name; empty=not provided"
+            "x-binary-encoding": "utf-16be",
+            "x-binary-terminator": "0x0000",
+            "maxLength": 128
           }
         },
-        "required": [
-          "entityLanguageTag",
-          "entityName"
-        ]
-      },
-      "description": "Array of name pairs, length = nameStringCount"
+        "required": ["nameLanguageTag", "entityName"]
+      }
     }
   },
   "required": [
     "pdrHeader",
     "entityType",
     "entityInstanceNumber",
-    "entityContainerID",
+    "containerID",
     "nameStringCount",
     "names"
   ]
