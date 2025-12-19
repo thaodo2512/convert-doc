@@ -1,162 +1,158 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Redfish Action PDR Schema (DSP0248 1.3.0, Clause 28.28)",
+  "title": "Redfish Action PDR (DSP0248 Type 24)",
+  "description": "Per DSP0248 v1.3.0 Clause 28.28 and DSP0240 v1.2.0 Section 2.5",
   "type": "object",
   "additionalProperties": false,
   "binaryOrder": [
-    "ActionPDRIndex",
-    "RelatedResourceCount",
-    "ActionCount"
+    "pdrHeader",
+    "actionPDRIndex",
+    "relatedResourceCount",
+    "relatedResourceIDs",
+    "actionCount",
+    "actions"
   ],
+  "x-c-struct-packing": 1,
   "properties": {
     "pdrHeader": {
       "type": "object",
+      "description": "Common PDR Header (DSP0248)",
       "additionalProperties": false,
-      "properties": {
-        "recordHandle": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 4294967295
-            }
-          ],
-          "binaryFormat": "I",
-          "description": "uint32; opaque handle (TBD or auto-generated)"
-        },
-        "PDRHeaderVersion": {
-          "type": "integer",
-          "const": 1,
-          "binaryFormat": "B",
-          "description": "uint8; must be 1"
-        },
-        "PDRType": {
-          "type": "integer",
-          "const": 24,
-          "binaryFormat": "B",
-          "description": "uint8; Redfish Action PDR = 24"
-        },
-        "recordChangeNumber": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 65535,
-          "default": 0,
-          "binaryFormat": "H",
-          "description": "uint16; incremented on changes (default 0)"
-        },
-        "dataLength": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 65535
-            }
-          ],
-          "binaryFormat": "H",
-          "description": "uint16; calculated data length (TBD)"
-        }
-      },
-      "required": [
+      "binaryOrder": [
         "recordHandle",
         "PDRHeaderVersion",
         "PDRType",
         "recordChangeNumber",
         "dataLength"
-      ]
+      ],
+      "properties": {
+        "recordHandle": {
+          "oneOf": [
+            { "type": "string", "enum": ["auto"] },
+            { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+          ],
+          "binaryFormat": "I",
+          "description": "uint32; PDR Record Handle. 0 = auto-assign."
+        },
+        "PDRHeaderVersion": {
+          "type": "integer",
+          "const": 1,
+          "binaryFormat": "B",
+          "description": "uint8; PDR Header Version (1)"
+        },
+        "PDRType": {
+          "type": "integer",
+          "const": 24,
+          "binaryFormat": "B",
+          "description": "uint8; PDR Type 24 = Redfish Action"
+        },
+        "recordChangeNumber": {
+          "type": "integer",
+          "default": 0,
+          "binaryFormat": "H",
+          "description": "uint16; recordChangeNumber"
+        },
+        "dataLength": {
+          "oneOf": [
+            { "type": "string", "enum": ["auto"] },
+            { "type": "integer", "minimum": 0 }
+          ],
+          "binaryFormat": "H",
+          "description": "uint16; Length of data following this header (calculated automatically)."
+        }
+      },
+      "required": ["recordHandle", "PDRHeaderVersion", "PDRType", "recordChangeNumber", "dataLength"]
     },
-    "ActionPDRIndex": {
+    "actionPDRIndex": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "uint8; Zero-based index for Action PDRs linked to a single Redfish Resource PDR"
+      "description": "uint8; Zero-based index for Action PDRs linked to a single Redfish Resource PDR; establishes ordering when split across multiple PDRs."
     },
-    "RelatedResourceCount": {
+    "relatedResourceCount": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 65535,
+      "maximum": 32,
       "binaryFormat": "H",
-      "description": "uint16; The number NR of Resources the Actions in this PDR are being linked to"
+      "description": "uint16; Number NR of Resources the Actions in this PDR are linked to."
     },
-    "RelatedResourceIDs": {
+    "relatedResourceIDs": {
       "type": "array",
+      "description": "Array of RelatedResourceID. Length must match 'relatedResourceCount'.",
       "minItems": 0,
+      "maxItems": 32,
       "items": {
         "type": "integer",
         "minimum": 1,
         "maximum": 4294967294,
         "binaryFormat": "I",
-        "description": "uint32; An opaque number that identifies the Redfish Resource PDR in which the Action is defined (1 to 0xFFFF FFFE)"
-      },
-      "description": "Array of RelatedResourceID, length = RelatedResourceCount"
+        "description": "uint32; Opaque number identifying the Redfish Resource PDR (1 to 0xFFFFFFFE)."
+      }
     },
-    "ActionCount": {
+    "actionCount": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 255,
+      "maximum": 32,
       "binaryFormat": "B",
-      "description": "uint8; The number of Redfish Actions NA associated with the host Redfish Resource PDR"
+      "description": "uint8; Number NA of Redfish Actions in this PDR."
     },
-    "Actions": {
+    "actions": {
       "type": "array",
+      "description": "Array of action definitions. Length must match 'actionCount'.",
       "minItems": 0,
+      "maxItems": 32,
       "items": {
         "type": "object",
         "additionalProperties": false,
         "binaryOrder": [
-          "ActionNameLengthBytes",
-          "ActionName",
-          "ActionPathLengthBytes",
-          "ActionPath"
+          "actionNameLengthBytes",
+          "actionName",
+          "actionPathLengthBytes",
+          "actionPath"
         ],
         "properties": {
-          "ActionNameLengthBytes": {
+          "actionNameLengthBytes": {
             "type": "integer",
-            "minimum": 0,
-            "maximum": 255,
+            "minimum": 1,
+            "maximum": 129,
             "binaryFormat": "B",
-            "description": "uint8; Including null terminator"
+            "description": "uint8; Length in bytes of actionName, including null terminator."
           },
-          "ActionName": {
+          "actionName": {
             "type": "string",
+            "description": "utf8string per DSP0240. Null-terminated (0x00). Includes terminator in binary length. e.g., 'Reset'.",
             "binaryFormat": "variable",
-            "description": "utf8string; The name of the action excluding the ResourceType, null-terminated"
+            "x-binary-encoding": "utf-8",
+            "x-binary-terminator": "0x00",
+            "maxLength": 128
           },
-          "ActionPathLengthBytes": {
+          "actionPathLengthBytes": {
             "type": "integer",
-            "minimum": 0,
-            "maximum": 255,
+            "minimum": 1,
+            "maximum": 129,
             "binaryFormat": "B",
-            "description": "uint8; The length in bytes of the null-terminated string detailing the path to the root of the Action"
+            "description": "uint8; Length in bytes of actionPath, including null terminator."
           },
-          "ActionPath": {
+          "actionPath": {
             "type": "string",
+            "description": "utf8string per DSP0240. Null-terminated (0x00). Includes terminator in binary length. e.g., 'Actions/ComputerSystem.Reset'.",
             "binaryFormat": "variable",
-            "description": "utf8string; Null-terminated string detailing the path to the Action within the resource’s major dictionary"
+            "x-binary-encoding": "utf-8",
+            "x-binary-terminator": "0x00",
+            "maxLength": 128
           }
         },
-        "required": [
-          "ActionNameLengthBytes",
-          "ActionName",
-          "ActionPathLengthBytes",
-          "ActionPath"
-        ]
-      },
-      "description": "Array of Actions, length = ActionCount"
+        "required": ["actionNameLengthBytes", "actionName", "actionPathLengthBytes", "actionPath"]
+      }
     }
   },
   "required": [
     "pdrHeader",
-    "ActionPDRIndex",
-    "RelatedResourceCount",
-    "RelatedResourceIDs",
-    "ActionCount",
-    "Actions"
+    "actionPDRIndex",
+    "relatedResourceCount",
+    "relatedResourceIDs",
+    "actionCount",
+    "actions"
   ]
 }
