@@ -1,131 +1,116 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "OEM EntityID PDR Schema (DSP0248 1.3.0, Clause 28.19)",
+  "title": "OEM Entity ID PDR (DSP0248 Type 17)",
+  "description": "Per DSP0248 v1.3.0 Clause 28.19 and DSP0240 v1.2.0 Section 2.5",
   "type": "object",
   "additionalProperties": false,
   "binaryOrder": [
-    "vendorIANA",
-    "OEMEntityID",
-    "stringCount"
+    "pdrHeader",
+    "entityType",
+    "entityInstanceNumber",
+    "containerID",
+    "oemEntityIDLength",
+    "oemEntityID"
   ],
+  "x-c-struct-packing": 1,
   "properties": {
     "pdrHeader": {
       "type": "object",
+      "description": "Common PDR Header (DSP0248)",
       "additionalProperties": false,
-      "properties": {
-        "recordHandle": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 4294967295
-            }
-          ],
-          "binaryFormat": "I",
-          "description": "uint32; opaque handle (TBD or auto-generated)"
-        },
-        "PDRHeaderVersion": {
-          "type": "integer",
-          "const": 1,
-          "binaryFormat": "B",
-          "description": "uint8; must be 1"
-        },
-        "PDRType": {
-          "type": "integer",
-          "const": 17,
-          "binaryFormat": "B",
-          "description": "uint8; OEM EntityID PDR = 17"
-        },
-        "recordChangeNumber": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 65535,
-          "default": 0,
-          "binaryFormat": "H",
-          "description": "uint16; incremented on changes (default 0)"
-        },
-        "dataLength": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 65535
-            }
-          ],
-          "binaryFormat": "H",
-          "description": "uint16; calculated data length (TBD)"
-        }
-      },
-      "required": [
+      "binaryOrder": [
         "recordHandle",
         "PDRHeaderVersion",
         "PDRType",
         "recordChangeNumber",
         "dataLength"
-      ]
+      ],
+      "properties": {
+        "recordHandle": {
+          "oneOf": [
+            { "type": "string", "enum": ["auto"] },
+            { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+          ],
+          "binaryFormat": "I",
+          "description": "uint32; PDR Record Handle. 0 = auto-assign."
+        },
+        "PDRHeaderVersion": {
+          "type": "integer",
+          "const": 1,
+          "binaryFormat": "B",
+          "description": "uint8; PDR Header Version (1)"
+        },
+        "PDRType": {
+          "type": "integer",
+          "const": 17,
+          "binaryFormat": "B",
+          "description": "uint8; PDR Type 17 = OEM Entity ID"
+        },
+        "recordChangeNumber": {
+          "type": "integer",
+          "default": 0,
+          "binaryFormat": "H",
+          "description": "uint16; recordChangeNumber"
+        },
+        "dataLength": {
+          "oneOf": [
+            { "type": "string", "enum": ["auto"] },
+            { "type": "integer", "minimum": 0 }
+          ],
+          "binaryFormat": "H",
+          "description": "uint16; Length of data following this header (calculated automatically)."
+        }
+      },
+      "required": ["recordHandle", "PDRHeaderVersion", "PDRType", "recordChangeNumber", "dataLength"]
     },
-    "vendorIANA": {
+    "entityType": {
       "type": "integer",
-      "minimum": 0,
-      "maximum": 4294967295,
-      "binaryFormat": "I",
-      "description": "uint32; IANA Enterprise Number for the vendor defining the OEM EntityID"
+      "minimum": 32768,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; The OEM entity type number (8000h-FFFFh)"
     },
-    "OEMEntityID": {
+    "entityInstanceNumber": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; Vendor-assigned numeric ID for the OEM entity type"
+      "description": "uint16; The instance number for the contained entity"
     },
-    "stringCount": {
+    "containerID": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; The container ID for the contained entity"
+    },
+    "oemEntityIDLength": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "uint8; Number of following pairs [0..N] of entityLanguageTag + entityName fields"
+      "description": "uint8; Length of the OEM Entity ID data in bytes"
     },
-    "entityNames": {
+    "oemEntityID": {
       "type": "array",
+      "description": "OEM-specific entity ID data. Length must match 'oemEntityIDLength'.",
       "minItems": 0,
+      "maxItems": 255,
       "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "binaryOrder": [
-          "entityLanguageTag",
-          "entityName"
-        ],
-        "properties": {
-          "entityLanguageTag": {
-            "type": "string",
-            "binaryFormat": "variable",
-            "description": "strASCII; Null-terminated language tag per RFC4646 (e.g., 'en'). Special: empty = unspecified"
-          },
-          "entityName": {
-            "type": "string",
-            "binaryFormat": "variable",
-            "description": "strUTF-16BE; Null-terminated unicode string for the OEM entity name. Special: empty = not provided"
-          }
-        },
-        "required": [
-          "entityLanguageTag",
-          "entityName"
-        ]
-      },
-      "description": "Array of entity name pairs, length = stringCount"
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 255,
+        "binaryFormat": "B",
+        "description": "uint8"
+      }
     }
   },
   "required": [
     "pdrHeader",
-    "vendorIANA",
-    "OEMEntityID",
-    "stringCount",
-    "entityNames"
+    "entityType",
+    "entityInstanceNumber",
+    "containerID",
+    "oemEntityIDLength",
+    "oemEntityID"
   ]
 }
