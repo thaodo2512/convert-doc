@@ -1,0 +1,25 @@
+def get_effective_schema(schema, data):
+    """
+    If the schema uses 'oneOf', find the option that matches the data
+    by checking 'const' values.
+    """
+    if 'oneOf' not in schema:
+        return schema
+
+    # Iterate through options to find the one that matches this data
+    for option in schema['oneOf']:
+        match = True
+        # Check if 'properties' exist in this option
+        if 'properties' in option:
+            for prop, prop_def in option['properties'].items():
+                # If the schema has a 'const' requirement, the data MUST match it
+                if 'const' in prop_def and prop in data:
+                    if data[prop] != prop_def['const']:
+                        match = False
+                        break
+        
+        # If we found a match (or if there were no conflicting consts), use this option
+        if match:
+            return option
+            
+    return schema
