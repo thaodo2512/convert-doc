@@ -1,0 +1,63 @@
+if 'type' in data:
+    field_type = data['type']
+else:
+    key_schema = schema
+    
+    # Improved type inference from schema
+    bf = key_schema.get('binaryFormat', '')
+    desc = key_schema.get('description', '').lower()
+    format_to_bits = {'B': 8, 'b': 8, 'H': 16, 'h': 16, 'I': 32, 'i': 32, 'Q': 64, 'q': 64, 'f': 32}
+    bits = format_to_bits.get(bf, '')
+    
+    # 1. Byte Arrays (e.g., "16B")
+    if bf.endswith('B') and bf[:-1].isdigit():
+        num = bf[:-1]
+        field_type = f"uint8[{num}]"
+    
+    # 2. Enums
+    elif 'enum' in key_schema:
+        field_type = f"enum{bits}"
+    
+    # 3. Bitfields / Bools
+    elif 'bitfield' in desc:
+        field_type = f"bitfield{bits}"
+    elif 'bool' in desc:
+        field_type = f"bool{bits}"
+    
+    # 4. STRINGS (Moved UP to prioritize over 'variable')
+    elif key_schema.get('type') == 'string' or 'string' in desc:
+        if 'ascii' in desc:
+            field_type = 'ascii'
+        elif 'utf-16' in desc or 'strutf-16' in desc:  # Added UTF-16 support
+            field_type = 'strUTF-16'
+        elif 'unicode be16' in desc:
+            field_type = 'strunicode be16'
+        elif 'unicode le16' in desc:
+            field_type = 'strunicode le16'
+        elif 'utf-8' in desc:
+            field_type = 'utf-8'
+        else:
+            field_type = 'strASCII'  # Default fallback
+            
+    # 5. Variable (Generic fallback if not a string)
+    elif bf == 'variable':
+        field_type = 'variable'
+        
+    # 6. Standard Numeric Types
+    elif bf in ['B', 'H', 'I', 'Q']:
+        field_type = f"uint{bits}"
+    elif bf in ['b', 'h', 'i', 'q']:
+        field_type = f"sint{bits}"
+    elif bf == 'f':
+        field_type = 'real32'
+        
+    # 7. Fallback: Parse from description
+    else:
+        if desc:
+            type_part = desc.split(';')[0].split(':')[0].strip()
+            if type_part:
+                field_type = type_part
+            else:
+                field_type = 'unknown'
+        else:
+            field_type = 'unknown'
