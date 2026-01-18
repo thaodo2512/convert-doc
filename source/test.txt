@@ -1,0 +1,186 @@
+Here is the comprehensive design proposal formatted as a formal Request for Comments (RFC) document. You can use this content to present your proposal to the Zephyr community or your internal team.
+RFC: Platform Level Data Model (PLDM) Subsystem for Zephyr OS
+1. Abstract
+This document proposes the introduction of a native PLDM (Platform Level Data Model) subsystem into Zephyr OS. The subsystem aims to provide a modular, standards-compliant implementation of the DMTF PLDM specifications (DSP0240, DSP0248, etc.).
+The design leverages the established libpldm library from the OpenBMC project for protocol encoding/decoding (pure logic) while providing a "Zephyr-native" wrapper for transport dispatching, threading models, and hardware platform abstraction.
+2. Motivation
+ * Standardization: Modern BMCs and managed embedded devices increasingly rely on PLDM over MCTP for management.
+ * Reusability: By wrapping libpldm, Zephyr avoids reinventing the protocol parsing logic and benefits from the rigorous testing of the OpenBMC community.
+ * Modularity: The design separates the Requester (Client) and Responder (Server) roles, allowing developers to optimize flash usage based on device needs.
+3. High-Level Architecture
+The architecture follows a Layered Design pattern to ensure separation of concerns between Protocol Syntax (libpldm), System Logic (Zephyr Subsystem), and Hardware/Policy (User Application).
+Key Components:
+ * Protocol Layer (libpldm): An external module handles all packet encoding/decoding.
+ * Dispatch Layer: Routes incoming packets to either the Requester or Responder manager based on the header's Request bit.
+ * Responder Layer (Server): A dedicated thread that processes incoming commands (e.g., GetSensorReading) via Platform Hooks.
+ * Requester Layer (Client): API for applications to send commands and wait for responses synchronously or asynchronously.
+ * Transport Layer: Abstraction layer binding PLDM to the underlying transport (primary target: Zephyr MCTP subsystem).
+4. Directory Structure
+The structure complies with Zephyr's upstream standards.
+zephyr/
+├── modules/lib/libpldm/             # [External Module] OpenBMC libpldm source
+│
+├── include/zephyr/pldm/
+│   ├── pldm.h                       # Main public API
+│   ├── platform.h                   # Platform Ops (Hooks) definitions
+│   └── transport.h                  # Transport registration API
+│
+└── subsys/pldm/
+    ├── CMakeLists.txt               # Build logic (links libpldm)
+    ├── Kconfig                      # Main configuration
+    ├── pldm_internal.h              # Private structures
+    │
+    ├── common/
+    │   ├── dispatch.c               # Ingress packet routing
+    │   └── utils.c                  # Shared utilities
+    │
+    ├── transport/
+    │   ├── Kconfig
+    │   └── mctp_zephyr.c            # Binding: PLDM <-> Zephyr MCTP
+    │
+    ├── responder/                   # [Server Role]
+    │   ├── Kconfig
+    │   ├── worker.c                 # Dedicated processing thread
+    │   └── handlers/
+    │       ├── base.c               # Type 0 handler
+    │       ├── bios.c               # Type 5 handler
+    │       └── platform.c           # Type 2 handler
+    │
+    └── requester/                   # [Client Role]
+        ├── Kconfig
+        ├── core.c                   # Instance ID & Wait/Notify logic
+        └── api.c                    # Public send_recv APIs
+
+5. Implementation Strategy
+5.1. Integration with libpldm
+We treat libpldm as a pure logic engine. Zephyr's CMakeLists.txt will selectively compile sources from the module directory based on Kconfig.
+subsys/pldm/CMakeLists.txt:
+zephyr_library()
+zephyr_include_directories(${ZEPHYR_LIBPLDM_MODULE_DIR}/include)
+
+# Core libpldm sources
+zephyr_library_sources(${ZEPHYR_LIBPLDM_MODULE_DIR}/src/base.c)
+zephyr_library_sources(${ZEPHYR_LIBPLDM_MODULE_DIR}/src/utils.c)
+
+# Conditional compilation based on Kconfig
+if(CONFIG_PLDM_PLATFORM)
+  zephyr_library_sources(${ZEPHYR_LIBPLDM_MODULE_DIR}/src/platform.c)
+endif()
+
+5.2. Transport Layer (MCTP Binding)
+The subsystem registers a callback with the native Zephyr MCTP stack. It utilizes net_buf's user_data to track the Source Endpoint ID (EID) for routing responses.
+/* subsys/pldm/transport/mctp_zephyr.c */
+static int pldm_mctp_recv_cb(void *ctx, struct net_buf *buf, uint8_t src_eid) {
+    /* Store metadata for the upper layers */
+    struct pldm_msg_ctx *msg_ctx = (struct pldm_msg_ctx *)buf->user_data;
+    msg_ctx->remote_eid = src_eid;
+    msg_ctx->is_request = (pldm_msg_type(buf) == PLDM_REQUEST);
+
+    /* Push to PLDM Dispatcher */
+    pldm_input(buf);
+    return 0;
+}
+
+5.3. Responder Design (The Worker Thread)
+To avoid blocking the network stack (MCTP RX thread) with slow operations (e.g., I2C sensor reads), the Responder uses a Dedicated Worker Thread.
+ * Mechanism: k_msgq + k_thread.
+ * Flow:
+   * Dispatcher receives a Request -> k_msgq_put.
+   * Worker thread wakes up -> Decodes Command.
+   * Worker invokes Platform Ops.
+   * Worker encodes Response -> Calls Transport Send.
+5.4. Requester Design (Sync/Async)
+The Requester does not need a dedicated thread. It operates in the Application's context.
+ * Mechanism: sys_slist (Pending List) + k_sem.
+ * Flow (Synchronous):
+   * App calls pldm_send_recv().
+   * Function allocates a pending_req context, adds to list, and sends packet.
+   * Function blocks on k_sem_take().
+   * ... Time passes ...
+   * Dispatcher receives Response -> Finds context in list -> k_sem_give().
+   * App wakes up with data.
+5.5. Platform Abstraction (The Hooks)
+To ensure portability across different boards (NXP, STM32, Nordic), the subsystem defines a strict interface (struct) that the user application must implement. The subsystem never accesses hardware directly.
+include/zephyr/pldm/platform.h:
+struct pldm_platform_ops {
+    /* Hook to get PDR repository size and data */
+    int (*get_pdr_repo)(const uint8_t **data, size_t *len);
+
+    /* Hook to read a specific sensor */
+    int (*get_sensor_reading)(uint16_t sensor_id, 
+                              struct pldm_sensor_value *val);
+
+    /* Hook to control an effecter (LED, Fan, etc.) */
+    int (*set_effecter_state)(uint16_t effecter_id, 
+                              uint8_t composite_count,
+                              uint8_t *state_field);
+};
+
+/* Registration API */
+int pldm_platform_register(const struct pldm_platform_ops *ops);
+
+6. Configuration (Kconfig)
+The subsystem is highly configurable to minimize footprint.
+menuconfig PLDM
+    bool "PLDM Subsystem"
+    select MCTP
+    help
+      Enable Platform Level Data Model support.
+
+if PLDM
+
+    config PLDM_RESPONDER
+        bool "PLDM Responder Role"
+        default y
+        help
+          Enable handling of incoming PLDM commands.
+
+    config PLDM_REQUESTER
+        bool "PLDM Requester Role"
+        help
+          Enable sending PLDM commands to other devices.
+
+    config PLDM_PLATFORM_TYPE
+        bool "Support Type 2 (Platform) commands"
+        default y
+
+    config PLDM_RESPONDER_STACK_SIZE
+        int "Responder Thread Stack Size"
+        default 2048
+        depends on PLDM_RESPONDER
+
+endif
+
+7. Example Usage (User Application)
+The user only needs to define the "Ops" and register them.
+/* main.c */
+#include <zephyr/pldm/platform.h>
+
+/* User-defined sensor reading logic */
+static int my_sensor_read(uint16_t id, struct pldm_sensor_value *val) {
+    if (id == TEMP_SENSOR_ID) {
+        val->sensor_data_size = PLDM_SENSOR_DATA_SIZE_UINT8;
+        val->present_reading[0] = 45; // 45 Degrees
+        return 0;
+    }
+    return -1;
+}
+
+static const struct pldm_platform_ops my_ops = {
+    .get_sensor_reading = my_sensor_read,
+    /* ... other hooks ... */
+};
+
+int main(void) {
+    /* Register implementation */
+    pldm_platform_register(&my_ops);
+    
+    printk("PLDM Subsystem Ready\n");
+    return 0;
+}
+
+8. Summary of Benefits
+ * Zero-Copy Path: Integration with Zephyr net_buf ensures minimal data copying from Driver -> MCTP -> PLDM.
+ * Maintainability: Logic updates in libpldm are automatically inherited via module updates.
+ * Flexibility: Dual-path architecture supports simple Sensors (Responder only) or complex Management Controllers (Requester & Responder).
+ * Portability: The pldm_platform_ops abstraction ensures the core subsystem remains generic and reusable across any Zephyr-supported hardware.
