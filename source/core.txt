@@ -1,0 +1,69 @@
+/* subsys/pldm/requester/core.c */
+#include <zephyr/kernel.h>
+#include <zephyr/pldm/pldm.h>
+#include <libpldm/base.h>
+
+struct pldm_pending {
+    sys_snode_t node;
+    uint8_t instance_id;
+    struct k_sem sem;
+    struct net_buf *resp_buf;
+};
+
+static sys_slist_t pending_reqs;
+static struct k_spinlock lock;
+
+/* Called by dispatch.c when a response arrives */
+void pldm_requester_handle_resp(struct net_buf *buf)
+{
+    struct pldm_msg_hdr *hdr = (struct pldm_msg_hdr *)buf->data;
+    struct pldm_pending *req;
+    k_spinlock_key_t key;
+
+    key = k_spin_lock(&lock);
+    SYS_SLIST_FOR_EACH_CONTAINER(&pending_reqs, req, node) {
+        if (req->instance_id == hdr->instance_id) {
+            /* Match found! Take data and wake up thread */
+            req->resp_buf = net_buf_clone(buf, K_NO_WAIT);
+            k_sem_give(&req->sem);
+            k_spin_unlock(&lock, key);
+            return;
+        }
+    }
+    k_spin_unlock(&lock, key);
+}
+
+int pldm_send_recv(uint8_t eid, struct net_buf *req, struct net_buf **rsp, k_timeout_t timeout)
+{
+    struct pldm_pending ctx;
+    struct pldm_msg_hdr *hdr = (struct pldm_msg_hdr *)req->data;
+    k_spinlock_key_t key;
+    int ret;
+
+    k_sem_init(&ctx.sem, 0, 1);
+    ctx.instance_id = hdr->instance_id;
+    ctx.resp_buf = NULL;
+
+    /* Register to list */
+    key = k_spin_lock(&lock);
+    sys_slist_append(&pending_reqs, &ctx.node);
+    k_spin_unlock(&lock, key);
+
+    /* Send */
+    pldm_transport_send(eid, req);
+
+    /* Wait */
+    ret = k_sem_take(&ctx.sem, timeout);
+
+    /* Cleanup */
+    key = k_spin_lock(&lock);
+    sys_slist_find_and_remove(&pending_reqs, &ctx.node);
+    k_spin_unlock(&lock, key);
+
+    if (ret == 0 && ctx.resp_buf) {
+        *rsp = ctx.resp_buf;
+        return 0;
+    }
+
+    return -ETIMEDOUT;
+}
