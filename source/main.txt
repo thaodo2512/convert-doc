@@ -1,0 +1,180 @@
+/* samples/subsys/pldm/pldm_demo/src/main.c */
+
+#include <zephyr/kernel.h>
+#include <zephyr/logging/log.h>
+#include <zephyr/pldm/pldm.h>
+#include <zephyr/pldm/platform.h>
+
+/* Include từ libpldm (External Module) */
+#include <libpldm/base.h>
+#include <libpldm/platform.h>
+
+LOG_MODULE_REGISTER(pldm_sample, LOG_LEVEL_DBG);
+
+/* Định nghĩa EID (Endpoint ID) cho demo */
+#define REMOTE_EID  20 /* Giả sử EID của thiết bị kia là 20 */
+
+/* =========================================================================
+ * PHẦN 1: RESPONDER (SERVER) - GIẢ LẬP SENSOR
+ * =========================================================================
+ */
+#ifdef CONFIG_PLDM_RESPONDER
+
+#define MY_TEMP_SENSOR_ID  1
+
+/* Hook hàm này để trả về giá trị nhiệt độ giả */
+static int my_get_sensor_reading(uint16_t sensor_id, 
+                                 struct pldm_sensor_value *val)
+{
+    if (sensor_id == MY_TEMP_SENSOR_ID) {
+        /* Giả lập nhiệt độ thay đổi theo thời gian */
+        static uint8_t temp = 25;
+        temp++; 
+        if (temp > 50) temp = 25;
+
+        LOG_INF("[Server] Reading Sensor ID %d: %d C", sensor_id, temp);
+
+        /* Format dữ liệu theo chuẩn PLDM */
+        val->sensor_data_size = PLDM_SENSOR_DATA_SIZE_UINT8;
+        val->sensor_operational_state = PLDM_SENSOR_ENABLED;
+        val->sensor_event_message_enable = PLDM_NO_EVENT_GENERATION;
+        val->present_reading[0] = temp;
+        return 0;
+    }
+
+    LOG_ERR("[Server] Unknown Sensor ID %d", sensor_id);
+    return -1; // Sẽ trả về PLDM_ERROR_INVALID_SENSOR_ID
+}
+
+/* Bảng các hàm hooks */
+static const struct pldm_platform_ops my_ops = {
+    .get_sensor_reading = my_get_sensor_reading,
+};
+
+static void init_server_role(void)
+{
+    LOG_INF("Initializing PLDM Responder (Server)...");
+    pldm_platform_register_ops(&my_ops);
+}
+
+#endif /* CONFIG_PLDM_RESPONDER */
+
+/* =========================================================================
+ * PHẦN 2: REQUESTER (CLIENT) - ĐI HỎI SENSOR
+ * =========================================================================
+ */
+#ifdef CONFIG_PLDM_REQUESTER
+
+static void requester_thread(void *p1, void *p2, void *p3)
+{
+    int rc;
+    struct net_buf *req_buf = NULL;
+    struct net_buf *rsp_buf = NULL;
+    struct pldm_msg *req_msg;
+    struct pldm_msg *rsp_msg;
+    size_t resp_len;
+
+    LOG_INF("Starting PLDM Requester (Client) thread...");
+    
+    /* Chờ một chút để hệ thống khởi động */
+    k_sleep(K_SECONDS(2));
+
+    while (1) {
+        LOG_INF("-------------------------------------------------");
+        LOG_INF("[Client] Sending GetSensorReading to EID %d...", REMOTE_EID);
+
+        /* 1. Cấp phát buffer cho Request */
+        /* Lưu ý: Trong code thật nên dùng pool, ở đây dùng tạm logic đơn giản */
+        req_buf = net_buf_alloc_with_data(NULL, NULL, 256, K_NO_WAIT); // Mock alloc
+        if (!req_buf) {
+            LOG_ERR("OOM");
+            goto wait_next;
+        }
+        
+        /* Chừa chỗ cho MCTP/PLDM header nếu cần thiết, ở đây ta trỏ thẳng data */
+        req_msg = (struct pldm_msg *)req_buf->data;
+
+        /* 2. Encode lệnh GetSensorReading bằng libpldm */
+        uint8_t instance_id = 1; // Nên quản lý ID này tăng dần
+        rc = encode_get_sensor_reading_req(
+            instance_id,
+            MY_TEMP_SENSOR_ID, 
+            false, /* rearm */
+            req_msg);
+
+        if (rc != PLDM_SUCCESS) {
+            LOG_ERR("Encode failed: %d", rc);
+            net_buf_unref(req_buf);
+            goto wait_next;
+        }
+        
+        /* Cập nhật độ dài buffer */
+        req_buf->len = sizeof(struct pldm_msg_hdr) + PLDM_GET_SENSOR_READING_REQ_BYTES;
+
+        /* 3. Gửi và Chờ phản hồi (Blocking) */
+        /* Hàm này là hàm trong pldm.h mà chúng ta thiết kế */
+        rc = pldm_send_recv(REMOTE_EID, req_buf, &rsp_buf, K_MSEC(1000));
+
+        if (rc == 0 && rsp_buf) {
+            LOG_INF("[Client] Received Response!");
+            
+            /* 4. Decode phản hồi */
+            rsp_msg = (struct pldm_msg *)rsp_buf->data;
+            resp_len = rsp_buf->len - sizeof(struct pldm_msg_hdr);
+            
+            uint8_t completion_code;
+            uint8_t sensor_data_size;
+            uint8_t sensor_operational_state;
+            uint8_t sensor_event_message_enable;
+            uint8_t present_reading[4];
+            uint8_t event_state;
+            uint8_t present_state;
+
+            rc = decode_get_sensor_reading_resp(
+                rsp_msg, resp_len,
+                &completion_code,
+                &sensor_data_size,
+                &sensor_operational_state,
+                &sensor_event_message_enable,
+                &present_state,
+                &event_state,
+                present_reading);
+
+            if (rc == PLDM_SUCCESS && completion_code == PLDM_SUCCESS) {
+                LOG_INF("[Client] SUCCESS! Temperature: %d C", present_reading[0]);
+            } else {
+                LOG_ERR("[Client] Error decoding or CC=%d", completion_code);
+            }
+
+            net_buf_unref(rsp_buf);
+        } else {
+            LOG_WRN("[Client] Timeout or No response (rc=%d)", rc);
+        }
+
+    wait_next:
+        k_sleep(K_SECONDS(5));
+    }
+}
+
+K_THREAD_DEFINE(req_tid, 2048, requester_thread, NULL, NULL, NULL, 7, 0, 0);
+
+#endif /* CONFIG_PLDM_REQUESTER */
+
+
+/* =========================================================================
+ * MAIN ENTRY
+ * =========================================================================
+ */
+int main(void)
+{
+    LOG_INF("PLDM Sample Application Started");
+
+#ifdef CONFIG_PLDM_RESPONDER
+    init_server_role();
+#endif
+
+    /* * Lưu ý: Nếu chạy trên board thực tế, bạn cần đảm bảo MCTP 
+     * đã được bind với I2C/SMBus trong DeviceTree.
+     */
+    return 0;
+}
