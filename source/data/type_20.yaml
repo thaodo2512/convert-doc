@@ -11,10 +11,10 @@ pdrHeader:
   dataLength:
     value: 10
 
-PLDMTerminusHandle:
+pldmTerminusHandle:
   value: 256
 
-FRURecordSetIdentifier:
+fruRecordSetIdentifier:
   value: 1
 
 entityType:
@@ -23,5 +23,5 @@ entityType:
 entityInstanceNumber:
   value: 1
 
-containerID:
+containerId:
   value: 0

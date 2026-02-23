@@ -9,7 +9,7 @@ pdrHeader:
   recordChangeNumber:
     value: 0
   dataLength:
-    value: 9
+    value: 6
 
 PLDMTerminusHandle:
   value: 256
@@ -17,17 +17,9 @@ PLDMTerminusHandle:
 effecterID:
   value: 310
 
-effecterEnable:
-  value: 0
-  comment: "Enable effecter after init."
-
-initConditions:
-  value: 3
-  comment: "Initialize on power-up or reset."
-
 effecterDataSize:
-  value: 2
-  comment: "2 = uint16."
+  value: 3
+  comment: "3 = uint16."
 
-effecterData:
+initValue:
   value: 500

@@ -1,5 +1,6 @@
 import yaml
 import json
+import re
 import struct
 import argparse
 import sys
@@ -14,6 +15,10 @@ FMT_MAP = {
     'ver32': 'I',
     # Add more special formats if needed, e.g., 'time64': 'Q'
 }
+
+# Tokenizes a field path like "pdrHeader.recordHandle.value" or
+# "stateSensors[0].stateSetID.value" into a list of keys and int indices.
+_PATH_TOKEN = re.compile(r'([^.\[\]]+)|\[(\d+)\]')
 
 def is_hidden(node):
     if not isinstance(node, dict):
@@ -124,6 +129,12 @@ def pack_field(field_schema, value, field_name, full_data=None):
     field_type = field_schema.get('type')
     bf = field_schema.get('binaryFormat', '')
     
+    if full_data is not None and 'x-binary-type-field' in field_schema:
+        type_field = field_schema['x-binary-type-field']
+        if type_field in full_data:
+            key = str(full_data[type_field])
+            bf = field_schema.get('x-binary-type-mapping', {}).get(key, bf)
+
     if full_data is not None and 'formatResolver' in field_schema:
         resolver = field_schema['formatResolver']
         depends_on = resolver.get('dependsOn')
@@ -145,8 +156,15 @@ def pack_field(field_schema, value, field_name, full_data=None):
     
     if field_type == 'object':
         packed = b''
-        sub_order = field_schema.get('binaryOrder', list(value.keys()))
-        sub_props = field_schema.get('properties', {})
+        effective_schema = field_schema
+        if 'oneOf' in field_schema:
+            for variant in field_schema['oneOf']:
+                variant_props = variant.get('properties', {})
+                if all(value.get(p) == s['const'] for p, s in variant_props.items() if 'const' in s):
+                    effective_schema = variant
+                    break
+        sub_order = effective_schema.get('binaryOrder', list(value.keys()))
+        sub_props = effective_schema.get('properties', {})
         for sub_field in sub_order:
             sub_value = value.get(sub_field)
             sub_schema = sub_props.get(sub_field, {})
@@ -233,7 +251,8 @@ def process_single_yaml(yaml_file, schema_dir, reserved_handles, next_handle_ref
     
     pdr_header = cleaned_data.get('pdrHeader', {})
     handle = pdr_header.get('recordHandle')
-    handle = coerce_int(handle, 'recordHandle', filename)
+    if handle not in (None, 'auto', 'auto-gen'):
+        handle = coerce_int(handle, 'recordHandle', filename)
     assigned_handle = assign_handle(next_handle_ref[0], reserved_handles, filename, handle)
     if assigned_handle != handle:
         pdr_header['recordHandle'] = assigned_handle  # Update for packing
@@ -256,13 +275,130 @@ def process_single_yaml(yaml_file, schema_dir, reserved_handles, next_handle_ref
         # Include even if hidden, since for binary
         body_buffer += pack_field(field_schema, value, field, full_data=condition_data)
     
-    # Update data_len in header
+    # Update data_len in header (auto-calculate; warn if YAML stated a different value)
     data_len = len(body_buffer)
+    stated_len = pdr_header.get('dataLength')
+    if stated_len not in (None, 'auto', 'auto-gen') and isinstance(stated_len, int) and stated_len != data_len:
+        print(f"Warning: {filename}: stated dataLength {stated_len} != calculated {data_len}; using calculated value.")
     header_buffer = header_buffer[:-2] + struct.pack('<H', data_len)
     
     return assigned_handle, header_buffer + body_buffer, filename.replace('.yaml', '')
 
-def generate_all(yaml_dir, schema_dir, output_file):
+def resolve_field_path(data, field_path):
+    """Traverse a loaded YAML dict using a dot/bracket path string.
+
+    Supports:
+      "pdrHeader.recordHandle.value"          -> dict keys
+      "stateSensors[0].stateSetID.value"      -> dict key + list index + dict keys
+      "possibleStates[0][1]"                  -> nested list indices
+
+    Returns the resolved value, or None (with a warning) on any failure.
+    """
+    tokens = []
+    for m in _PATH_TOKEN.finditer(field_path):
+        if m.group(1) is not None:
+            tokens.append(m.group(1))
+        else:
+            tokens.append(int(m.group(2)))
+
+    current = data
+    for token in tokens:
+        if isinstance(token, int):
+            if not isinstance(current, list):
+                print(f"Warning: path '{field_path}': expected list at index [{token}], "
+                      f"got {type(current).__name__}")
+                return None
+            if token >= len(current):
+                print(f"Warning: path '{field_path}': index [{token}] out of range "
+                      f"(list length {len(current)})")
+                return None
+            current = current[token]
+        else:
+            if not isinstance(current, dict):
+                print(f"Warning: path '{field_path}': expected dict at key '{token}', "
+                      f"got {type(current).__name__}")
+                return None
+            if token not in current:
+                print(f"Warning: path '{field_path}': key '{token}' not found "
+                      f"(available: {list(current.keys())})")
+                return None
+            current = current[token]
+
+    return current
+
+
+def _format_c_value(value):
+    """Format a Python value as a C macro literal."""
+    if isinstance(value, bool):
+        return '1' if value else '0'
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        return f'{value}f'
+    if isinstance(value, str):
+        return f'"{value}"'
+    return str(value)
+
+
+def generate_bound_macros(macro_yaml_path, data_folder):
+    """Load macro_defs.yaml and emit a block of C #define lines.
+
+    Each entry in the binding file specifies:
+      name:  C macro identifier
+      file:  data YAML filename (relative to data_folder)
+      field: dot/bracket path into the loaded YAML
+
+    Files are cached so each data YAML is read from disk only once.
+    Returns a string ready to write into the C output file, or '' if
+    the binding file is absent or contains no valid entries.
+    """
+    if not os.path.exists(macro_yaml_path):
+        print(f"Warning: macro binding file '{macro_yaml_path}' not found; skipping macros.")
+        return ''
+
+    with open(macro_yaml_path, 'r') as f:
+        macro_defs = yaml.safe_load(f)
+
+    if not macro_defs or 'macros' not in macro_defs:
+        print(f"Warning: '{macro_yaml_path}' has no 'macros' key; skipping macros.")
+        return ''
+
+    file_cache = {}   # filename -> loaded dict (or None on load error)
+    lines = []
+
+    for defn in macro_defs['macros']:
+        name       = defn.get('name')
+        file_name  = defn.get('file')
+        field_path = defn.get('field')
+
+        if not all([name, file_name, field_path]):
+            print(f"Warning: incomplete macro entry {defn}; skipping.")
+            continue
+
+        if file_name not in file_cache:
+            full_path = os.path.join(data_folder, file_name)
+            try:
+                with open(full_path, 'r') as f:
+                    file_cache[file_name] = yaml.safe_load(f)
+            except FileNotFoundError:
+                print(f"Warning: data file '{full_path}' not found for macro '{name}'.")
+                file_cache[file_name] = None
+
+        data = file_cache[file_name]
+        if data is None:
+            continue
+
+        value = resolve_field_path(data, field_path)
+        if value is None:
+            print(f"Warning: macro '{name}': could not resolve '{field_path}' in '{file_name}'.")
+            continue
+
+        lines.append(f"#define {name} {_format_c_value(value)}")
+
+    return '\n'.join(lines)
+
+
+def generate_all(yaml_dir, schema_dir, output_file, macro_yaml=None):
     yaml_files = sorted(glob.glob(os.path.join(yaml_dir, 'type_*.yaml')))
     print(f"Found {len(yaml_files)} YAML files in {yaml_dir}")
     
@@ -284,6 +420,12 @@ def generate_all(yaml_dir, schema_dir, output_file):
     with open(output_file, 'w') as out:
         out.write(f"// Generated by code_gen.py on {datetime.now().isoformat()}\n")
         out.write("#include <stdint.h>\n#include <stddef.h>\n\n")
+
+        if macro_yaml:
+            macros_block = generate_bound_macros(macro_yaml, yaml_dir)
+            if macros_block:
+                out.write("// --- Bound Macros ---\n")
+                out.write(macros_block + "\n\n")
         
         for _, binary_data, var_name in pdr_data:
             out.write(f"// Source: {var_name}.yaml\n")
@@ -310,5 +452,7 @@ if __name__ == "__main__":
     parser.add_argument('yaml_dir', help="Directory with YAML PDR files")
     parser.add_argument('schema_dir', help="Directory with JSON schemas")
     parser.add_argument('out', help="Output C file path")
+    parser.add_argument('--macros', default=None,
+                        help="Optional macro binding YAML file (e.g., macro_defs.yaml)")
     args = parser.parse_args()
-    generate_all(args.yaml_dir, args.schema_dir, args.out)
+    generate_all(args.yaml_dir, args.schema_dir, args.out, macro_yaml=args.macros)

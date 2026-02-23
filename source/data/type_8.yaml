@@ -11,45 +11,43 @@ pdrHeader:
   dataLength:
     value: 48
 
-PLDMTerminusHandle:
-  value: 256
+oemStateSetID:
+  value: 32968
 
-OEMStateSetIDHandle:
-  value: 100
+stateSetVersion:
+  major:
+    value: 1
+  minor:
+    value: 0
+  update:
+    value: 0
+  alpha:
+    value: 0
 
-vendorIANA:
-  value: 55930
-
-OEMStateSetID:
-  value: 200
-
-unspecifiedValueHint:
+nameStringCount:
   value: 0
-  comment: "Treat unspecified as unspecified."
 
-stateCount:
+stateSetNames: []
+
+possibleStateCount:
   value: 2
 
-OEMStateValueRecords:
-  - minStateValue:
+possibleStates:
+  - possibleStateValue:
       value: 0
-    maxStateValue:
+    nameStringCount:
       value: 1
-    stringCount:
-      value: 1
-    stateNames:
-      - stateLanguageTag:
+    possibleStateNames:
+      - nameLanguageTag:
           value: "en"
-        stateName:
+        possibleStateName:
           value: "Idle"
-  - minStateValue:
-      value: 2
-    maxStateValue:
-      value: 3
-    stringCount:
+  - possibleStateValue:
       value: 1
-    stateNames:
-      - stateLanguageTag:
+    nameStringCount:
+      value: 1
+    possibleStateNames:
+      - nameLanguageTag:
           value: "en"
-        stateName:
+        possibleStateName:
           value: "Active"

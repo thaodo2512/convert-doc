@@ -30,8 +30,15 @@ effecterInit:
   value: 2
   comment: "Enable effecter."
 
-effecterAuxiliaryNamesPDR:
-  value: false
+effecterAuxiliaryNames:
+  value: 0
+
+effecterSemanticID:
+  value: 0
+
+effecterDataSize:
+  value: 1
+  comment: "1 = uint8."
 
 baseUnit:
   value: 2
@@ -54,18 +61,11 @@ auxUnitModifier:
 auxrateUnit:
   value: 0
 
-rel:
-  value: 0
-
 auxOEMUnitHandle:
   value: 0
 
 isLinear:
-  value: true
-
-effecterDataSize:
   value: 1
-  comment: "1 = sint8 effecter data."
 
 resolution:
   value: 0.5
@@ -85,21 +85,21 @@ minusTolerance:
 stateTransitionInterval:
   value: 0.5
 
-updateInterval:
+transitionInterval:
   value: 0.5
 
 maxSettable:
   value: 100
 
 minSettable:
-  value: -20
+  value: 0
 
 rangeFieldFormat:
   value: 1
 
 rangeFieldSupport:
   value: 31
-  comment: "Nominal/normal/rated fields provided."
+  comment: "All 5 range fields provided."
 
 nominalValue:
   value: 40
@@ -114,4 +114,4 @@ ratedMax:
   value: 90
 
 ratedMin:
-  value: -5
+  value: 5

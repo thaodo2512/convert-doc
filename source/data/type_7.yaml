@@ -11,23 +11,20 @@ pdrHeader:
   dataLength:
     value: 37
 
-PLDMTerminusHandle:
-  value: 256
+containerID:
+  value: 0
 
-OEMUnitHandle:
-  value: 1
+baseUnit:
+  value: 255
 
-vendorIANA:
-  value: 55930
-
-OEMUnitID:
-  value: 4096
+unitModifier:
+  value: 0
 
 nameStringCount:
   value: 1
 
 unitNames:
-  - unitLanguageTag:
+  - nameLanguageTag:
       value: "en"
-    unitName:
+    oemUnitString:
       value: "Cooling Fan"

@@ -38,12 +38,6 @@ effecterInitMask:
 effecterOpStateEventEnableMask:
   value: 0
 
-effecterStateEventEnableMask:
-  value: 1
-
-effecterEventRearm:
-  value: 1
-
 stateValue0:
   value: 0
 

@@ -18,25 +18,52 @@ ResourceFlags:
   value: 0
 
 ContainingResourceID:
-  value: 0
+  value: 1000
 
 AdditionalResourceIDCount:
   value: 1
 
-additionalResources:
+AdditionalResources:
   - AdditionalResourceID:
       value: 2001
     AdditionalContainingResourceID:
-      value: 0
+      value: 1000
 
 ProposedContainingResourceLengthBytes:
-  value: 7
+  value: 1
 
 ProposedContainingResourceName:
-  value: "System"
+  value: ""
 
 SubURILengthBytes:
   value: 8
 
 SubURI:
   value: "System0"
+
+MajorSchemaVersion:
+  major:
+    value: 1
+  minor:
+    value: 0
+  update:
+    value: 0
+  alpha:
+    value: 0
+
+MajorSchemaDictionaryLengthBytes:
+  value: 0
+
+MajorSchemaDictionarySignature:
+  value: 0
+
+MajorSchemaNameLength:
+  value: 1
+
+MajorSchemaName:
+  value: ""
+
+OEMCount:
+  value: 0
+
+OEMNames: []

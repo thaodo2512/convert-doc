@@ -9,13 +9,22 @@ pdrHeader:
   recordChangeNumber:
     value: 0
   dataLength:
-    value: 12
+    value: 15
+
+PLDMTerminusHandle:
+  value: 256
+
+copyPDR:
+  value: 0
 
 vendorIANA:
   value: 55930
 
-OEMDeviceID:
+OEMRecordID:
   value: 900
 
-OEMDeviceData:
+dataLength:
+  value: 6
+
+vendorSpecificData:
   value: [1, 2, 3, 4, 5, 6]

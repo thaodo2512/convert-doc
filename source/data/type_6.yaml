@@ -17,6 +17,9 @@ PLDMTerminusHandle:
 sensorID:
   value: 260
 
+sensorCount:
+  value: 1
+
 auxNames:
   - nameStringCount:
       value: 1

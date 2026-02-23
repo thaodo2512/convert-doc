@@ -32,12 +32,12 @@ sensorInit:
   comment: "Use initialization PDR."
 
 sensorAuxiliaryNamesPDR:
-  value: false
+  value: 0
 
 compositeSensorCount:
   value: 2
 
-compositeSensorStates:
+stateSensors:
   - stateSetID:
       value: 1
     possibleStatesSize:

@@ -36,8 +36,33 @@ FileClassification:
 OemFileClassification:
   value: 1
 
-oemFileClassificationNameLength:
-  value: 20
+FileCapabilities:
+  value: 0
 
-oemFileClassificationName:
+FileVersion:
+  major:
+    value: 255
+  minor:
+    value: 255
+  update:
+    value: 255
+  alpha:
+    value: 255
+
+FileMaximumSize:
+  value: 4294967295
+
+FileMaximumFileDescriptorCount:
+  value: 1
+
+FileNameLength:
+  value: 11
+
+FileName:
+  value: "ThermalLog"
+
+OemFileClassificationNameLength:
+  value: 11
+
+OemFileClassificationName:
   value: "ThermalLog"

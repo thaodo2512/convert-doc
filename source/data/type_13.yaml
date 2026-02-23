@@ -17,11 +17,14 @@ PLDMTerminusHandle:
 effecterID:
   value: 322
 
+effecterCount:
+  value: 1
+
 auxNames:
   - nameStringCount:
       value: 1
     names:
-      - languageTag:
+      - nameLanguageTag:
           value: "en"
         effecterName:
           value: "Fan Speed"

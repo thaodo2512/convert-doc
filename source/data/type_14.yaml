@@ -1,4 +1,4 @@
-# OEM Effecter Semantic PDR (Type 14)
+# Effecter OEM Semantic PDR (Type 14)
 pdrHeader:
   recordHandle:
     value: 14
@@ -9,25 +9,16 @@ pdrHeader:
   recordChangeNumber:
     value: 0
   dataLength:
-    value: 36
+    value: 8
 
 PLDMTerminusHandle:
   value: 256
 
-OEMEffecterSemanticHandle:
+effecterID:
   value: 1
 
-vendorIANA:
-  value: 55930
+containerID:
+  value: 0
 
-OEMEffecterSemanticID:
+effecterSemanticID:
   value: 10
-
-stringCount:
-  value: 1
-
-names:
-  - languageTag:
-      value: "en"
-    name:
-      value: "Fan Control"

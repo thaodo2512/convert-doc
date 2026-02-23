@@ -37,7 +37,14 @@ AdditionalResourceIDCount:
   value: 1
 
 MajorSchemaVersion:
-  value: 65536
+  major:
+    value: 0
+  minor:
+    value: 1
+  update:
+    value: 0
+  alpha:
+    value: 0
 
 MajorSchemaDictionaryLengthBytes:
   value: 16
@@ -62,7 +69,7 @@ additionalResources:
     AdditionalResourceSubURI:
       value: "Chassis1Power"
 
-OEMs:
+oems:
   - OEMNameLengthBytes:
       value: 5
     OEMName:

@@ -29,15 +29,13 @@ containerID:
   value: 1
   comment: "Container identifier for the terminus."
 
-terminusLocatorType:
-  value: 0
-  comment: "0 = UID locator."
-
-terminusLocatorValueSize:
-  value: 17
-  comment: "1 byte instance + 16 byte UUID."
-
-terminusLocatorValue:
+locator:
+  terminusLocatorType:
+    value: 0
+    comment: "0 = UID locator."
+  terminusLocatorValueSize:
+    value: 17
+    comment: "1 byte instance + 16 byte UUID."
   terminusInstance:
     value: 1
     comment: "Differentiates multiple termini within a device."

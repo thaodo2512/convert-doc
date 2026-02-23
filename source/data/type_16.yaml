@@ -17,14 +17,14 @@ entityType:
 entityInstanceNumber:
   value: 1
 
-entityContainerID:
+containerID:
   value: 0
 
 nameStringCount:
   value: 1
 
 names:
-  - entityLanguageTag:
+  - nameLanguageTag:
       value: "en"
     entityName:
       value: "Compute Node"

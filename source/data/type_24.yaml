@@ -11,32 +11,32 @@ pdrHeader:
   dataLength:
     value: 52
 
-ActionPDRIndex:
+actionPDRIndex:
   value: 0
 
-RelatedResourceCount:
+relatedResourceCount:
   value: 1
 
-RelatedResourceIDs:
+relatedResourceIDs:
   value: [1000]
 
-ActionCount:
+actionCount:
   value: 2
 
-Actions:
-  - ActionNameLengthBytes:
+actions:
+  - actionNameLengthBytes:
       value: 6
-    ActionName:
+    actionName:
       value: "Reset"
-    ActionPathLengthBytes:
+    actionPathLengthBytes:
       value: 14
-    ActionPath:
+    actionPath:
       value: "Actions/Reset"
-  - ActionNameLengthBytes:
+  - actionNameLengthBytes:
       value: 6
-    ActionName:
+    actionName:
       value: "Apply"
-    ActionPathLengthBytes:
+    actionPathLengthBytes:
       value: 14
-    ActionPath:
+    actionPath:
       value: "Actions/Apply"

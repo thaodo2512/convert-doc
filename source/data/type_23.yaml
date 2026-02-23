@@ -9,16 +9,19 @@ pdrHeader:
   recordChangeNumber:
     value: 0
   dataLength:
-    value: 14
+    value: 16
 
-ResourceID:
+ContainingResourceID:
   value: 1000
 
-AssociationType:
-  value: 0
+ProposedContainingResourceLengthBytes:
+  value: 1
+
+ProposedContainingResourceName:
+  value: ""
 
 ContainedEntityCount:
   value: 2
 
-ContainedResourceIDs:
+ContainedEntityResourceID:
   value: [1001, 1002]

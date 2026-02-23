@@ -35,8 +35,84 @@ sensorInit:
   value: 2
   comment: "2 = enable sensor on discovery."
 
-sensorAuxiliaryNamesPDR:
-  value: false
+hysteresisSupport:
+  value: 0
+
+thresholdSupport:
+  value: 0
+
+eventMessageEnable:
+  value: 0
+
+sensorDataSize:
+  value: 2
+  comment: "2 = sint8 readings."
+
+resolution:
+  value: 1.0
+
+offset:
+  value: 0.0
+
+accuracy:
+  value: 100
+  comment: "1.00% accuracy."
+
+plusTolerance:
+  value: 0
+
+minusTolerance:
+  value: 0
+
+hysteresis:
+  value: 2
+
+lowerThresholdNonCritical:
+  value: -5
+
+lowerThresholdCritical:
+  value: -10
+
+lowerThresholdFatal:
+  value: -20
+
+upperThresholdNonCritical:
+  value: 95
+
+upperThresholdCritical:
+  value: 100
+
+upperThresholdFatal:
+  value: 120
+
+maxReadable:
+  value: 125
+
+minReadable:
+  value: -40
+
+rangeFieldFormat:
+  value: 2
+  comment: "2 = sint8 range fields."
+
+rangeFieldSupport:
+  value: 31
+  comment: "All 5 optional range fields populated."
+
+nominalValue:
+  value: 45
+
+normalMax:
+  value: 90
+
+normalMin:
+  value: 10
+
+ratedMax:
+  value: 95
+
+ratedMin:
+  value: 5
 
 baseUnit:
   value: 2
@@ -58,7 +134,7 @@ auxUnit:
 auxUnitModifier:
   value: 0
 
-auxrateUnit:
+auxRateUnit:
   value: 0
 
 rel:
@@ -68,74 +144,4 @@ auxOEMUnitHandle:
   value: 0
 
 isLinear:
-  value: true
-
-sensorDataSize:
-  value: 1
-  comment: "1 = sint8 readings."
-
-resolution:
-  value: 1.0
-
-offset:
-  value: 0.0
-
-accuracy:
-  value: 100
-  comment: "1.00% accuracy."
-
-plusTolerance:
   value: 0
-
-minusTolerance:
-  value: 0
-
-hysteresis:
-  value: 2
-
-supportedThresholds:
-  value: 0
-
-thresholdAndHysteresisVolatility:
-  value: 0
-
-stateTransitionInterval:
-  value: 1.0
-
-updateInterval:
-  value: 1.0
-
-maxReadable:
-  value: 125
-
-minReadable:
-  value: -40
-
-rangeFieldFormat:
-  value: 1
-  comment: "1 = sint8 range fields."
-
-rangeFieldSupport:
-  value: 63
-  comment: "All optional range fields populated."
-
-nominalValue:
-  value: 45
-
-normalMax:
-  value: 90
-
-normalMin:
-  value: 10
-
-criticalHigh:
-  value: 100
-
-criticalLow:
-  value: -10
-
-fatalHigh:
-  value: 120
-
-fatalLow:
-  value: -20

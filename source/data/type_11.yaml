@@ -32,13 +32,13 @@ effecterSemanticID:
 effecterInit:
   value: 1
 
-effecterDescriptionPDR:
-  value: false
+effecterAuxiliaryNames:
+  value: 0
 
 compositeEffecterCount:
   value: 2
 
-possibleStates:
+stateEffecterInfo:
   - stateSetID:
       value: 1
     possibleStatesSize:

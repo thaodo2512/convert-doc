@@ -26,15 +26,6 @@ sensorEnable:
 sensorInitMask:
   value: 1
 
-sensorOpStateEventEnableMask:
-  value: 0
-
-sensorStateEventEnableMask:
-  value: 1
-
-sensorEventRearm:
-  value: 1
-
 stateValue0:
   value: 0
 
@@ -57,4 +48,7 @@ stateValue6:
   value: 0
 
 stateValue7:
+  value: 0
+
+eventConditions:
   value: 0

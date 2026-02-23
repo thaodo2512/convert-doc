@@ -1,0 +1,24 @@
+macros:
+  - name: Tinhhayho
+    file: "type_1.yaml"
+    field: "pdrHeader.recordHandle.value"
+
+  - name: sensor
+    file: "type_2.yaml"
+    field: "sensorID.value"
+
+  - name: SENSOR_ENTITY_TYPE_NUMERIC0
+    file: "type_2.yaml"
+    field: "entityType.value"
+
+  - name: STATE_SENSOR_STATE0_POSSIBLE
+    file: "type_4.yaml"
+    field: "stateSensors[0].possibleStates.value[0]"
+
+  - name: EFFECTER_ID_NUMERIC0
+    file: "type_9.yaml"
+    field: "effecterID.value"
+
+  - name: OEM_STATE_SET_ID
+    file: "type_8.yaml"
+    field: "oemStateSetID.value"

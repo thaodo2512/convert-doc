@@ -9,10 +9,16 @@ pdrHeader:
   recordChangeNumber:
     value: 0
   dataLength:
-    value: 8
+    value: 11
 
 vendorIANA:
   value: 55930
 
-OEMPDRData:
+OEMRecordID:
+  value: 0
+
+dataLength:
+  value: 3
+
+vendorSpecificData:
   value: [170, 187, 204, 221]

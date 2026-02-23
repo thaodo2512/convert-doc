@@ -9,19 +9,18 @@ pdrHeader:
   recordChangeNumber:
     value: 0
   dataLength:
-    value: 38
+    value: 7
 
-vendorIANA:
-  value: 55930
+entityType:
+  value: 40000
 
-OEMEntityID:
-  value: 5000
-
-stringCount:
+entityInstanceNumber:
   value: 1
 
-entityNames:
-  - entityLanguageTag:
-      value: "en"
-    entityName:
-      value: "Custom Entity"
+containerID:
+  value: 0
+
+oemEntityIDLength:
+  value: 0
+
+oemEntityID: []
