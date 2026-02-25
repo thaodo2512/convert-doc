@@ -6,6 +6,10 @@ _build/
 pdr_repo*.c
 pdr_repo*.h
 generated/
+output/pdr_generated.c
+
+# Compiled example binary
+pdr_example
 
 # Python bytecode/cache
 __pycache__/
