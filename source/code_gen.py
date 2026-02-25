@@ -282,7 +282,7 @@ def process_single_yaml(yaml_file, schema_dir, reserved_handles, next_handle_ref
         print(f"Warning: {filename}: stated dataLength {stated_len} != calculated {data_len}; using calculated value.")
     header_buffer = header_buffer[:-2] + struct.pack('<H', data_len)
     
-    return assigned_handle, pdr_type, body_buffer, filename.replace('.yaml', '')
+    return assigned_handle, pdr_type, header_buffer, body_buffer, filename.replace('.yaml', '')
 
 def resolve_field_path(data, field_path):
     """Traverse a loaded YAML dict using a dot/bracket path string.
@@ -398,7 +398,8 @@ def generate_bound_macros(macro_yaml_path, data_folder):
     return '\n'.join(lines)
 
 
-def generate_all(yaml_dir, schema_dir, output_file, macro_yaml=None):
+def generate_all(yaml_dir, schema_dir, output_file, macro_yaml=None,
+                  headroom_pct=25):
     yaml_files = sorted(glob.glob(os.path.join(yaml_dir, 'type_*.yaml')))
     print(f"Found {len(yaml_files)} YAML files in {yaml_dir}")
 
@@ -409,21 +410,34 @@ def generate_all(yaml_dir, schema_dir, output_file, macro_yaml=None):
     next_handle_ref = [1]  # Mutable for ref
     pdr_data = []
     for yaml_file in yaml_files:
-        handle, pdr_type, body_data, var_name = process_single_yaml(
+        handle, pdr_type, header_data, body_data, var_name = process_single_yaml(
             yaml_file, schema_dir, reserved_handles, next_handle_ref)
-        pdr_data.append((handle, pdr_type, body_data, var_name))
+        pdr_data.append((handle, pdr_type, header_data, body_data, var_name))
 
     # Sort by handle
     pdr_data.sort(key=lambda x: x[0])
 
-    # Build single contiguous blob of all PDR body data (headers excluded —
-    # pdr_repo_add_record() writes its own header at runtime).
-    blob = b''
-    init_entries = []  # (offset, size, pdr_type, var_name)
-    for handle, pdr_type, body_data, var_name in pdr_data:
-        offset = len(blob)
-        blob += body_data
-        init_entries.append((offset, len(body_data), pdr_type, var_name))
+    # Build full-record blob (header + body) for zero-copy init
+    full_blob = b''
+    # Build body-only backup blob for RunInitAgent rebuild
+    backup_blob = b''
+    full_entries = []   # (offset, total_size, body_size, pdr_type, var_name)
+    backup_entries = [] # (offset, body_size, pdr_type, var_name)
+    for handle, pdr_type, header_data, body_data, var_name in pdr_data:
+        full_offset = len(full_blob)
+        full_blob += header_data + body_data
+        total_size = len(header_data) + len(body_data)
+        full_entries.append((full_offset, total_size, len(body_data), pdr_type, var_name))
+
+        backup_offset = len(backup_blob)
+        backup_blob += body_data
+        backup_entries.append((backup_offset, len(body_data), pdr_type, var_name))
+
+    # Capacity with headroom
+    data_size = len(full_blob)
+    capacity = int(data_size * (1 + headroom_pct / 100.0))
+    # Align to 4 bytes
+    capacity = (capacity + 3) & ~3
 
     # Generate C code
     out_dir = os.path.dirname(output_file)
@@ -440,29 +454,56 @@ def generate_all(yaml_dir, schema_dir, output_file, macro_yaml=None):
                 out.write("// --- Bound Macros ---\n")
                 out.write(macros_block + "\n\n")
 
-        # Single contiguous blob with all PDR body data
-        out.write("// Contiguous blob: all PDR body data (headers excluded)\n")
-        out.write("static const uint8_t pdr_blob_data[] = {\n")
-        for entry_idx, (offset, size, pdr_type, var_name) in enumerate(init_entries):
+        # --- Mutable full-record blob (header + body, with headroom) ---
+        out.write(f"#define PDR_BLOB_CAPACITY {capacity}\n")
+        out.write(f"#define PDR_BLOB_DATA_SIZE {data_size}\n\n")
+        out.write("// Mutable blob: full records (10-byte header + body), with headroom for runtime adds\n")
+        out.write(f"static uint8_t pdr_blob_data[PDR_BLOB_CAPACITY] = {{\n")
+        for entry_idx, (offset, total_size, body_size, pdr_type, var_name) in enumerate(full_entries):
+            out.write(f"    /* [{entry_idx}] {var_name}.yaml  "
+                      f"type={pdr_type}  offset={offset}  total={total_size} */\n    ")
+            for i in range(total_size):
+                out.write(f"0x{full_blob[offset + i]:02X}, ")
+                if (i + 1) % 16 == 0 and i + 1 < total_size:
+                    out.write("\n    ")
+            out.write("\n")
+        out.write("};\n\n")
+
+        # --- Const body-only backup blob (for RunInitAgent rebuild) ---
+        out.write("// Const backup blob: body-only data for RunInitAgent rebuild\n")
+        out.write("static const uint8_t pdr_blob_backup[] = {\n")
+        for entry_idx, (offset, size, pdr_type, var_name) in enumerate(backup_entries):
             out.write(f"    /* [{entry_idx}] {var_name}.yaml  "
                       f"type={pdr_type}  offset={offset}  size={size} */\n    ")
             for i in range(size):
-                out.write(f"0x{blob[offset + i]:02X}, ")
+                out.write(f"0x{backup_blob[offset + i]:02X}, ")
                 if (i + 1) % 16 == 0 and i + 1 < size:
                     out.write("\n    ")
             out.write("\n")
         out.write("};\n\n")
 
-        # Init callback with direct calls
-        out.write("// Init callback for pdr_repo_run_init_agent()\n")
+        # --- pdr_repo_populate_ext(): zero-copy fast init ---
+        out.write("// Fast zero-copy init: indexes pre-filled records in pdr_blob_data\n")
+        out.write("void pdr_repo_populate_ext(pdr_repo_t *repo, void *ctx)\n{\n")
+        out.write("    (void)ctx;\n")
+        out.write(f"    pdr_repo_init_ext(repo, pdr_blob_data, PDR_BLOB_CAPACITY);\n")
+        out.write(f"    repo->blob_used = PDR_BLOB_DATA_SIZE;\n")
+        for offset, total_size, body_size, pdr_type, var_name in full_entries:
+            out.write(f"    pdr_repo_index_record(repo, {offset});  /* {var_name} */\n")
+        out.write("    pdr_repo_update_info(repo);\n")
+        out.write("}\n\n")
+
+        # --- pdr_repo_populate(): rebuild callback for RunInitAgent ---
+        out.write("// Rebuild callback for pdr_repo_run_init_agent()\n")
         out.write("void pdr_repo_populate(pdr_repo_t *repo, void *ctx)\n{\n")
         out.write("    (void)ctx;\n")
-        for offset, size, pdr_type, var_name in init_entries:
+        for offset, size, pdr_type, var_name in backup_entries:
             out.write(f"    pdr_repo_add_record(repo, {pdr_type}, "
-                      f"&pdr_blob_data[{offset}], {size}, NULL);  /* {var_name} */\n")
+                      f"&pdr_blob_backup[{offset}], {size}, NULL);  /* {var_name} */\n")
         out.write("}\n")
 
-    print(f"Generated {output_file} with {len(pdr_data)} PDRs in single blob.")
+    print(f"Generated {output_file} with {len(pdr_data)} PDRs "
+          f"(blob={data_size}B, capacity={capacity}B, headroom={headroom_pct}%).")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate C code from PLDM PDR YAMLs.")
@@ -471,5 +512,8 @@ if __name__ == "__main__":
     parser.add_argument('out', help="Output C file path")
     parser.add_argument('--macros', default=None,
                         help="Optional macro binding YAML file (e.g., macro_defs.yaml)")
+    parser.add_argument('--headroom-pct', type=int, default=25,
+                        help="Percent headroom in mutable blob for runtime adds (default: 25)")
     args = parser.parse_args()
-    generate_all(args.yaml_dir, args.schema_dir, args.out, macro_yaml=args.macros)
+    generate_all(args.yaml_dir, args.schema_dir, args.out,
+                 macro_yaml=args.macros, headroom_pct=args.headroom_pct)

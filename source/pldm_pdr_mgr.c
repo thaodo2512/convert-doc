@@ -44,7 +44,7 @@ static int mgr_send_recv(pdr_mgr_t *mgr, uint8_t eid, uint8_t command,
 void pdr_mgr_init(pdr_mgr_t *mgr, const pdr_mgr_transport_t *transport)
 {
     memset(mgr, 0, sizeof(*mgr));
-    pdr_repo_init(&mgr->repo);
+    pdr_repo_init_ext(&mgr->repo, mgr->repo_blob, sizeof(mgr->repo_blob));
     if (transport) {
         mgr->transport = *transport;
     }

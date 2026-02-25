@@ -75,7 +75,8 @@ typedef struct {
  * ---------------------------------------------------------------- */
 typedef struct {
     /* --- The blob: contiguous storage for all PDR record bytes --- */
-    uint8_t  blob[PDR_REPO_MAX_SIZE];
+    uint8_t  *blob;
+    uint32_t blob_capacity;        /* Total capacity of blob buffer            */
     uint32_t blob_used;            /* Bytes currently used in blob[]           */
 
     /* --- The index: fast lookup table for each record --- */
@@ -103,6 +104,27 @@ typedef struct {
  *        Call once at startup, or call again to wipe & rebuild (RunInitAgent).
  */
 void pdr_repo_init(pdr_repo_t *repo);
+
+/**
+ * @brief Initialize a PDR repository with an external blob buffer.
+ *
+ * @param repo           Repository instance
+ * @param blob           Pointer to an external mutable buffer for PDR storage
+ * @param blob_capacity  Size of the external buffer in bytes
+ */
+void pdr_repo_init_ext(pdr_repo_t *repo, uint8_t *blob, uint32_t blob_capacity);
+
+/**
+ * @brief Index an existing record already present in the blob at the given offset.
+ *
+ * Reads the pldm_pdr_hdr_t at blob[offset], creates an index entry,
+ * and advances next_record_handle. No data is copied.
+ *
+ * @param repo    Repository instance
+ * @param offset  Byte offset into the blob where the record starts
+ * @return 0 on success, -1 on error
+ */
+int pdr_repo_index_record(pdr_repo_t *repo, uint32_t offset);
 
 /**
  * @brief Add a PDR record to the repository.

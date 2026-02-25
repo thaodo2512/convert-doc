@@ -38,6 +38,47 @@ void pdr_repo_init(pdr_repo_t *repo)
 }
 
 /* ----------------------------------------------------------------
+ * Init with external blob
+ * ---------------------------------------------------------------- */
+void pdr_repo_init_ext(pdr_repo_t *repo, uint8_t *blob, uint32_t blob_capacity)
+{
+    pdr_repo_init(repo);
+    repo->blob = blob;
+    repo->blob_capacity = blob_capacity;
+}
+
+/* ----------------------------------------------------------------
+ * Index an existing record in the blob (zero-copy)
+ * ---------------------------------------------------------------- */
+int pdr_repo_index_record(pdr_repo_t *repo, uint32_t offset)
+{
+    if (repo->count >= PDR_MAX_RECORD_COUNT) {
+        return -1;
+    }
+
+    const pldm_pdr_hdr_t *hdr = (const pldm_pdr_hdr_t *)&repo->blob[offset];
+    uint16_t total_size = sizeof(pldm_pdr_hdr_t) + hdr->data_length;
+
+    if ((offset + total_size) > repo->blob_capacity) {
+        return -1;
+    }
+
+    pdr_index_entry_t *entry = &repo->index[repo->count];
+    entry->record_handle = hdr->record_handle;
+    entry->offset        = offset;
+    entry->size          = total_size;
+    entry->pdr_type      = hdr->pdr_type;
+
+    repo->count++;
+
+    if (hdr->record_handle >= repo->next_record_handle) {
+        repo->next_record_handle = hdr->record_handle + 1;
+    }
+
+    return 0;
+}
+
+/* ----------------------------------------------------------------
  * Internal: find index by handle
  * ---------------------------------------------------------------- */
 int pdr_repo_find_index(const pdr_repo_t *repo, uint32_t record_handle)
@@ -92,7 +133,7 @@ int pdr_repo_add_record(pdr_repo_t *repo,
     if (repo->count >= PDR_MAX_RECORD_COUNT) {
         return -1;
     }
-    if ((repo->blob_used + total_size) > PDR_REPO_MAX_SIZE) {
+    if ((repo->blob_used + total_size) > repo->blob_capacity) {
         return -1;
     }
 
@@ -315,7 +356,7 @@ int pdr_repo_run_init_agent(pdr_repo_t *repo,
     repo->count = 0;
     repo->next_record_handle = 1;
     repo->signature_valid = false;
-    memset(repo->blob, 0, sizeof(repo->blob));
+    memset(repo->blob, 0, repo->blob_capacity);
 
     /* Let the application re-populate */
     init_callback(repo, ctx);

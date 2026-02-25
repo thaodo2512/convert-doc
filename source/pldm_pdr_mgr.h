@@ -202,6 +202,7 @@ typedef struct {
  * ---------------------------------------------------------------- */
 typedef struct {
     pdr_repo_t           repo;       /* Consolidated PDR repository        */
+    uint8_t              repo_blob[PDR_REPO_MAX_SIZE]; /* Manager's own blob */
     pdr_mgr_terminus_t   termini[PDR_MGR_MAX_TERMINI];
     pdr_mgr_transport_t  transport;
 } pdr_mgr_t;
