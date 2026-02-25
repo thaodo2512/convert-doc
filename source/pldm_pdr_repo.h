@@ -46,13 +46,19 @@ typedef struct __attribute__((packed)) {
  * This is the "table of contents" that lets us quickly locate
  * any record inside the blob without parsing.
  * ---------------------------------------------------------------- */
+#define PDR_INDEX_FLAG_TOMBSTONE  0x01
+
 typedef struct {
     uint32_t record_handle;       /* Duplicated from PDR header for fast lookup*/
     uint32_t offset;              /* Byte offset into pdr_blob[]               */
     uint16_t size;                /* Total size INCLUDING the PDR header       */
     uint8_t  pdr_type;            /* Duplicated for FindPDR filtering          */
-    uint8_t  _reserved;           /* Alignment padding                         */
+    uint8_t  flags;               /* Bit 0: tombstone (deleted record)         */
 } pdr_index_entry_t;
+
+static inline bool pdr_index_is_tombstone(const pdr_index_entry_t *e) {
+    return (e->flags & PDR_INDEX_FLAG_TOMBSTONE) != 0;
+}
 
 /* ----------------------------------------------------------------
  * Repository-Level Info
@@ -146,12 +152,11 @@ int pdr_repo_add_record(pdr_repo_t *repo,
                          uint32_t   *handle_out);
 
 /**
- * @brief Remove a PDR record by handle.
+ * @brief Remove a PDR record by handle (tombstone approach).
  *
- * NOTE: This compacts the blob (memmove) and rebuilds affected index offsets.
- *       Acceptable for embedded if removals are rare (typically only on
- *       hot-plug events). If frequent removal is needed, consider a
- *       free-list approach instead of compaction.
+ * Marks the record's index entry as a tombstone. The blob data is not
+ * reclaimed until the next RunInitAgent rebuild. This is O(1) and avoids
+ * expensive memmove on embedded targets.
  */
 int pdr_repo_remove_record(pdr_repo_t *repo, uint32_t record_handle);
 

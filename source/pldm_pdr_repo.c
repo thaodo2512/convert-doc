@@ -68,6 +68,7 @@ int pdr_repo_index_record(pdr_repo_t *repo, uint32_t offset)
     entry->offset        = offset;
     entry->size          = total_size;
     entry->pdr_type      = hdr->pdr_type;
+    entry->flags         = 0;
 
     repo->count++;
 
@@ -83,13 +84,19 @@ int pdr_repo_index_record(pdr_repo_t *repo, uint32_t offset)
  * ---------------------------------------------------------------- */
 int pdr_repo_find_index(const pdr_repo_t *repo, uint32_t record_handle)
 {
-    /* Handle 0 means "get the first record" */
-    if (record_handle == 0 && repo->count > 0) {
-        return 0;
+    /* Handle 0 means "get the first non-tombstone record" */
+    if (record_handle == 0) {
+        for (uint16_t i = 0; i < repo->count; i++) {
+            if (!pdr_index_is_tombstone(&repo->index[i])) {
+                return (int)i;
+            }
+        }
+        return -1;
     }
 
     for (uint16_t i = 0; i < repo->count; i++) {
-        if (repo->index[i].record_handle == record_handle) {
+        if (repo->index[i].record_handle == record_handle &&
+            !pdr_index_is_tombstone(&repo->index[i])) {
             return (int)i;
         }
     }
@@ -101,15 +108,23 @@ int pdr_repo_find_index(const pdr_repo_t *repo, uint32_t record_handle)
  * ---------------------------------------------------------------- */
 void pdr_repo_update_info(pdr_repo_t *repo)
 {
-    repo->info.record_count = repo->count;
-    repo->info.repository_size = repo->blob_used;
+    uint32_t live_count = 0;
+    uint32_t live_size  = 0;
+    uint32_t largest    = 0;
 
-    uint32_t largest = 0;
     for (uint16_t i = 0; i < repo->count; i++) {
+        if (pdr_index_is_tombstone(&repo->index[i])) {
+            continue;
+        }
+        live_count++;
+        live_size += repo->index[i].size;
         if (repo->index[i].size > largest) {
             largest = repo->index[i].size;
         }
     }
+
+    repo->info.record_count       = live_count;
+    repo->info.repository_size    = live_size;
     repo->info.largest_record_size = largest;
 
     /* TODO: update timestamp from your platform's time source */
@@ -159,6 +174,7 @@ int pdr_repo_add_record(pdr_repo_t *repo,
     entry->offset        = offset;
     entry->size          = total_size;
     entry->pdr_type      = pdr_type;
+    entry->flags         = 0;
 
     repo->blob_used += total_size;
     repo->count++;
@@ -173,7 +189,7 @@ int pdr_repo_add_record(pdr_repo_t *repo,
 }
 
 /* ----------------------------------------------------------------
- * Remove Record (with compaction)
+ * Remove Record (tombstone — no compaction, O(1))
  * ---------------------------------------------------------------- */
 int pdr_repo_remove_record(pdr_repo_t *repo, uint32_t record_handle)
 {
@@ -182,28 +198,8 @@ int pdr_repo_remove_record(pdr_repo_t *repo, uint32_t record_handle)
         return -1;
     }
 
-    uint32_t offset = repo->index[idx].offset;
-    uint16_t size   = repo->index[idx].size;
-
-    /* Compact the blob: shift everything after this record forward */
-    uint32_t bytes_after = repo->blob_used - (offset + size);
-    if (bytes_after > 0) {
-        memmove(&repo->blob[offset],
-                &repo->blob[offset + size],
-                bytes_after);
-    }
-    repo->blob_used -= size;
-
-    /* Update offsets of all subsequent index entries */
-    for (uint16_t i = (uint16_t)(idx + 1); i < repo->count; i++) {
-        repo->index[i].offset -= size;
-    }
-
-    /* Remove the index entry by shifting */
-    for (uint16_t i = (uint16_t)idx; i < repo->count - 1; i++) {
-        repo->index[i] = repo->index[i + 1];
-    }
-    repo->count--;
+    /* Mark as tombstone — blob data stays in place until RunInitAgent */
+    repo->index[idx].flags |= PDR_INDEX_FLAG_TOMBSTONE;
 
     pdr_repo_update_info(repo);
 
@@ -272,11 +268,13 @@ int pdr_repo_get_pdr(const pdr_repo_t *repo,
         *transfer_flag = 0x01; /* Middle */
     }
 
-    /* Next record handle */
-    if ((idx + 1) < repo->count) {
-        *next_record_handle = repo->index[idx + 1].record_handle;
-    } else {
-        *next_record_handle = 0; /* No more records */
+    /* Next record handle — skip tombstones */
+    *next_record_handle = 0;
+    for (int j = idx + 1; j < repo->count; j++) {
+        if (!pdr_index_is_tombstone(&repo->index[j])) {
+            *next_record_handle = repo->index[j].record_handle;
+            break;
+        }
     }
 
     return 0;
@@ -303,16 +301,22 @@ int pdr_repo_find_pdr(const pdr_repo_t *repo,
         start_idx++; /* Start searching AFTER the given handle */
     }
 
-    /* Linear scan for matching PDR type */
+    /* Linear scan for matching PDR type, skipping tombstones */
     for (int i = start_idx; i < repo->count; i++) {
+        if (pdr_index_is_tombstone(&repo->index[i])) {
+            continue;
+        }
         if (repo->index[i].pdr_type == pdr_type) {
             *found_handle = repo->index[i].record_handle;
             *data         = &repo->blob[repo->index[i].offset];
             *data_len     = repo->index[i].size;
 
-            /* Find next matching record for continuation */
+            /* Find next matching record for continuation, skipping tombstones */
             *next_handle = 0;
             for (int j = i + 1; j < repo->count; j++) {
+                if (pdr_index_is_tombstone(&repo->index[j])) {
+                    continue;
+                }
                 if (repo->index[j].pdr_type == pdr_type) {
                     *next_handle = repo->index[j].record_handle;
                     break;
