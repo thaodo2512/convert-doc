@@ -22,3 +22,36 @@ macros:
   - name: OEM_STATE_SET_ID
     file: "type_8.yaml"
     field: "oemStateSetID.value"
+
+  # Numeric Sensor Initialization PDR (Type 3)
+  - name: SENSOR_INIT_SENSOR_ID
+    file: "type_3.yaml"
+    field: "sensorID.value"
+
+  - name: SENSOR_INIT_TERMINUS_HANDLE
+    file: "type_3.yaml"
+    field: "PLDMTerminusHandle.value"
+
+  - name: SENSOR_INIT_UPPER_WARN
+    file: "type_3.yaml"
+    field: "upperThresholdWarning.value"
+
+  - name: SENSOR_INIT_UPPER_CRIT
+    file: "type_3.yaml"
+    field: "upperThresholdCritical.value"
+
+  - name: SENSOR_INIT_UPPER_FATAL
+    file: "type_3.yaml"
+    field: "upperThresholdFatal.value"
+
+  - name: SENSOR_INIT_LOWER_WARN
+    file: "type_3.yaml"
+    field: "lowerThresholdWarning.value"
+
+  - name: SENSOR_INIT_LOWER_CRIT
+    file: "type_3.yaml"
+    field: "lowerThresholdCritical.value"
+
+  - name: SENSOR_INIT_LOWER_FATAL
+    file: "type_3.yaml"
+    field: "lowerThresholdFatal.value"
