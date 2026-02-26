@@ -5,7 +5,6 @@ import struct
 import argparse
 import sys
 import os
-import glob
 from datetime import datetime
 from jsonschema import validate, ValidationError
 
@@ -69,6 +68,34 @@ def coerce_int(value, field, filename):
     except ValueError:
         print(f"Warning: Non-integer {field} in {filename}: '{value}' - treating as 0")
         return 0
+
+def discover_yaml_files(yaml_dir):
+    """Find all YAML files recursively, ordered parent-dir-first then alphabetically.
+
+    Only files containing a 'pdrHeader' key are returned (non-PDR YAML files
+    such as macro_defs.yaml are silently skipped).
+    """
+    all_yaml = []
+    for dirpath, _dirnames, filenames in os.walk(yaml_dir):
+        for fn in sorted(filenames):
+            if fn.endswith(('.yaml', '.yml')):
+                all_yaml.append(os.path.join(dirpath, fn))
+
+    # Stable sort by directory depth (parent dirs first); os.walk already
+    # visits parents before children, but sorting makes it explicit.
+    all_yaml.sort(key=lambda p: (p.count(os.sep), p))
+
+    # Filter to PDR files only (must have 'pdrHeader')
+    pdr_files = []
+    for path in all_yaml:
+        with open(path, 'r') as f:
+            data = yaml.safe_load(f)
+        if isinstance(data, dict) and 'pdrHeader' in data:
+            pdr_files.append(path)
+        else:
+            print(f"Skipping non-PDR file: {path}")
+    return pdr_files
+
 
 def collect_reserved_handles(yaml_files):
     reserved = {}
@@ -226,11 +253,14 @@ def process_single_yaml(yaml_file, schema_dir, reserved_handles, next_handle_ref
     with open(yaml_file, 'r') as f:
         raw_data = yaml.safe_load(f)
     
-    # Infer PDR type from filename (e.g., type_1.yaml -> 1)
-    try:
-        pdr_type = int(filename.split('_')[1].split('.')[0])
-    except ValueError:
-        raise ValueError(f"Invalid filename format for {filename}; expected type_<num>.yaml")
+    # Read PDR type from the YAML data (pdrHeader.PDRType)
+    pdr_header_raw = raw_data.get('pdrHeader', {})
+    pdr_type_val = pdr_header_raw.get('PDRType')
+    if isinstance(pdr_type_val, dict):
+        pdr_type_val = pdr_type_val.get('value')
+    if pdr_type_val is None:
+        raise ValueError(f"Missing pdrHeader.PDRType in {filename}")
+    pdr_type = coerce_int(pdr_type_val, 'PDRType', filename)
     
     schema_file = os.path.join(schema_dir, f"type_{pdr_type}.json")
     if not os.path.exists(schema_file):
@@ -400,8 +430,8 @@ def generate_bound_macros(macro_yaml_path, data_folder):
 
 def generate_all(yaml_dir, schema_dir, output_file, macro_yaml=None,
                   headroom_pct=25):
-    yaml_files = sorted(glob.glob(os.path.join(yaml_dir, 'type_*.yaml')))
-    print(f"Found {len(yaml_files)} YAML files in {yaml_dir}")
+    yaml_files = discover_yaml_files(yaml_dir)
+    print(f"Found {len(yaml_files)} PDR YAML files in {yaml_dir}")
 
     reserved_handles, duplicates = collect_reserved_handles(yaml_files)
     if duplicates:
@@ -421,13 +451,13 @@ def generate_all(yaml_dir, schema_dir, output_file, macro_yaml=None,
     full_blob = b''
     # Build body-only backup blob for RunInitAgent rebuild
     backup_blob = b''
-    full_entries = []   # (offset, total_size, body_size, pdr_type, var_name)
+    full_entries = []   # (handle, offset, total_size, body_size, pdr_type, var_name)
     backup_entries = [] # (offset, body_size, pdr_type, var_name)
     for handle, pdr_type, header_data, body_data, var_name in pdr_data:
         full_offset = len(full_blob)
         full_blob += header_data + body_data
         total_size = len(header_data) + len(body_data)
-        full_entries.append((full_offset, total_size, len(body_data), pdr_type, var_name))
+        full_entries.append((handle, full_offset, total_size, len(body_data), pdr_type, var_name))
 
         backup_offset = len(backup_blob)
         backup_blob += body_data
@@ -439,29 +469,138 @@ def generate_all(yaml_dir, schema_dir, output_file, macro_yaml=None,
     # Align to 4 bytes
     capacity = (capacity + 3) & ~3
 
-    # Generate C code
+    # --- Compute statistics ---
+    total_count = len(full_entries)
+    handles = [h for h, _, _, _, _, _ in full_entries]
+    record_sizes = [total_size for _, _, total_size, _, _, _ in full_entries]
+    body_sizes = [body_size for _, _, _, body_size, _, _ in full_entries]
+    max_record_size = max(record_sizes) if record_sizes else 0
+    min_record_size = min(record_sizes) if record_sizes else 0
+    max_body_size = max(body_sizes) if body_sizes else 0
+    min_body_size = min(body_sizes) if body_sizes else 0
+    max_handle = max(handles) if handles else 0
+    min_handle = min(handles) if handles else 0
+
+    # Count records per PDR type
+    type_counts = {}
+    for _, _, _, _, pdr_type, _ in full_entries:
+        type_counts[pdr_type] = type_counts.get(pdr_type, 0) + 1
+
+    # Derive .h path from output .c path
     out_dir = os.path.dirname(output_file)
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
-    with open(output_file, 'w') as out:
-        out.write(f"// Generated by code_gen.py on {datetime.now().isoformat()}\n")
-        out.write("#include <stdint.h>\n#include <stddef.h>\n")
-        out.write('#include "pldm_pdr_repo.h"\n\n')
+    base_name = os.path.splitext(os.path.basename(output_file))[0]
+    header_file = os.path.join(out_dir, base_name + '.h') if out_dir else base_name + '.h'
+    header_basename = os.path.basename(header_file)
+    guard = header_basename.upper().replace('.', '_').replace('-', '_') + '_'
+    timestamp = datetime.now().isoformat()
+
+    # Helper: var_name -> C macro suffix (uppercase, non-alnum -> _)
+    def to_macro_id(var_name):
+        return re.sub(r'[^A-Za-z0-9]', '_', var_name).upper()
+
+    # --- Generate header (.h) ---
+    with open(header_file, 'w') as hdr:
+        hdr.write(f"// Generated by code_gen.py on {timestamp}\n")
+        hdr.write(f"#ifndef {guard}\n#define {guard}\n\n")
+        hdr.write("#include <stdint.h>\n#include <stddef.h>\n")
+        hdr.write('#include "pldm_pdr_repo.h"\n\n')
 
         if macro_yaml:
             macros_block = generate_bound_macros(macro_yaml, yaml_dir)
             if macros_block:
-                out.write("// --- Bound Macros ---\n")
-                out.write(macros_block + "\n\n")
+                hdr.write("// --- Bound Macros ---\n")
+                hdr.write(macros_block + "\n\n")
+
+        hdr.write(f"#define PDR_BLOB_CAPACITY      {capacity}\n")
+        hdr.write(f"#define PDR_BLOB_DATA_SIZE     {data_size}\n")
+        hdr.write(f"#define PDR_HEADER_SIZE        10  // common PDR header: 4+1+1+2+2\n\n")
+
+        # --- PDR Statistics ---
+        hdr.write("// --- PDR Statistics ---\n")
+        hdr.write(f"#define PDR_COUNT              {total_count}\n")
+        hdr.write(f"#define PDR_TYPE_COUNT         {len(type_counts)}\n")
+        hdr.write(f"#define PDR_MAX_RECORD_SIZE    {max_record_size}  // header + body\n")
+        hdr.write(f"#define PDR_MIN_RECORD_SIZE    {min_record_size}\n")
+        hdr.write(f"#define PDR_MAX_BODY_SIZE      {max_body_size}  // body only\n")
+        hdr.write(f"#define PDR_MIN_BODY_SIZE      {min_body_size}\n")
+        hdr.write(f"#define PDR_MAX_HANDLE         {max_handle}\n")
+        hdr.write(f"#define PDR_MIN_HANDLE         {min_handle}\n\n")
+
+        # Per-type record counts
+        hdr.write("// --- Per-Type Record Counts ---\n")
+        for pdr_type in sorted(type_counts):
+            hdr.write(f"#define PDR_TYPE{pdr_type}_COUNT       {type_counts[pdr_type]}\n")
+        hdr.write("\n")
+
+        # Per-record handle, offset, size
+        hdr.write("// --- Per-Record Handle / Offset / Size ---\n")
+        for handle, offset, total_size, body_size, pdr_type, var_name in full_entries:
+            mid = to_macro_id(var_name)
+            hdr.write(f"#define PDR_HANDLE_{mid}    {handle}\n")
+            hdr.write(f"#define PDR_OFFSET_{mid}    {offset}\n")
+            hdr.write(f"#define PDR_SIZE_{mid}      {total_size}  // body={body_size}\n")
+        hdr.write("\n")
+
+        # X-macro type list
+        hdr.write("// --- X-Macro: list of all PDR types present ---\n")
+        hdr.write("//\n")
+        hdr.write("// PDR_TYPE_ENTRY(type, count)\n")
+        hdr.write("//   type  - PDR type number (e.g., 1 = Terminus Locator, 2 = Numeric Sensor)\n")
+        hdr.write("//   count - number of records of that type in this repository\n")
+        hdr.write("//\n")
+        hdr.write("// Example 1: Build a lookup table\n")
+        hdr.write("//\n")
+        hdr.write("//   static const struct { uint8_t type; uint8_t count; } pdr_types[] = {\n")
+        hdr.write("//   #define PDR_TYPE_ENTRY(type, count) { type, count },\n")
+        hdr.write("//       PDR_TYPE_LIST\n")
+        hdr.write("//   #undef PDR_TYPE_ENTRY\n")
+        hdr.write("//   };\n")
+        hdr.write("//\n")
+        hdr.write("// Example 2: Check if a PDR type exists\n")
+        hdr.write("//\n")
+        hdr.write("//   bool is_known_pdr_type(uint8_t t) {\n")
+        hdr.write("//   #define PDR_TYPE_ENTRY(type, count) if (t == type) return true;\n")
+        hdr.write("//       PDR_TYPE_LIST\n")
+        hdr.write("//   #undef PDR_TYPE_ENTRY\n")
+        hdr.write("//       return false;\n")
+        hdr.write("//   }\n")
+        hdr.write("//\n")
+        hdr.write("// Example 3: Get record count for a type in a switch\n")
+        hdr.write("//\n")
+        hdr.write("//   uint8_t pdr_type_record_count(uint8_t t) {\n")
+        hdr.write("//       switch (t) {\n")
+        hdr.write("//   #define PDR_TYPE_ENTRY(type, count) case type: return count;\n")
+        hdr.write("//       PDR_TYPE_LIST\n")
+        hdr.write("//   #undef PDR_TYPE_ENTRY\n")
+        hdr.write("//       default: return 0;\n")
+        hdr.write("//       }\n")
+        hdr.write("//   }\n")
+        hdr.write("//\n")
+        hdr.write("#define PDR_TYPE_LIST \\\n")
+        sorted_types = sorted(type_counts.items())
+        for i, (pdr_type, count) in enumerate(sorted_types):
+            trailing = " \\\n" if i < len(sorted_types) - 1 else "\n"
+            hdr.write(f"    PDR_TYPE_ENTRY({pdr_type}, {count}){trailing}")
+        hdr.write("\n")
+
+        hdr.write("void pdr_repo_populate_ext(pdr_repo_t *repo, void *ctx);\n")
+        hdr.write("void pdr_repo_populate(pdr_repo_t *repo, void *ctx);\n\n")
+
+        hdr.write(f"#endif // {guard}\n")
+
+    # --- Generate source (.c) ---
+    with open(output_file, 'w') as out:
+        out.write(f"// Generated by code_gen.py on {timestamp}\n")
+        out.write(f'#include "{header_basename}"\n\n')
 
         # --- Mutable full-record blob (header + body, with headroom) ---
-        out.write(f"#define PDR_BLOB_CAPACITY {capacity}\n")
-        out.write(f"#define PDR_BLOB_DATA_SIZE {data_size}\n\n")
         out.write("// Mutable blob: full records (10-byte header + body), with headroom for runtime adds\n")
         out.write(f"static uint8_t pdr_blob_data[PDR_BLOB_CAPACITY] = {{\n")
-        for entry_idx, (offset, total_size, body_size, pdr_type, var_name) in enumerate(full_entries):
+        for entry_idx, (handle, offset, total_size, body_size, pdr_type, var_name) in enumerate(full_entries):
             out.write(f"    /* [{entry_idx}] {var_name}.yaml  "
-                      f"type={pdr_type}  offset={offset}  total={total_size} */\n    ")
+                      f"handle={handle}  type={pdr_type}  offset={offset}  total={total_size} */\n    ")
             for i in range(total_size):
                 out.write(f"0x{full_blob[offset + i]:02X}, ")
                 if (i + 1) % 16 == 0 and i + 1 < total_size:
@@ -488,7 +627,7 @@ def generate_all(yaml_dir, schema_dir, output_file, macro_yaml=None,
         out.write("    (void)ctx;\n")
         out.write(f"    pdr_repo_init_ext(repo, pdr_blob_data, PDR_BLOB_CAPACITY);\n")
         out.write(f"    repo->blob_used = PDR_BLOB_DATA_SIZE;\n")
-        for offset, total_size, body_size, pdr_type, var_name in full_entries:
+        for handle, offset, total_size, body_size, pdr_type, var_name in full_entries:
             out.write(f"    pdr_repo_index_record(repo, {offset});  /* {var_name} */\n")
         out.write("    pdr_repo_update_info(repo);\n")
         out.write("}\n\n")
@@ -502,7 +641,7 @@ def generate_all(yaml_dir, schema_dir, output_file, macro_yaml=None,
                       f"&pdr_blob_backup[{offset}], {size}, NULL);  /* {var_name} */\n")
         out.write("}\n")
 
-    print(f"Generated {output_file} with {len(pdr_data)} PDRs "
+    print(f"Generated {output_file} and {header_file} with {len(pdr_data)} PDRs "
           f"(blob={data_size}B, capacity={capacity}B, headroom={headroom_pct}%).")
 
 if __name__ == "__main__":
