@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YAML PDR Authoring Guide</title>
+<style>
+  :root {
+    --bg: #0d1117; --bg2: #161b22; --bg3: #21262d;
+    --fg: #c9d1d9; --fg2: #8b949e; --accent: #58a6ff;
+    --accent2: #3fb950; --accent3: #d2a8ff; --accent4: #f0883e;
+    --border: #30363d; --red: #f85149; --code-bg: #1c2128;
+    --header-bg: #010409; --warn-bg: rgba(248,81,73,0.08);
+    --tip-bg: rgba(63,185,80,0.08);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg); color: var(--fg); line-height: 1.6;
+    max-width: 960px; margin: 0 auto; padding: 0 24px 80px;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  h1 { font-size: 2em; color: #fff; margin: 0; }
+  h2 { font-size: 1.4em; color: var(--accent); margin: 0; padding: 0; }
+  h3 { font-size: 1.1em; color: var(--accent3); margin: 16px 0 8px; }
+  h4 { font-size: 1em; color: var(--accent4); margin: 12px 0 6px; }
+  p { margin: 8px 0; }
+
+  .page-header {
+    background: var(--header-bg); border-bottom: 1px solid var(--border);
+    margin: 0 -24px; padding: 32px 24px 24px; text-align: center;
+  }
+  .page-header .sub { color: var(--fg2); font-size: 0.9em; margin-top: 4px; }
+  .page-header .tagline { color: var(--accent2); font-size: 1.05em; margin-top: 8px; }
+
+  nav.toc {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px 24px; margin: 24px 0;
+  }
+  .toc-title { color: var(--fg2); font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+  .toc ol { padding-left: 20px; columns: 2; column-gap: 32px; }
+  .toc li { font-size: 0.92em; margin: 3px 0; break-inside: avoid; }
+
+  details {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
+    margin: 16px 0; overflow: hidden;
+  }
+  details[open] { border-color: var(--accent); }
+  summary {
+    cursor: pointer; padding: 14px 20px; font-weight: 600;
+    list-style: none; display: flex; align-items: center; gap: 10px;
+    user-select: none; border-radius: 8px;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::before {
+    content: '\25B6'; font-size: 0.7em; color: var(--fg2);
+    transition: transform 0.2s;
+  }
+  details[open] > summary::before { transform: rotate(90deg); }
+  summary:hover { background: var(--bg3); }
+  .section-body { padding: 0 20px 20px; }
+
+  code {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 0.88em; background: var(--code-bg); padding: 2px 6px;
+    border-radius: 4px; color: var(--accent3);
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 14px 16px; overflow-x: auto; margin: 10px 0; line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; font-size: 0.85em; color: var(--fg); }
+  .kw { color: var(--red); }
+  .ty { color: var(--accent); }
+  .cm { color: var(--fg2); font-style: italic; }
+  .str { color: var(--accent2); }
+  .num { color: var(--accent4); }
+  .fn { color: var(--accent3); }
+  .hl { background: rgba(88,166,255,0.12); display: inline; }
+
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 0.9em; }
+  th { background: var(--bg3); color: var(--accent); text-align: left;
+       padding: 8px 12px; border: 1px solid var(--border); font-weight: 600; }
+  td { padding: 6px 12px; border: 1px solid var(--border); vertical-align: top; }
+  tr:hover td { background: rgba(88,166,255,0.04); }
+
+  ul, ol { padding-left: 22px; margin: 6px 0; }
+  li { margin: 4px 0; }
+
+  .callout {
+    border-left: 3px solid var(--accent); background: rgba(88,166,255,0.06);
+    padding: 10px 14px; border-radius: 0 6px 6px 0; margin: 12px 0;
+    font-size: 0.92em;
+  }
+  .warn {
+    border-left: 3px solid var(--red); background: var(--warn-bg);
+    padding: 10px 14px; border-radius: 0 6px 6px 0; margin: 12px 0;
+    font-size: 0.92em;
+  }
+  .tip {
+    border-left: 3px solid var(--accent2); background: var(--tip-bg);
+    padding: 10px 14px; border-radius: 0 6px 6px 0; margin: 12px 0;
+    font-size: 0.92em;
+  }
+
+  .badge {
+    display: inline-block; font-size: 0.75em; padding: 2px 8px;
+    border-radius: 12px; font-weight: 600; vertical-align: middle;
+  }
+  .badge-green  { background: rgba(63,185,80,0.15); color: var(--accent2); }
+  .badge-blue   { background: rgba(88,166,255,0.15); color: var(--accent); }
+  .badge-purple { background: rgba(210,168,255,0.15); color: var(--accent3); }
+  .badge-orange { background: rgba(240,136,62,0.15); color: var(--accent4); }
+  .badge-red    { background: rgba(248,81,73,0.15); color: var(--red); }
+
+  .step-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: 50%; font-weight: 700;
+    font-size: 0.85em; margin-right: 8px; flex-shrink: 0;
+    background: rgba(88,166,255,0.15); color: var(--accent);
+  }
+  .step { display: flex; align-items: flex-start; margin: 14px 0; }
+  .step-content { flex: 1; }
+
+  .side-by-side { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 10px 0; }
+  .side-by-side > div > .label { font-size: 0.8em; color: var(--fg2); text-transform: uppercase;
+    letter-spacing: 0.04em; margin-bottom: 4px; }
+
+  @media (max-width: 700px) {
+    .toc ol { columns: 1; }
+    .side-by-side { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ========== HEADER ========== -->
+<div class="page-header">
+  <h1>YAML PDR Authoring Guide</h1>
+  <div class="sub">How to create new PDR data files for the PLDM code generator</div>
+  <div class="tagline">From blank file to generated C code in 5 steps</div>
+</div>
+
+<!-- ========== TOC ========== -->
+<nav class="toc">
+  <div class="toc-title">Contents</div>
+  <ol>
+    <li><a href="#big-picture">Big Picture</a></li>
+    <li><a href="#step-by-step">Step-by-Step Walkthrough</a></li>
+    <li><a href="#value-comment">The Value/Comment Pattern</a></li>
+    <li><a href="#header">The PDR Header</a></li>
+    <li><a href="#reading-schema">Reading a JSON Schema</a></li>
+    <li><a href="#field-types">Field Type Cookbook</a></li>
+    <li><a href="#examples">Complete Examples</a></li>
+    <li><a href="#macros">Adding Macro Bindings</a></li>
+    <li><a href="#hidden">Hidden Fields &amp; Doc Metadata</a></li>
+    <li><a href="#validate">Validating Your File</a></li>
+    <li><a href="#errors">Common Errors &amp; Fixes</a></li>
+    <li><a href="#checklist">Pre-Commit Checklist</a></li>
+  </ol>
+</nav>
+
+<!-- ========== 1. BIG PICTURE ========== -->
+<details id="big-picture" open>
+<summary><h2>1. Big Picture</h2></summary>
+<div class="section-body">
+<p>Each YAML file in <code>source/data/</code> defines <strong>one PDR record</strong>. The code generator reads it, validates it against the matching JSON schema, packs it into binary, and emits C code.</p>
+
+<pre><code>  <span class="str">Your YAML file</span>              <span class="str">JSON Schema</span>
+  source/data/my_pdr.yaml     source/schema/type_N.json
+          \                      /
+           \                    /
+            v                  v
+         <span class="fn">code_gen.py</span>  (validate + pack)
+              |
+              v
+     output/pdr_generated.c/.h</code></pre>
+
+<p>The relationship is simple:</p>
+<ul>
+  <li>Your YAML provides the <strong>data</strong> (field values)</li>
+  <li>The JSON schema defines the <strong>structure</strong> (field names, types, binary layout)</li>
+  <li>The generator reads both and produces C arrays with your data pre-packed</li>
+</ul>
+
+<div class="callout">
+  <strong>Key rule:</strong> The PDR type is determined by <code>pdrHeader.PDRType</code> in your YAML. The generator loads <code>source/schema/type_N.json</code> where <code>N</code> matches that value. The filename of your YAML does not matter.
+</div>
+</div>
+</details>
+
+<!-- ========== 2. STEP-BY-STEP ========== -->
+<details id="step-by-step" open>
+<summary><h2>2. Step-by-Step Walkthrough</h2></summary>
+<div class="section-body">
+
+<div class="step">
+  <span class="step-num">1</span>
+  <div class="step-content">
+    <strong>Choose your PDR type</strong>
+    <p>Decide which PDR type you need (e.g., Type 1 = Terminus Locator, Type 2 = Numeric Sensor, Type 4 = State Sensor). Check <code>source/schema/</code> to see which types have schemas.</p>
+  </div>
+</div>
+
+<div class="step">
+  <span class="step-num">2</span>
+  <div class="step-content">
+    <strong>Open the JSON schema</strong>
+    <p>Read <code>source/schema/type_N.json</code> for your chosen type. The <code>binaryOrder</code> array at the top level tells you <strong>every field you need</strong>, in order. Each property's constraints tell you valid values.</p>
+  </div>
+</div>
+
+<div class="step">
+  <span class="step-num">3</span>
+  <div class="step-content">
+    <strong>Create your YAML file</strong>
+    <p>Create a new file in <code>source/data/</code> (e.g., <code>source/data/my_sensor.yaml</code>). Start with the <code>pdrHeader</code>, then add every field listed in <code>binaryOrder</code>, using the <code>value:</code>/<code>comment:</code> wrapper pattern.</p>
+  </div>
+</div>
+
+<div class="step">
+  <span class="step-num">4</span>
+  <div class="step-content">
+    <strong>Run the generator</strong>
+<pre><code>python3 source/code_gen.py source/data source/schema output/pdr_generated.c \
+    --macros source/data/macro_defs.yaml</code></pre>
+    <p>Fix any validation errors until it succeeds.</p>
+  </div>
+</div>
+
+<div class="step">
+  <span class="step-num">5</span>
+  <div class="step-content">
+    <strong>Verify the output</strong>
+    <p>Check <code>output/pdr_generated.h</code> for your new <code>PDR_HANDLE_*</code>, <code>PDR_OFFSET_*</code>, and <code>PDR_SIZE_*</code> macros. Check the <code>.c</code> blob array for your record's bytes.</p>
+  </div>
+</div>
+
+</div>
+</details>
+
+<!-- ========== 3. VALUE/COMMENT PATTERN ========== -->
+<details id="value-comment">
+<summary><h2>3. The Value/Comment Pattern</h2></summary>
+<div class="section-body">
+<p>Every field in a PDR YAML file uses a wrapper with <code>value</code> (required) and <code>comment</code> (optional):</p>
+
+<div class="side-by-side">
+<div>
+  <div class="label">What you write</div>
+<pre><code><span class="str">sensorID</span>:
+  <span class="str">value</span>: <span class="num">256</span>
+  <span class="str">comment</span>: <span class="str">"Primary temperature sensor"</span></code></pre>
+</div>
+<div>
+  <div class="label">What the generator sees</div>
+<pre><code><span class="cm">After cleaning:</span>
+sensorID: <span class="num">256</span>
+
+<span class="cm">Packed as:</span>
+struct.pack('<span class="str">&lt;H</span>', <span class="num">256</span>) &rarr; <span class="num">0x00 0x01</span></code></pre>
+</div>
+</div>
+
+<p>The generator's <code>clean_for_validation()</code> function strips the wrapper &mdash; it extracts <code>.value</code> for validation and packing, and <code>.comment</code> for Sphinx documentation.</p>
+
+<h3>Rules</h3>
+<ul>
+  <li><code>value:</code> is <strong>required</strong> &mdash; this is the actual data that gets packed into binary</li>
+  <li><code>comment:</code> is <strong>optional</strong> &mdash; used only for documentation, never affects binary output</li>
+  <li>Works for all types: integers, floats, strings, booleans, arrays</li>
+</ul>
+
+<h3>Variations</h3>
+<pre><code><span class="cm"># Integer with comment</span>
+<span class="str">entityType</span>:
+  <span class="str">value</span>: <span class="num">42</span>
+  <span class="str">comment</span>: <span class="str">"Processor module"</span>
+
+<span class="cm"># Integer without comment (also valid)</span>
+<span class="str">entityType</span>:
+  <span class="str">value</span>: <span class="num">42</span>
+
+<span class="cm"># Float value</span>
+<span class="str">resolution</span>:
+  <span class="str">value</span>: <span class="num">1.0</span>
+
+<span class="cm"># String value</span>
+<span class="str">sensorName</span>:
+  <span class="str">value</span>: <span class="str">"Temp Sensor"</span>
+
+<span class="cm"># Array value</span>
+<span class="str">deviceUID</span>:
+  <span class="str">value</span>: [<span class="num">0</span>, <span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>, <span class="num">4</span>, <span class="num">5</span>, <span class="num">6</span>, <span class="num">7</span>, <span class="num">8</span>, <span class="num">9</span>, <span class="num">10</span>, <span class="num">11</span>, <span class="num">12</span>, <span class="num">13</span>, <span class="num">14</span>, <span class="num">15</span>]
+  <span class="str">comment</span>: <span class="str">"16-byte UUID"</span>
+
+<span class="cm"># Boolean-like (0 or 1)</span>
+<span class="str">validity</span>:
+  <span class="str">value</span>: <span class="num">1</span>
+  <span class="str">comment</span>: <span class="str">"1 = valid"</span></code></pre>
+
+<div class="warn">
+  <strong>Common mistake:</strong> Writing <code>sensorID: 256</code> without the <code>value:</code> wrapper. This will cause a validation error because the generator expects the wrapper structure.
+</div>
+</div>
+</details>
+
+<!-- ========== 4. THE PDR HEADER ========== -->
+<details id="header">
+<summary><h2>4. The PDR Header</h2></summary>
+<div class="section-body">
+<p>Every YAML file <strong>must</strong> start with <code>pdrHeader</code>. This 10-byte structure is common to all PDR types:</p>
+
+<pre><code><span class="str">pdrHeader</span>:
+  <span class="str">recordHandle</span>:
+    <span class="str">value</span>: <span class="str">auto</span>           <span class="cm"># or an explicit integer like 42</span>
+  <span class="str">PDRHeaderVersion</span>:
+    <span class="str">value</span>: <span class="num">1</span>              <span class="cm"># Always 1 per DSP0248</span>
+  <span class="str">PDRType</span>:
+    <span class="str">value</span>: <span class="num">N</span>              <span class="cm"># Must match your target type (1-127)</span>
+  <span class="str">recordChangeNumber</span>:
+    <span class="str">value</span>: <span class="num">0</span>              <span class="cm"># Usually 0 for initial records</span>
+  <span class="str">dataLength</span>:
+    <span class="str">value</span>: <span class="str">auto</span>           <span class="cm"># Let the generator calculate this</span></code></pre>
+
+<h3>Field Details</h3>
+<table>
+  <tr><th>Field</th><th>Type</th><th>Advice</th></tr>
+  <tr>
+    <td><code>recordHandle</code></td>
+    <td>uint32 or <code>"auto"</code></td>
+    <td>Use <code>auto</code> unless you need a specific handle. Auto-assignment avoids collisions with other files.</td>
+  </tr>
+  <tr>
+    <td><code>PDRHeaderVersion</code></td>
+    <td>uint8</td>
+    <td>Always set to <code>1</code>.</td>
+  </tr>
+  <tr>
+    <td><code>PDRType</code></td>
+    <td>uint8</td>
+    <td>This is the critical field. It tells the generator which <code>type_N.json</code> schema to use. Must match the schema's <code>const</code> value.</td>
+  </tr>
+  <tr>
+    <td><code>recordChangeNumber</code></td>
+    <td>uint16</td>
+    <td>Set to <code>0</code> for new records. Incremented at runtime when records are modified.</td>
+  </tr>
+  <tr>
+    <td><code>dataLength</code></td>
+    <td>uint16 or <code>"auto"</code></td>
+    <td><strong>Always use <code>auto</code>.</strong> The generator computes the correct body length. If you set it manually and it's wrong, you'll get a warning.</td>
+  </tr>
+</table>
+
+<div class="tip">
+  <strong>Tip:</strong> Always use <code>auto</code> for both <code>recordHandle</code> and <code>dataLength</code> unless you have a specific reason not to. This avoids the two most common sources of errors.
+</div>
+</div>
+</details>
+
+<!-- ========== 5. READING A JSON SCHEMA ========== -->
+<details id="reading-schema">
+<summary><h2>5. Reading a JSON Schema</h2></summary>
+<div class="section-body">
+<p>The JSON schema is your reference for what fields to include and what values are valid. Here's how to read one:</p>
+
+<h3>Anatomy of a Schema</h3>
+<pre><code>{
+  <span class="str">"title"</span>: <span class="str">"State Sensor PDR (DSP0248 Type 4)"</span>,
+  <span class="str">"type"</span>: <span class="str">"object"</span>,
+  <span class="cm">// This is the field order you must follow:</span>
+  <span class="str">"binaryOrder"</span>: [
+    <span class="str">"pdrHeader"</span>,
+    <span class="str">"PLDMTerminusHandle"</span>,
+    <span class="str">"sensorID"</span>,
+    <span class="str">"entityType"</span>,
+    <span class="str">"entityInstanceNumber"</span>,
+    <span class="str">"containerID"</span>,
+    <span class="str">"sensorInit"</span>,
+    <span class="str">"sensorAuxiliaryNamesPDR"</span>,
+    <span class="str">"compositeSensorCount"</span>,
+    <span class="str">"stateSensors"</span>
+  ],
+  <span class="str">"properties"</span>: {
+    <span class="str">"sensorID"</span>: {
+      <span class="str">"type"</span>: <span class="str">"integer"</span>,
+      <span class="str">"minimum"</span>: <span class="num">0</span>,
+      <span class="str">"maximum"</span>: <span class="num">65535</span>,
+      <span class="str">"binaryFormat"</span>: <span class="str">"H"</span>     <span class="cm">// H = uint16 little-endian</span>
+    },
+    ...
+  }
+}</code></pre>
+
+<h3>What to Look For</h3>
+<table>
+  <tr><th>Schema Key</th><th>What It Tells You</th></tr>
+  <tr>
+    <td><code>binaryOrder</code></td>
+    <td>The <strong>exact fields</strong> your YAML must include, in serialization order. Include every field listed here.</td>
+  </tr>
+  <tr>
+    <td><code>properties.X.type</code></td>
+    <td>The JSON type: <code>"integer"</code>, <code>"number"</code> (float), <code>"string"</code>, <code>"array"</code>, <code>"object"</code></td>
+  </tr>
+  <tr>
+    <td><code>properties.X.binaryFormat</code></td>
+    <td>The pack format: <code>"B"</code>=uint8, <code>"H"</code>=uint16, <code>"I"</code>=uint32, <code>"f"</code>=float32, etc.</td>
+  </tr>
+  <tr>
+    <td><code>properties.X.minimum/maximum</code></td>
+    <td>Valid value range. Violating this causes a validation error.</td>
+  </tr>
+  <tr>
+    <td><code>properties.X.const</code></td>
+    <td>The field must be exactly this value (used for type discriminators).</td>
+  </tr>
+  <tr>
+    <td><code>properties.X.enum</code></td>
+    <td>The field must be one of these values.</td>
+  </tr>
+  <tr>
+    <td><code>properties.X.oneOf</code></td>
+    <td>Polymorphic field &mdash; multiple possible structures. See <a href="#field-oneOf">oneOf fields</a>.</td>
+  </tr>
+  <tr>
+    <td><code>required</code></td>
+    <td>Fields that must be present (after the value/comment wrapper is stripped).</td>
+  </tr>
+</table>
+
+<h3>Format Code Quick Reference</h3>
+<table>
+  <tr><th>Code</th><th>C Type</th><th>Size</th><th>YAML Example</th></tr>
+  <tr><td><code>B</code></td><td>uint8_t</td><td>1 byte</td><td><code>value: 255</code></td></tr>
+  <tr><td><code>b</code></td><td>int8_t</td><td>1 byte</td><td><code>value: -10</code></td></tr>
+  <tr><td><code>H</code></td><td>uint16_t</td><td>2 bytes</td><td><code>value: 65535</code></td></tr>
+  <tr><td><code>h</code></td><td>int16_t</td><td>2 bytes</td><td><code>value: -100</code></td></tr>
+  <tr><td><code>I</code></td><td>uint32_t</td><td>4 bytes</td><td><code>value: 100000</code></td></tr>
+  <tr><td><code>i</code></td><td>int32_t</td><td>4 bytes</td><td><code>value: -50000</code></td></tr>
+  <tr><td><code>f</code></td><td>float</td><td>4 bytes</td><td><code>value: 1.0</code></td></tr>
+  <tr><td><code>d</code></td><td>double</td><td>8 bytes</td><td><code>value: 3.14159</code></td></tr>
+  <tr><td><code>Q</code></td><td>uint64_t</td><td>8 bytes</td><td><code>value: 0</code></td></tr>
+</table>
+</div>
+</details>
+
+<!-- ========== 6. FIELD TYPE COOKBOOK ========== -->
+<details id="field-types">
+<summary><h2>6. Field Type Cookbook</h2></summary>
+<div class="section-body">
+<p>Different schema field types require different YAML patterns. Here's how to write each one.</p>
+
+<!-- Simple integer -->
+<h3>Simple Integer</h3>
+<p><span class="badge badge-green">Most common</span> &mdash; the majority of PDR fields are integers.</p>
+<div class="side-by-side">
+<div>
+  <div class="label">Schema</div>
+<pre><code><span class="str">"sensorID"</span>: {
+  <span class="str">"type"</span>: <span class="str">"integer"</span>,
+  <span class="str">"minimum"</span>: <span class="num">0</span>,
+  <span class="str">"maximum"</span>: <span class="num">65535</span>,
+  <span class="str">"binaryFormat"</span>: <span class="str">"H"</span>
+}</code></pre>
+</div>
+<div>
+  <div class="label">YAML</div>
+<pre><code><span class="str">sensorID</span>:
+  <span class="str">value</span>: <span class="num">258</span>
+  <span class="str">comment</span>: <span class="str">"Unique sensor ID"</span></code></pre>
+</div>
+</div>
+
+<!-- Float -->
+<h3>Floating Point</h3>
+<div class="side-by-side">
+<div>
+  <div class="label">Schema</div>
+<pre><code><span class="str">"resolution"</span>: {
+  <span class="str">"type"</span>: <span class="str">"number"</span>,
+  <span class="str">"binaryFormat"</span>: <span class="str">"f"</span>
+}</code></pre>
+</div>
+<div>
+  <div class="label">YAML</div>
+<pre><code><span class="str">resolution</span>:
+  <span class="str">value</span>: <span class="num">1.0</span></code></pre>
+</div>
+</div>
+<div class="callout">Integers are accepted for float fields (e.g., <code>value: 100</code> is auto-converted to <code>100.0</code>).</div>
+
+<!-- Array of integers -->
+<h3>Array of Integers</h3>
+<p>Used for byte arrays (UUIDs, bitfields, raw data).</p>
+<div class="side-by-side">
+<div>
+  <div class="label">Schema</div>
+<pre><code><span class="str">"deviceUID"</span>: {
+  <span class="str">"type"</span>: <span class="str">"array"</span>,
+  <span class="str">"minItems"</span>: <span class="num">16</span>,
+  <span class="str">"maxItems"</span>: <span class="num">16</span>,
+  <span class="str">"items"</span>: {
+    <span class="str">"type"</span>: <span class="str">"integer"</span>,
+    <span class="str">"binaryFormat"</span>: <span class="str">"B"</span>
+  }
+}</code></pre>
+</div>
+<div>
+  <div class="label">YAML</div>
+<pre><code><span class="str">deviceUID</span>:
+  <span class="str">value</span>: [<span class="num">0</span>, <span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>, <span class="num">4</span>, <span class="num">5</span>, <span class="num">6</span>, <span class="num">7</span>,
+          <span class="num">8</span>, <span class="num">9</span>, <span class="num">10</span>, <span class="num">11</span>, <span class="num">12</span>, <span class="num">13</span>, <span class="num">14</span>, <span class="num">15</span>]
+  <span class="str">comment</span>: <span class="str">"16-byte UUID"</span></code></pre>
+</div>
+</div>
+
+<!-- Array of objects -->
+<h3>Array of Objects</h3>
+<p><span class="badge badge-purple">Important</span> &mdash; Used for composite sensors/effecters, entity lists, etc.</p>
+<div class="side-by-side">
+<div>
+  <div class="label">Schema</div>
+<pre><code><span class="str">"stateSensors"</span>: {
+  <span class="str">"type"</span>: <span class="str">"array"</span>,
+  <span class="str">"items"</span>: {
+    <span class="str">"type"</span>: <span class="str">"object"</span>,
+    <span class="str">"binaryOrder"</span>: [
+      <span class="str">"stateSetID"</span>,
+      <span class="str">"possibleStatesSize"</span>,
+      <span class="str">"possibleStates"</span>
+    ],
+    <span class="str">"properties"</span>: { ... }
+  }
+}</code></pre>
+</div>
+<div>
+  <div class="label">YAML</div>
+<pre><code><span class="str">stateSensors</span>:
+  - <span class="str">stateSetID</span>:
+      <span class="str">value</span>: <span class="num">1</span>
+    <span class="str">possibleStatesSize</span>:
+      <span class="str">value</span>: <span class="num">1</span>
+    <span class="str">possibleStates</span>:
+      <span class="str">value</span>: [<span class="num">3</span>]
+  - <span class="str">stateSetID</span>:
+      <span class="str">value</span>: <span class="num">2</span>
+    <span class="str">possibleStatesSize</span>:
+      <span class="str">value</span>: <span class="num">1</span>
+    <span class="str">possibleStates</span>:
+      <span class="str">value</span>: [<span class="num">12</span>]</code></pre>
+</div>
+</div>
+
+<div class="warn">
+  <strong>Critical:</strong> Each array element must include <strong>every field</strong> listed in the item's <code>binaryOrder</code>. The count field (e.g., <code>compositeSensorCount</code>) must match the actual array length.
+</div>
+
+<!-- Bitfield arrays -->
+<h3>Bitfield Arrays (possibleStates)</h3>
+<p>State sensors and effecters use byte arrays where individual bits represent supported states:</p>
+<pre><code><span class="cm"># Each byte = 8 states. Bit N set = state N supported.</span>
+<span class="str">possibleStates</span>:
+  <span class="str">value</span>: [<span class="num">3</span>]       <span class="cm"># 0b00000011 = supports states 0 and 1</span>
+
+<span class="str">possibleStates</span>:
+  <span class="str">value</span>: [<span class="num">12</span>]      <span class="cm"># 0b00001100 = supports states 2 and 3</span>
+
+<span class="str">possibleStates</span>:
+  <span class="str">value</span>: [<span class="num">255</span>, <span class="num">3</span>]  <span class="cm"># 0xFF 0x03 = supports states 0-9</span></code></pre>
+
+<!-- String fields -->
+<h3>String Fields</h3>
+<p>Used in auxiliary names, OEM state sets, and similar types.</p>
+<div class="side-by-side">
+<div>
+  <div class="label">Schema</div>
+<pre><code><span class="str">"sensorName"</span>: {
+  <span class="str">"type"</span>: <span class="str">"string"</span>,
+  <span class="str">"binaryFormat"</span>: <span class="str">"variable"</span>,
+  <span class="str">"x-binary-encoding"</span>: <span class="str">"utf-16be"</span>,
+  <span class="str">"x-binary-terminator"</span>: <span class="str">"0x0000"</span>
+}</code></pre>
+</div>
+<div>
+  <div class="label">YAML</div>
+<pre><code><span class="str">sensorName</span>:
+  <span class="str">value</span>: <span class="str">"Temp Sensor"</span></code></pre>
+</div>
+</div>
+
+<p>The encoding and terminator are handled automatically. You just write the plain string.</p>
+<table>
+  <tr><th>Schema Encoding</th><th>What Happens</th></tr>
+  <tr><td><code>utf-8</code> (default)</td><td>UTF-8 bytes + <code>0x00</code> terminator</td></tr>
+  <tr><td><code>utf-16be</code></td><td>UTF-16 big-endian bytes + <code>0x00 0x00</code> terminator</td></tr>
+  <tr><td><code>us-ascii</code></td><td>ASCII bytes + <code>0x00</code> terminator</td></tr>
+</table>
+
+<!-- oneOf (polymorphic) -->
+<h3 id="field-oneOf">Polymorphic Fields (oneOf)</h3>
+<p><span class="badge badge-orange">Advanced</span> &mdash; Some fields have multiple possible structures, selected by a discriminator field with a <code>const</code> value.</p>
+
+<p>Example: The <code>locator</code> field in Type 1 (Terminus Locator) can be a UID, MCTP_EID, SMBus, etc. The <code>terminusLocatorType</code> field selects which variant:</p>
+<pre><code><span class="cm"># Variant 0: UID locator</span>
+<span class="str">locator</span>:
+  <span class="str">terminusLocatorType</span>:
+    <span class="str">value</span>: <span class="num">0</span>                <span class="cm"># const: 0 in schema &rarr; selects UID variant</span>
+  <span class="str">terminusLocatorValueSize</span>:
+    <span class="str">value</span>: <span class="num">17</span>
+  <span class="str">terminusInstance</span>:
+    <span class="str">value</span>: <span class="num">1</span>
+  <span class="str">deviceUID</span>:
+    <span class="str">value</span>: [<span class="num">0</span>, <span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>, <span class="num">4</span>, <span class="num">5</span>, <span class="num">6</span>, <span class="num">7</span>, <span class="num">8</span>, <span class="num">9</span>, <span class="num">10</span>, <span class="num">11</span>, <span class="num">12</span>, <span class="num">13</span>, <span class="num">14</span>, <span class="num">15</span>]
+
+<span class="cm"># Variant 1: MCTP_EID locator</span>
+<span class="str">locator</span>:
+  <span class="str">terminusLocatorType</span>:
+    <span class="str">value</span>: <span class="num">1</span>                <span class="cm"># const: 1 in schema &rarr; selects MCTP_EID variant</span>
+  <span class="str">terminusLocatorValueSize</span>:
+    <span class="str">value</span>: <span class="num">1</span>
+  <span class="str">EID</span>:
+    <span class="str">value</span>: <span class="num">10</span></code></pre>
+
+<div class="callout">
+  <strong>How it works:</strong> The generator checks each <code>oneOf</code> variant in the schema. It matches the variant where all <code>const</code>-constrained fields match your YAML values. The matched variant's <code>binaryOrder</code> and field definitions are then used for packing.
+</div>
+
+<!-- Variable-length type-mapped -->
+<h3>Variable-Length Type-Mapped Fields</h3>
+<p><span class="badge badge-orange">Advanced</span> &mdash; Some fields change their binary size depending on another field's value.</p>
+
+<p>Example: In Type 2 (Numeric Sensor), <code>hysteresis</code>, thresholds, and range values all depend on <code>sensorDataSize</code>:</p>
+
+<div class="side-by-side">
+<div>
+  <div class="label">Schema</div>
+<pre><code><span class="str">"hysteresis"</span>: {
+  <span class="str">"binaryFormat"</span>: <span class="str">"variable"</span>,
+  <span class="str">"x-binary-type-field"</span>:
+    <span class="str">"sensorDataSize"</span>,
+  <span class="str">"x-binary-type-mapping"</span>: {
+    <span class="str">"0"</span>: <span class="str">"B"</span>,  <span class="cm">// uint8</span>
+    <span class="str">"1"</span>: <span class="str">"b"</span>,  <span class="cm">// sint8</span>
+    <span class="str">"2"</span>: <span class="str">"H"</span>,  <span class="cm">// uint16</span>
+    <span class="str">"3"</span>: <span class="str">"h"</span>,  <span class="cm">// sint16</span>
+    <span class="str">"4"</span>: <span class="str">"I"</span>,  <span class="cm">// uint32</span>
+    <span class="str">"5"</span>: <span class="str">"i"</span>,  <span class="cm">// sint32</span>
+    <span class="str">"6"</span>: <span class="str">"f"</span>   <span class="cm">// float32</span>
+  }
+}</code></pre>
+</div>
+<div>
+  <div class="label">YAML</div>
+<pre><code><span class="cm"># sensorDataSize controls the type</span>
+<span class="str">sensorDataSize</span>:
+  <span class="str">value</span>: <span class="num">1</span>
+  <span class="str">comment</span>: <span class="str">"1 = sint8"</span>
+
+<span class="cm"># So hysteresis is packed as sint8</span>
+<span class="str">hysteresis</span>:
+  <span class="str">value</span>: <span class="num">2</span>
+
+<span class="cm"># And thresholds are also sint8</span>
+<span class="str">upperThresholdCritical</span>:
+  <span class="str">value</span>: <span class="num">100</span></code></pre>
+</div>
+</div>
+
+<div class="tip">
+  <strong>Tip:</strong> You don't need to worry about the binary format yourself. Just make sure the <strong>controlling field</strong> (e.g., <code>sensorDataSize</code>) is set correctly, and the generator handles the rest. Ensure your values fit in the chosen type's range.
+</div>
+
+</div>
+</details>
+
+<!-- ========== 7. COMPLETE EXAMPLES ========== -->
+<details id="examples">
+<summary><h2>7. Complete Examples</h2></summary>
+<div class="section-body">
+
+<!-- Example 1: Simple -->
+<h3>Example A: Terminus Locator (Type 1) <span class="badge badge-green">Simple</span></h3>
+<p>The simplest PDR type. Fixed fields + a polymorphic locator.</p>
+<pre><code><span class="cm"># Terminus Locator PDR (Type 1)</span>
+<span class="str">pdrHeader</span>:
+  <span class="str">recordHandle</span>:
+    <span class="str">value</span>: <span class="str">auto</span>
+  <span class="str">PDRHeaderVersion</span>:
+    <span class="str">value</span>: <span class="num">1</span>
+  <span class="str">PDRType</span>:
+    <span class="str">value</span>: <span class="num">1</span>
+  <span class="str">recordChangeNumber</span>:
+    <span class="str">value</span>: <span class="num">0</span>
+  <span class="str">dataLength</span>:
+    <span class="str">value</span>: <span class="str">auto</span>
+
+<span class="str">PLDMTerminusHandle</span>:
+  <span class="str">value</span>: <span class="num">256</span>
+  <span class="str">comment</span>: <span class="str">"Handle for this terminus"</span>
+
+<span class="str">validity</span>:
+  <span class="str">value</span>: <span class="num">1</span>
+  <span class="str">comment</span>: <span class="str">"1 = valid"</span>
+
+<span class="str">TID</span>:
+  <span class="str">value</span>: <span class="num">5</span>
+  <span class="str">comment</span>: <span class="str">"Terminus ID"</span>
+
+<span class="str">containerID</span>:
+  <span class="str">value</span>: <span class="num">1</span>
+
+<span class="str">locator</span>:
+  <span class="str">terminusLocatorType</span>:
+    <span class="str">value</span>: <span class="num">0</span>
+    <span class="str">comment</span>: <span class="str">"0 = UID locator"</span>
+  <span class="str">terminusLocatorValueSize</span>:
+    <span class="str">value</span>: <span class="num">17</span>
+  <span class="str">terminusInstance</span>:
+    <span class="str">value</span>: <span class="num">1</span>
+  <span class="str">deviceUID</span>:
+    <span class="str">value</span>: [<span class="num">0</span>, <span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>, <span class="num">4</span>, <span class="num">5</span>, <span class="num">6</span>, <span class="num">7</span>, <span class="num">8</span>, <span class="num">9</span>, <span class="num">10</span>, <span class="num">11</span>, <span class="num">12</span>, <span class="num">13</span>, <span class="num">14</span>, <span class="num">15</span>]
+    <span class="str">comment</span>: <span class="str">"16-byte device UUID"</span></code></pre>
+
+<!-- Example 2: Arrays -->
+<h3>Example B: State Sensor (Type 4) <span class="badge badge-purple">Arrays</span></h3>
+<p>Demonstrates the array-of-objects pattern for composite sensors.</p>
+<pre><code><span class="cm"># State Sensor PDR (Type 4)</span>
+<span class="str">pdrHeader</span>:
+  <span class="str">recordHandle</span>:
+    <span class="str">value</span>: <span class="str">auto</span>
+  <span class="str">PDRHeaderVersion</span>:
+    <span class="str">value</span>: <span class="num">1</span>
+  <span class="str">PDRType</span>:
+    <span class="str">value</span>: <span class="num">4</span>
+  <span class="str">recordChangeNumber</span>:
+    <span class="str">value</span>: <span class="num">0</span>
+  <span class="str">dataLength</span>:
+    <span class="str">value</span>: <span class="str">auto</span>
+
+<span class="str">PLDMTerminusHandle</span>:
+  <span class="str">value</span>: <span class="num">256</span>
+
+<span class="str">sensorID</span>:
+  <span class="str">value</span>: <span class="num">258</span>
+
+<span class="str">entityType</span>:
+  <span class="str">value</span>: <span class="num">42</span>
+
+<span class="str">entityInstanceNumber</span>:
+  <span class="str">value</span>: <span class="num">1</span>
+
+<span class="str">containerID</span>:
+  <span class="str">value</span>: <span class="num">0</span>
+
+<span class="str">sensorInit</span>:
+  <span class="str">value</span>: <span class="num">1</span>
+
+<span class="str">sensorAuxiliaryNamesPDR</span>:
+  <span class="str">value</span>: <span class="num">0</span>
+
+<span class="str">compositeSensorCount</span>:
+  <span class="str">value</span>: <span class="num">2</span>             <span class="cm"># &larr; Must match array length below!</span>
+
+<span class="str">stateSensors</span>:           <span class="cm"># &larr; Array of 2 entries</span>
+  - <span class="str">stateSetID</span>:
+      <span class="str">value</span>: <span class="num">1</span>
+    <span class="str">possibleStatesSize</span>:
+      <span class="str">value</span>: <span class="num">1</span>
+    <span class="str">possibleStates</span>:
+      <span class="str">value</span>: [<span class="num">3</span>]
+      <span class="str">comment</span>: <span class="str">"States 0 and 1"</span>
+  - <span class="str">stateSetID</span>:
+      <span class="str">value</span>: <span class="num">2</span>
+    <span class="str">possibleStatesSize</span>:
+      <span class="str">value</span>: <span class="num">1</span>
+    <span class="str">possibleStates</span>:
+      <span class="str">value</span>: [<span class="num">12</span>]
+      <span class="str">comment</span>: <span class="str">"States 2 and 3"</span></code></pre>
+
+<!-- Example 3: Strings -->
+<h3>Example C: Sensor Auxiliary Names (Type 6) <span class="badge badge-blue">Strings</span></h3>
+<p>Demonstrates nested arrays with string fields.</p>
+<pre><code><span class="cm"># Sensor Auxiliary Names PDR (Type 6)</span>
+<span class="str">pdrHeader</span>:
+  <span class="str">recordHandle</span>:
+    <span class="str">value</span>: <span class="str">auto</span>
+  <span class="str">PDRHeaderVersion</span>:
+    <span class="str">value</span>: <span class="num">1</span>
+  <span class="str">PDRType</span>:
+    <span class="str">value</span>: <span class="num">6</span>
+  <span class="str">recordChangeNumber</span>:
+    <span class="str">value</span>: <span class="num">0</span>
+  <span class="str">dataLength</span>:
+    <span class="str">value</span>: <span class="str">auto</span>
+
+<span class="str">PLDMTerminusHandle</span>:
+  <span class="str">value</span>: <span class="num">256</span>
+
+<span class="str">sensorID</span>:
+  <span class="str">value</span>: <span class="num">260</span>
+
+<span class="str">sensorCount</span>:
+  <span class="str">value</span>: <span class="num">1</span>
+
+<span class="str">auxNames</span>:
+  - <span class="str">nameStringCount</span>:
+      <span class="str">value</span>: <span class="num">1</span>
+    <span class="str">names</span>:
+      - <span class="str">nameLanguageTag</span>:
+          <span class="str">value</span>: <span class="str">"en"</span>       <span class="cm"># ASCII null-terminated</span>
+        <span class="str">sensorName</span>:
+          <span class="str">value</span>: <span class="str">"Temp Sensor"</span>  <span class="cm"># UTF-16BE null-terminated</span></code></pre>
+
+<!-- Example 4: OEM with deep nesting -->
+<h3>Example D: OEM State Set (Type 8) <span class="badge badge-orange">Deep Nesting</span></h3>
+<p>Demonstrates multi-level nesting with arrays of objects containing arrays of objects.</p>
+<pre><code><span class="cm"># OEM State Set PDR (Type 8)</span>
+<span class="str">pdrHeader</span>:
+  <span class="str">recordHandle</span>:
+    <span class="str">value</span>: <span class="str">auto</span>
+  <span class="str">PDRHeaderVersion</span>:
+    <span class="str">value</span>: <span class="num">1</span>
+  <span class="str">PDRType</span>:
+    <span class="str">value</span>: <span class="num">8</span>
+  <span class="str">recordChangeNumber</span>:
+    <span class="str">value</span>: <span class="num">0</span>
+  <span class="str">dataLength</span>:
+    <span class="str">value</span>: <span class="str">auto</span>
+
+<span class="str">PLDMTerminusHandle</span>:
+  <span class="str">value</span>: <span class="num">256</span>
+
+<span class="str">OEMStateSetIDHandle</span>:
+  <span class="str">value</span>: <span class="num">32968</span>
+
+<span class="str">vendorIANA</span>:
+  <span class="str">value</span>: <span class="num">12345</span>
+  <span class="str">comment</span>: <span class="str">"Vendor IANA Enterprise Number"</span>
+
+<span class="str">OEMStateSetID</span>:
+  <span class="str">value</span>: <span class="num">32968</span>
+
+<span class="str">unspecifiedValueHint</span>:
+  <span class="str">value</span>: <span class="num">0</span>
+
+<span class="str">stateCount</span>:
+  <span class="str">value</span>: <span class="num">2</span>
+
+<span class="str">stateValueRecords</span>:                <span class="cm"># Level 1: array of state records</span>
+  - <span class="str">minStateValue</span>:
+      <span class="str">value</span>: <span class="num">0</span>
+    <span class="str">maxStateValue</span>:
+      <span class="str">value</span>: <span class="num">0</span>
+    <span class="str">stringCount</span>:
+      <span class="str">value</span>: <span class="num">1</span>
+    <span class="str">stateNames</span>:                    <span class="cm"># Level 2: array of name pairs</span>
+      - <span class="str">stateLanguageTag</span>:
+          <span class="str">value</span>: <span class="str">"en"</span>            <span class="cm"># ASCII</span>
+        <span class="str">stateName</span>:
+          <span class="str">value</span>: <span class="str">"Idle"</span>          <span class="cm"># UTF-16BE</span>
+  - <span class="str">minStateValue</span>:
+      <span class="str">value</span>: <span class="num">1</span>
+    <span class="str">maxStateValue</span>:
+      <span class="str">value</span>: <span class="num">1</span>
+    <span class="str">stringCount</span>:
+      <span class="str">value</span>: <span class="num">1</span>
+    <span class="str">stateNames</span>:
+      - <span class="str">stateLanguageTag</span>:
+          <span class="str">value</span>: <span class="str">"en"</span>
+        <span class="str">stateName</span>:
+          <span class="str">value</span>: <span class="str">"Active"</span></code></pre>
+
+</div>
+</details>
+
+<!-- ========== 8. MACRO BINDINGS ========== -->
+<details id="macros">
+<summary><h2>8. Adding Macro Bindings</h2></summary>
+<div class="section-body">
+<p>Macro bindings let you expose specific YAML field values as C <code>#define</code> constants in the generated header. This is optional but useful when firmware code needs compile-time access to PDR values.</p>
+
+<h3>Where to Add</h3>
+<p>Edit <code>source/data/macro_defs.yaml</code>:</p>
+<pre><code><span class="str">macros</span>:
+  <span class="cm"># Existing entries...</span>
+
+  <span class="cm"># Add yours here:</span>
+  - <span class="str">name</span>: <span class="str">MY_SENSOR_ID</span>         <span class="cm"># C macro name</span>
+    <span class="str">file</span>: <span class="str">"my_sensor.yaml"</span>     <span class="cm"># YAML filename (relative to data/)</span>
+    <span class="str">field</span>: <span class="str">"sensorID.value"</span>     <span class="cm"># Field path to extract</span></code></pre>
+
+<h3>Generated Output</h3>
+<p>The above produces this line in <code>pdr_generated.h</code>:</p>
+<pre><code><span class="kw">#define</span> <span class="fn">MY_SENSOR_ID</span>  <span class="num">258</span></code></pre>
+
+<h3>Field Path Syntax</h3>
+<table>
+  <tr><th>Path</th><th>Resolves To</th></tr>
+  <tr><td><code>sensorID.value</code></td><td><code>data["sensorID"]["value"]</code> &rarr; the integer</td></tr>
+  <tr><td><code>pdrHeader.recordHandle.value</code></td><td>The resolved record handle</td></tr>
+  <tr><td><code>stateSensors[0].stateSetID.value</code></td><td>First array element's stateSetID</td></tr>
+  <tr><td><code>stateSensors[0].possibleStates.value[0]</code></td><td>First byte of first sensor's bitfield</td></tr>
+</table>
+
+<h3>Rules</h3>
+<ul>
+  <li><code>name</code> must be a valid C identifier (letters, digits, underscores; no leading digit)</li>
+  <li><code>file</code> is relative to <code>source/data/</code></li>
+  <li><code>field</code> uses dot notation for keys and <code>[N]</code> for array indices</li>
+  <li>Always include <code>.value</code> at the end to reach through the value/comment wrapper</li>
+</ul>
+
+<div class="warn">
+  <strong>Gotcha:</strong> If the field path is wrong (typo, missing <code>.value</code>, wrong array index), the generator prints a warning but continues. Your <code>#define</code> will be missing from the output. Always check the generated <code>.h</code> after adding macros.
+</div>
+</div>
+</details>
+
+<!-- ========== 9. HIDDEN FIELDS ========== -->
+<details id="hidden">
+<summary><h2>9. Hidden Fields &amp; Doc Metadata</h2></summary>
+<div class="section-body">
+<p>You can exclude specific array elements from Sphinx documentation while keeping them in the binary output. This is useful for deprecated or internal-only entries.</p>
+
+<h3>Usage</h3>
+<pre><code><span class="str">containedEntities</span>:
+  - <span class="str">_doc</span>:
+      <span class="str">hidden</span>: <span class="kw">true</span>           <span class="cm"># Hidden from docs, still packed!</span>
+    <span class="str">containedEntityType</span>:
+      <span class="str">value</span>: <span class="num">10</span>
+      <span class="str">comment</span>: <span class="str">"Internal use only"</span>
+    <span class="str">containedEntityInstanceNumber</span>:
+      <span class="str">value</span>: <span class="num">3</span>
+    <span class="str">containedEntityContainerID</span>:
+      <span class="str">value</span>: <span class="num">200</span>
+  - <span class="str">containedEntityType</span>:          <span class="cm"># No _doc &rarr; visible in docs</span>
+      <span class="str">value</span>: <span class="num">42</span>
+    <span class="str">containedEntityInstanceNumber</span>:
+      <span class="str">value</span>: <span class="num">1</span>
+    <span class="str">containedEntityContainerID</span>:
+      <span class="str">value</span>: <span class="num">123</span></code></pre>
+
+<div class="callout">
+  <strong>Important distinction:</strong> <code>_doc: {hidden: true}</code> only affects Sphinx documentation rendering. The data is <strong>always included</strong> in the binary output. This is not a way to conditionally exclude data.
+</div>
+</div>
+</details>
+
+<!-- ========== 10. VALIDATING ========== -->
+<details id="validate">
+<summary><h2>10. Validating Your File</h2></summary>
+<div class="section-body">
+
+<h3>Run the Generator</h3>
+<pre><code>python3 source/code_gen.py source/data source/schema output/pdr_generated.c \
+    --macros source/data/macro_defs.yaml</code></pre>
+
+<p>If your file is valid, you'll see it listed in the output alongside other PDRs. If not, you'll get a clear error with the file path and field that failed.</p>
+
+<h3>What Gets Validated</h3>
+<ol>
+  <li><strong>Schema presence</strong> &mdash; Does <code>type_N.json</code> exist for your <code>PDRType</code>?</li>
+  <li><strong>Required fields</strong> &mdash; Are all required fields present?</li>
+  <li><strong>Type constraints</strong> &mdash; Is each value the correct JSON type (integer, string, array, etc.)?</li>
+  <li><strong>Range constraints</strong> &mdash; Are values within <code>minimum</code>/<code>maximum</code>?</li>
+  <li><strong>Const constraints</strong> &mdash; Do discriminator fields match their expected <code>const</code> value?</li>
+  <li><strong>Array sizes</strong> &mdash; Do arrays satisfy <code>minItems</code>/<code>maxItems</code>?</li>
+  <li><strong>Handle uniqueness</strong> &mdash; No duplicate explicit handles across files</li>
+  <li><strong>dataLength consistency</strong> &mdash; Warning if stated value differs from calculated (auto-corrected)</li>
+</ol>
+
+<h3>Quick Sanity Check</h3>
+<p>After generation, verify your record appears in the <code>.h</code> file:</p>
+<pre><code><span class="cm"># Check for your PDR's macros</span>
+grep MY_PDR output/pdr_generated.h
+
+<span class="cm"># Check total count increased</span>
+grep PDR_COUNT output/pdr_generated.h</code></pre>
+</div>
+</details>
+
+<!-- ========== 11. COMMON ERRORS ========== -->
+<details id="errors" open>
+<summary><h2>11. Common Errors &amp; Fixes</h2></summary>
+<div class="section-body">
+
+<!-- Error 1 -->
+<h3><span class="badge badge-red">Error</span> Missing <code>value:</code> wrapper</h3>
+<pre><code><span class="cm"># WRONG</span>
+<span class="str">sensorID</span>: <span class="num">256</span>
+
+<span class="cm"># RIGHT</span>
+<span class="str">sensorID</span>:
+  <span class="str">value</span>: <span class="num">256</span></code></pre>
+<p><strong>Why:</strong> The generator expects every field to be a dict with a <code>value</code> key. A bare value causes a validation error or silent data corruption.</p>
+
+<!-- Error 2 -->
+<h3><span class="badge badge-red">Error</span> No matching schema</h3>
+<pre><code>FileNotFoundError: source/schema/type_99.json</code></pre>
+<p><strong>Fix:</strong> Check that <code>pdrHeader.PDRType.value</code> matches an existing schema. The available types are the <code>type_N.json</code> files in <code>source/schema/</code>.</p>
+
+<!-- Error 3 -->
+<h3><span class="badge badge-red">Error</span> Missing required field</h3>
+<pre><code>ValidationError: 'entityType' is a required property</code></pre>
+<p><strong>Fix:</strong> Check the schema's <code>binaryOrder</code> and <code>required</code> arrays. Every field listed must be present in your YAML.</p>
+
+<!-- Error 4 -->
+<h3><span class="badge badge-red">Error</span> Value out of range</h3>
+<pre><code>ValidationError: 300 is greater than the maximum of 255</code></pre>
+<p><strong>Fix:</strong> Check the schema's <code>minimum</code>/<code>maximum</code> for the field. For a <code>"B"</code> (uint8) field, values must be 0&ndash;255.</p>
+
+<!-- Error 5 -->
+<h3><span class="badge badge-red">Error</span> Array count mismatch</h3>
+<pre><code><span class="cm"># WRONG: compositeSensorCount says 1, but array has 2 entries</span>
+<span class="str">compositeSensorCount</span>:
+  <span class="str">value</span>: <span class="num">1</span>
+<span class="str">stateSensors</span>:
+  - <span class="str">stateSetID</span>: { <span class="str">value</span>: <span class="num">1</span> }
+    ...
+  - <span class="str">stateSetID</span>: { <span class="str">value</span>: <span class="num">2</span> }
+    ...</code></pre>
+<p><strong>Fix:</strong> The count field and the actual array length must agree. Set <code>compositeSensorCount: {value: 2}</code>.</p>
+
+<!-- Error 6 -->
+<h3><span class="badge badge-red">Error</span> Duplicate record handle</h3>
+<pre><code>WARNING: Duplicate recordHandle 5 in type_new.yaml (already used by type_3.yaml)</code></pre>
+<p><strong>Fix:</strong> Use <code>value: auto</code> for <code>recordHandle</code>, or pick a unique explicit value.</p>
+
+<!-- Error 7 -->
+<h3><span class="badge badge-red">Error</span> oneOf variant not matched</h3>
+<p>If no <code>oneOf</code> variant matches your data's <code>const</code> fields, the generator falls back to the first variant, which may silently produce wrong binary output.</p>
+<p><strong>Fix:</strong> Check that your discriminator field (e.g., <code>terminusLocatorType</code>) matches one of the <code>const</code> values defined in the schema's <code>oneOf</code> variants.</p>
+
+<!-- Error 8 -->
+<h3><span class="badge badge-red">Error</span> Wrong YAML indentation for arrays</h3>
+<pre><code><span class="cm"># WRONG: value/comment inside list item misaligned</span>
+<span class="str">stateSensors</span>:
+  - <span class="str">stateSetID</span>:
+    <span class="str">value</span>: <span class="num">1</span>       <span class="cm"># Parsed as sibling, not child!</span>
+
+<span class="cm"># RIGHT: value indented under stateSetID</span>
+<span class="str">stateSensors</span>:
+  - <span class="str">stateSetID</span>:
+      <span class="str">value</span>: <span class="num">1</span>     <span class="cm"># Two more spaces &rarr; child of stateSetID</span></code></pre>
+<p><strong>Fix:</strong> In YAML, indentation is significant. Inside an array element (<code>-</code>), field wrappers must be indented further than the field name.</p>
+
+<!-- Error 9 -->
+<h3><span class="badge badge-red">Error</span> Macro field path not found</h3>
+<pre><code>WARNING: Cannot resolve field path 'sensorID' in type_2.yaml</code></pre>
+<p><strong>Fix:</strong> Remember to include <code>.value</code> at the end of the path: <code>"sensorID.value"</code>, not <code>"sensorID"</code>.</p>
+
+</div>
+</details>
+
+<!-- ========== 12. CHECKLIST ========== -->
+<details id="checklist" open>
+<summary><h2>12. Pre-Commit Checklist</h2></summary>
+<div class="section-body">
+
+<p>Before committing a new YAML file, verify each item:</p>
+
+<table>
+  <tr><th>#</th><th>Check</th><th>How</th></tr>
+  <tr>
+    <td>1</td>
+    <td>File is in <code>source/data/</code></td>
+    <td>Any name is fine; <code>type_N.yaml</code> is convention</td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td><code>pdrHeader</code> is present and complete</td>
+    <td>All 5 fields: recordHandle, PDRHeaderVersion, PDRType, recordChangeNumber, dataLength</td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td><code>PDRType</code> matches an existing schema</td>
+    <td>Check <code>source/schema/type_N.json</code> exists</td>
+  </tr>
+  <tr>
+    <td>4</td>
+    <td>Every field uses <code>value:</code> wrapper</td>
+    <td>No bare values like <code>sensorID: 256</code></td>
+  </tr>
+  <tr>
+    <td>5</td>
+    <td>All <code>binaryOrder</code> fields are present</td>
+    <td>Compare your YAML against the schema's <code>binaryOrder</code> list</td>
+  </tr>
+  <tr>
+    <td>6</td>
+    <td>Array counts match actual arrays</td>
+    <td><code>compositeSensorCount</code> == len(<code>stateSensors</code>)</td>
+  </tr>
+  <tr>
+    <td>7</td>
+    <td>Values are in range</td>
+    <td>Check <code>minimum</code>/<code>maximum</code> in schema</td>
+  </tr>
+  <tr>
+    <td>8</td>
+    <td>Generator runs without errors</td>
+    <td><code>python3 source/code_gen.py ...</code></td>
+  </tr>
+  <tr>
+    <td>9</td>
+    <td>Record appears in generated <code>.h</code></td>
+    <td><code>PDR_HANDLE_*</code>, <code>PDR_OFFSET_*</code>, <code>PDR_SIZE_*</code></td>
+  </tr>
+  <tr>
+    <td>10</td>
+    <td>Macro bindings resolve (if added)</td>
+    <td>Check <code>#define</code> lines in <code>.h</code></td>
+  </tr>
+</table>
+
+<div class="tip">
+  <strong>Quick template:</strong> The fastest way to start is to copy an existing YAML file of the same type, change the field values, and set <code>recordHandle</code> and <code>dataLength</code> to <code>auto</code>.
+</div>
+
+</div>
+</details>
+
+<!-- ========== FOOTER ========== -->
+<div style="text-align:center; padding:32px 0 0; color:var(--fg2); font-size:0.85em;">
+  YAML PDR Authoring Guide &mdash; <a href="design.html">Back to Design Documentation</a>
+</div>
+
+</body>
+</html>

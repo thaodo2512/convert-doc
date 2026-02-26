@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PLDM PDR Repository — Design Documentation</title>
+<style>
+  :root {
+    --bg: #0d1117; --bg2: #161b22; --bg3: #21262d;
+    --fg: #c9d1d9; --fg2: #8b949e; --accent: #58a6ff;
+    --accent2: #3fb950; --accent3: #d2a8ff; --accent4: #f0883e;
+    --border: #30363d; --red: #f85149; --code-bg: #1c2128;
+    --header-bg: #010409;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg); color: var(--fg); line-height: 1.6;
+    max-width: 960px; margin: 0 auto; padding: 0 24px 80px;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  h1 { font-size: 2em; color: #fff; margin: 0; }
+  h2 { font-size: 1.4em; color: var(--accent); margin: 0; padding: 0; }
+  h3 { font-size: 1.1em; color: var(--accent3); margin: 16px 0 8px; }
+  h4 { font-size: 1em; color: var(--accent4); margin: 12px 0 6px; }
+
+  /* Header */
+  .page-header {
+    background: var(--header-bg); border-bottom: 1px solid var(--border);
+    margin: 0 -24px; padding: 32px 24px 24px; text-align: center;
+  }
+  .page-header .spec { color: var(--fg2); font-size: 0.9em; margin-top: 4px; }
+  .page-header .tagline { color: var(--accent2); font-size: 1.05em; margin-top: 8px; }
+
+  /* TOC */
+  .toc {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px 24px; margin: 24px 0;
+  }
+  .toc-title { color: var(--fg2); font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+  .toc ol { padding-left: 20px; columns: 2; column-gap: 32px; }
+  .toc li { font-size: 0.92em; margin: 3px 0; break-inside: avoid; }
+
+  /* Sections */
+  details {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
+    margin: 16px 0; overflow: hidden;
+  }
+  details[open] { border-color: var(--accent); }
+  summary {
+    cursor: pointer; padding: 14px 20px; font-weight: 600;
+    list-style: none; display: flex; align-items: center; gap: 10px;
+    user-select: none; border-radius: 8px;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::before {
+    content: '\25B6'; font-size: 0.7em; color: var(--fg2);
+    transition: transform 0.2s;
+  }
+  details[open] > summary::before { transform: rotate(90deg); }
+  summary:hover { background: var(--bg3); }
+  .section-body { padding: 0 20px 20px; }
+
+  /* Code */
+  code {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 0.88em; background: var(--code-bg); padding: 2px 6px;
+    border-radius: 4px; color: var(--accent3);
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 14px 16px; overflow-x: auto; margin: 10px 0; line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; font-size: 0.85em; color: var(--fg); }
+  .kw { color: var(--red); }
+  .ty { color: var(--accent); }
+  .cm { color: var(--fg2); font-style: italic; }
+  .str { color: var(--accent2); }
+  .num { color: var(--accent4); }
+  .fn { color: var(--accent3); }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 0.9em; }
+  th { background: var(--bg3); color: var(--accent); text-align: left;
+       padding: 8px 12px; border: 1px solid var(--border); font-weight: 600; }
+  td { padding: 6px 12px; border: 1px solid var(--border); }
+  tr:hover td { background: rgba(88,166,255,0.04); }
+
+  /* Pipeline diagram */
+  .pipeline { display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+              gap: 0; margin: 16px 0; }
+  .pipe-box {
+    background: var(--bg3); border: 2px solid var(--border); border-radius: 8px;
+    padding: 12px 18px; text-align: center; min-width: 120px;
+  }
+  .pipe-box.input { border-color: var(--accent2); }
+  .pipe-box.gen   { border-color: var(--accent3); }
+  .pipe-box.out   { border-color: var(--accent4); }
+  .pipe-box.rt    { border-color: var(--accent); }
+  .pipe-box .label { font-size: 0.75em; color: var(--fg2); text-transform: uppercase; letter-spacing: 0.04em; }
+  .pipe-box .name  { font-weight: 700; font-size: 0.95em; margin-top: 2px; }
+  .pipe-arrow { font-size: 1.4em; color: var(--fg2); padding: 0 6px; }
+  .pipe-group { display: flex; flex-direction: column; gap: 8px; }
+
+  /* Badges */
+  .badge {
+    display: inline-block; font-size: 0.75em; padding: 2px 8px;
+    border-radius: 12px; font-weight: 600; vertical-align: middle;
+  }
+  .badge-green  { background: rgba(63,185,80,0.15); color: var(--accent2); }
+  .badge-blue   { background: rgba(88,166,255,0.15); color: var(--accent); }
+  .badge-purple { background: rgba(210,168,255,0.15); color: var(--accent3); }
+  .badge-orange { background: rgba(240,136,62,0.15); color: var(--accent4); }
+
+  /* Lists */
+  ul, ol { padding-left: 22px; margin: 6px 0; }
+  li { margin: 4px 0; }
+
+  /* Callout */
+  .callout {
+    border-left: 3px solid var(--accent); background: rgba(88,166,255,0.06);
+    padding: 10px 14px; border-radius: 0 6px 6px 0; margin: 10px 0;
+    font-size: 0.92em;
+  }
+
+  /* Dir tree */
+  .tree { font-family: monospace; font-size: 0.88em; line-height: 1.7; }
+  .tree .dir { color: var(--accent); font-weight: 600; }
+  .tree .file { color: var(--fg); }
+  .tree .desc { color: var(--fg2); }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    .toc ol { columns: 1; }
+    .pipeline { flex-direction: column; }
+    .pipe-arrow { transform: rotate(90deg); }
+  }
+</style>
+</head>
+<body>
+
+<!-- ========== HEADER ========== -->
+<div class="page-header">
+  <h1>PLDM PDR Repository</h1>
+  <div class="spec">DSP0248 v1.3.0 &mdash; Platform Level Data Model for Platform Monitoring and Control</div>
+  <div class="tagline">Schema-driven code generation for embedded PDR management &mdash; zero-copy, no dynamic allocation</div>
+</div>
+
+<!-- ========== TABLE OF CONTENTS ========== -->
+<nav class="toc">
+  <div class="toc-title">Contents</div>
+  <ol>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#pipeline">Pipeline</a></li>
+    <li><a href="#structure">Project Structure</a></li>
+    <li><a href="#schemas">Schema Design</a></li>
+    <li><a href="#yaml">YAML Data Files</a></li>
+    <li><a href="#codegen">Code Generator</a></li>
+    <li><a href="#output">Generated Output</a></li>
+    <li><a href="#runtime">Runtime Architecture</a></li>
+    <li><a href="#types">PDR Types</a></li>
+    <li><a href="#manager">PDR Manager</a></li>
+    <li><a href="#events">Change Events</a></li>
+    <li><a href="#quickstart">Quick Start</a></li>
+  </ol>
+</nav>
+
+<!-- ========== 1. OVERVIEW ========== -->
+<details id="overview" open>
+<summary><h2>1. Overview</h2></summary>
+<div class="section-body">
+<p>This project implements a <strong>Platform Descriptor Record (PDR) repository</strong> system for embedded and BMC firmware targeting Zephyr RTOS, conforming to DMTF DSP0248 v1.3.0.</p>
+
+<h3>Key Characteristics</h3>
+<ul>
+  <li><span class="badge badge-green">Zero-Copy</span> &mdash; <code>GetPDR</code> and <code>FindPDR</code> return pointers directly into a contiguous blob; no memcpy on reads</li>
+  <li><span class="badge badge-blue">No Dynamic Allocation</span> &mdash; All buffers are statically sized; safe for hard real-time environments</li>
+  <li><span class="badge badge-purple">Schema-Driven</span> &mdash; JSON schemas define binary layout; YAML provides instance data; Python generates C code</li>
+  <li><span class="badge badge-orange">Multi-Terminus</span> &mdash; Manager consolidates PDRs from up to 8 remote endpoints with handle remapping</li>
+</ul>
+
+<h3>Architecture Layers</h3>
+<table>
+  <tr><th>Layer</th><th>Files</th><th>Role</th></tr>
+  <tr><td>Code Generation</td><td><code>code_gen.py</code></td><td>YAML + JSON Schema &rarr; packed C arrays</td></tr>
+  <tr><td>PDR Repository</td><td><code>pldm_pdr_repo.c/.h</code></td><td>Single-instance blob+index storage, zero-copy access</td></tr>
+  <tr><td>PDR Manager</td><td><code>pldm_pdr_mgr.c/.h</code></td><td>Multi-terminus discovery, remote fetch, handle remapping</td></tr>
+  <tr><td>Change Events</td><td><code>pldm_pdr_chg_event.c/.h</code></td><td>Encode/decode/validate <code>pldmPDRRepositoryChgEvent</code></td></tr>
+  <tr><td>Event Handler</td><td><code>pldm_pdr_chg_event_handler.c/.h</code></td><td>Manager-side incremental update from incoming events</td></tr>
+</table>
+</div>
+</details>
+
+<!-- ========== 2. PIPELINE ========== -->
+<details id="pipeline" open>
+<summary><h2>2. Pipeline</h2></summary>
+<div class="section-body">
+<div class="pipeline">
+  <div class="pipe-group">
+    <div class="pipe-box input">
+      <div class="label">Input</div>
+      <div class="name">YAML Data</div>
+      <code>source/data/*.yaml</code>
+    </div>
+    <div class="pipe-box input">
+      <div class="label">Input</div>
+      <div class="name">JSON Schemas</div>
+      <code>source/schema/type_N.json</code>
+    </div>
+    <div class="pipe-box input">
+      <div class="label">Input</div>
+      <div class="name">Macro Defs</div>
+      <code>macro_defs.yaml</code>
+    </div>
+  </div>
+  <div class="pipe-arrow">&rarr;</div>
+  <div class="pipe-box gen">
+    <div class="label">Generator</div>
+    <div class="name">code_gen.py</div>
+    <code>validate &rarr; pack &rarr; emit</code>
+  </div>
+  <div class="pipe-arrow">&rarr;</div>
+  <div class="pipe-group">
+    <div class="pipe-box out">
+      <div class="label">Output</div>
+      <div class="name">pdr_generated.h</div>
+      <code>macros, statistics, X-macros</code>
+    </div>
+    <div class="pipe-box out">
+      <div class="label">Output</div>
+      <div class="name">pdr_generated.c</div>
+      <code>blobs, populate functions</code>
+    </div>
+  </div>
+  <div class="pipe-arrow">&rarr;</div>
+  <div class="pipe-box rt">
+    <div class="label">Runtime</div>
+    <div class="name">pldm_pdr_repo</div>
+    <code>zero-copy init &rarr; serve</code>
+  </div>
+</div>
+
+<div class="callout">
+  The generator reads YAML PDR instances, validates them against JSON schemas, packs each field into little-endian binary per <code>binaryOrder</code> and <code>binaryFormat</code>, then emits self-contained C files. At runtime, the pre-packed blob is indexed in-place &mdash; no parsing or copying required.
+</div>
+</div>
+</details>
+
+<!-- ========== 3. PROJECT STRUCTURE ========== -->
+<details id="structure">
+<summary><h2>3. Project Structure</h2></summary>
+<div class="section-body">
+<div class="tree"><pre>
+<span class="dir">source/</span>
+  <span class="file">code_gen.py</span>            <span class="desc"># Primary generator (YAML &rarr; C)</span>
+  <span class="file">pldm_pdr_repo.h/.c</span>     <span class="desc"># Core repository (blob + index)</span>
+  <span class="file">pldm_pdr_mgr.h/.c</span>      <span class="desc"># Multi-terminus manager</span>
+  <span class="file">pldm_pdr_chg_event.h/.c</span> <span class="desc"># Change event codec</span>
+  <span class="file">pldm_pdr_chg_event_handler.h/.c</span> <span class="desc"># Event handler</span>
+  <span class="file">pldm_pdr_repo_example.c</span> <span class="desc"># Usage example</span>
+  <span class="file">conf.py</span>                <span class="desc"># Sphinx configuration</span>
+  <span class="dir">data/</span>                  <span class="desc"># YAML PDR definitions (recursive)</span>
+    <span class="file">terminus.yaml</span>        <span class="desc"># Terminus Locator (Type 1)</span>
+    <span class="file">type_2.yaml ... type_127.yaml</span> <span class="desc"># Per-type instances</span>
+    <span class="file">macro_defs.yaml</span>      <span class="desc"># C macro bindings</span>
+  <span class="dir">schema/</span>                <span class="desc"># JSON schemas for binary packing</span>
+    <span class="file">type_1.json ... type_127.json</span> <span class="desc"># 28 type schemas</span>
+  <span class="dir">_extensions/</span>           <span class="desc"># Sphinx extensions</span>
+<span class="dir">output/</span>
+  <span class="file">pdr_generated.h</span>        <span class="desc"># Generated header (macros, stats)</span>
+  <span class="file">pdr_generated.c</span>        <span class="desc"># Generated impl (blobs, populate)</span>
+<span class="dir">docs/</span>                    <span class="desc"># Documentation</span>
+<span class="file">generate_pdr_repo.py</span>     <span class="desc"># Alternate standalone generator</span>
+<span class="file">pdr_repo_to_yaml.py</span>      <span class="desc"># Reverse decoder (C/binary &rarr; YAML)</span>
+</pre></div>
+</div>
+</details>
+
+<!-- ========== 4. SCHEMA DESIGN ========== -->
+<details id="schemas">
+<summary><h2>4. Schema Design</h2></summary>
+<div class="section-body">
+<p>Each PDR type has a JSON Schema file (<code>source/schema/type_N.json</code>) that defines both validation constraints and binary serialization rules via custom extensions.</p>
+
+<h3>Core Extensions</h3>
+<table>
+  <tr><th>Extension</th><th>Purpose</th><th>Example</th></tr>
+  <tr>
+    <td><code>binaryOrder</code></td>
+    <td>Array specifying field serialization order</td>
+    <td><code>["pdrHeader", "sensorID", "entityType"]</code></td>
+  </tr>
+  <tr>
+    <td><code>binaryFormat</code></td>
+    <td>Python <code>struct</code> pack code for the field</td>
+    <td><code>"I"</code> (uint32), <code>"H"</code> (uint16), <code>"B"</code> (uint8)</td>
+  </tr>
+  <tr>
+    <td><code>oneOf</code></td>
+    <td>Polymorphic types selected by <code>const</code> discriminator</td>
+    <td>Terminus locator variants (UID, MCTP_EID, SMBUS, etc.)</td>
+  </tr>
+  <tr>
+    <td><code>x-binary-encoding</code></td>
+    <td>String encoding</td>
+    <td><code>"utf-8"</code>, <code>"utf-16be"</code>, <code>"us-ascii"</code></td>
+  </tr>
+  <tr>
+    <td><code>x-binary-terminator</code></td>
+    <td>String null-termination value</td>
+    <td><code>"0x00"</code>, <code>"0x0000"</code></td>
+  </tr>
+  <tr>
+    <td><code>x-binary-type-mapping</code></td>
+    <td>Context-dependent format resolution</td>
+    <td>Maps sensor data size to corresponding pack format</td>
+  </tr>
+  <tr>
+    <td><code>formatResolver</code></td>
+    <td>Conditional format based on another field's value</td>
+    <td><code>dependsOn: "sensorDataSize"</code></td>
+  </tr>
+</table>
+
+<h3>Format Codes</h3>
+<table>
+  <tr><th>Code</th><th>Type</th><th>Size</th></tr>
+  <tr><td><code>B</code></td><td>uint8</td><td>1 byte</td></tr>
+  <tr><td><code>H</code></td><td>uint16 LE</td><td>2 bytes</td></tr>
+  <tr><td><code>I</code></td><td>uint32 LE</td><td>4 bytes</td></tr>
+  <tr><td><code>Q</code></td><td>uint64 LE</td><td>8 bytes</td></tr>
+  <tr><td><code>b</code> / <code>h</code> / <code>i</code> / <code>q</code></td><td>signed int8/16/32/64</td><td>1/2/4/8 bytes</td></tr>
+  <tr><td><code>f</code> / <code>d</code></td><td>float / double</td><td>4/8 bytes</td></tr>
+</table>
+
+<h3>Schema Example (Type 1 &mdash; Terminus Locator)</h3>
+<pre><code>{
+  <span class="str">"title"</span>: <span class="str">"Terminus Locator PDR (DSP0248 Type 1)"</span>,
+  <span class="str">"binaryOrder"</span>: [<span class="str">"pdrHeader"</span>, <span class="str">"PLDMTerminusHandle"</span>, <span class="str">"validity"</span>,
+                  <span class="str">"TID"</span>, <span class="str">"containerID"</span>, <span class="str">"locator"</span>],
+  <span class="str">"properties"</span>: {
+    <span class="str">"pdrHeader"</span>: {
+      <span class="str">"binaryOrder"</span>: [<span class="str">"recordHandle"</span>, <span class="str">"PDRHeaderVersion"</span>,
+                      <span class="str">"PDRType"</span>, <span class="str">"recordChangeNumber"</span>, <span class="str">"dataLength"</span>],
+      <span class="str">"properties"</span>: {
+        <span class="str">"recordHandle"</span>: { <span class="str">"binaryFormat"</span>: <span class="str">"I"</span> },
+        <span class="str">"PDRType"</span>:       { <span class="str">"const"</span>: <span class="num">1</span>, <span class="str">"binaryFormat"</span>: <span class="str">"B"</span> }
+      }
+    },
+    <span class="str">"locator"</span>: {
+      <span class="cm">// Polymorphic: type selected by terminusLocatorType const</span>
+      <span class="str">"oneOf"</span>: [
+        { <span class="str">"title"</span>: <span class="str">"UID (Type 0)"</span>,      <span class="cm">/* 16-byte UUID */</span> },
+        { <span class="str">"title"</span>: <span class="str">"MCTP_EID (Type 1)"</span>, <span class="cm">/* single EID byte */</span> }
+      ]
+    }
+  }
+}</code></pre>
+</div>
+</details>
+
+<!-- ========== 5. YAML DATA FILES ========== -->
+<details id="yaml">
+<summary><h2>5. YAML Data Files</h2></summary>
+<div class="section-body">
+<p>PDR instances live in <code>source/data/</code> (discovered recursively). Each file with a <code>pdrHeader</code> key defines one PDR record. Files without <code>pdrHeader</code> (e.g., <code>macro_defs.yaml</code>) are skipped.</p>
+
+<h3>Value/Comment Pattern</h3>
+<p>Every field uses a <code>{value, comment}</code> wrapper to carry documentation alongside data:</p>
+<pre><code><span class="str">sensorID</span>:
+  <span class="str">value</span>: <span class="num">256</span>
+  <span class="str">comment</span>: <span class="str">"Primary temperature sensor"</span>
+
+<span class="str">entityType</span>:
+  <span class="str">value</span>: <span class="num">42</span>
+  <span class="str">comment</span>: <span class="str">"Processor module"</span></code></pre>
+<p>The generator extracts <code>.value</code> for packing and <code>.comment</code> for documentation. Comments are optional.</p>
+
+<h3>Auto Handles</h3>
+<pre><code><span class="str">pdrHeader</span>:
+  <span class="str">recordHandle</span>:
+    <span class="str">value</span>: <span class="str">auto</span>    <span class="cm"># Generator assigns next available handle</span>
+  <span class="str">PDRType</span>:
+    <span class="str">value</span>: <span class="num">2</span></code></pre>
+<p>Handles set to <code>auto</code> are assigned monotonically, skipping any explicitly reserved values.</p>
+
+<h3>Hidden Fields</h3>
+<pre><code><span class="str">_doc</span>:
+  <span class="str">hidden</span>: <span class="kw">true</span>     <span class="cm"># Excluded from Sphinx docs, still packed in binary</span></code></pre>
+
+<h3>Macro Bindings (<code>macro_defs.yaml</code>)</h3>
+<p>Binds C <code>#define</code> names to specific field values in PDR files:</p>
+<pre><code><span class="str">macros</span>:
+  - <span class="str">name</span>: <span class="str">SENSOR_INIT_SENSOR_ID</span>
+    <span class="str">file</span>: <span class="str">"type_2.yaml"</span>
+    <span class="str">field</span>: <span class="str">"sensorID.value"</span>
+
+  - <span class="str">name</span>: <span class="str">SENSOR_INIT_UPPER_WARN</span>
+    <span class="str">file</span>: <span class="str">"type_3.yaml"</span>
+    <span class="str">field</span>: <span class="str">"upperThresholdWarning.value"</span></code></pre>
+<p>Field paths support dot notation, array indices (<code>[0]</code>), and nested arrays.</p>
+</div>
+</details>
+
+<!-- ========== 6. CODE GENERATOR ========== -->
+<details id="codegen">
+<summary><h2>6. Code Generator</h2></summary>
+<div class="section-body">
+<p><code>source/code_gen.py</code> (~670 lines) drives the full pipeline from YAML to C.</p>
+
+<h3>Execution Flow</h3>
+<pre><code><span class="cm"># Command</span>
+python3 source/code_gen.py source/data source/schema output/pdr_generated.c \
+    --macros source/data/macro_defs.yaml</code></pre>
+
+<ol>
+  <li><strong><code>discover_yaml_files(yaml_dir)</code></strong> &mdash; Recursively scan for <code>.yaml/.yml</code> files, filter to those containing <code>pdrHeader</code>, sort parent-dir-first then alphabetically</li>
+  <li><strong><code>collect_reserved_handles()</code></strong> &mdash; First pass: collect explicitly set <code>recordHandle</code> values to avoid collisions</li>
+  <li><strong><code>process_single_yaml()</code></strong> &mdash; For each PDR file:
+    <ol type="a">
+      <li>Read YAML, extract <code>pdrHeader.PDRType</code></li>
+      <li>Load <code>type_N.json</code> schema</li>
+      <li>Validate with <code>jsonschema</code></li>
+      <li>Assign or confirm handle via <code>assign_handle()</code></li>
+      <li>Pack 10-byte common header</li>
+      <li>Pack body fields recursively via <code>pack_field()</code></li>
+      <li>Auto-compute <code>dataLength</code> from body size</li>
+    </ol>
+  </li>
+  <li><strong>Sort</strong> all records by handle</li>
+  <li><strong>Emit <code>.h</code></strong> &mdash; Macros, statistics, per-record metadata, X-macro list, prototypes</li>
+  <li><strong>Emit <code>.c</code></strong> &mdash; Blob arrays, <code>pdr_repo_populate_ext()</code>, <code>pdr_repo_populate()</code></li>
+</ol>
+
+<h3><code>pack_field()</code> &mdash; Recursive Binary Packer</h3>
+<p>Handles all JSON Schema types:</p>
+<table>
+  <tr><th>Type</th><th>Behavior</th></tr>
+  <tr><td>Integer / Float / Bool</td><td><code>struct.pack(format, value)</code></td></tr>
+  <tr><td>Object</td><td>Recurse sub-fields in <code>binaryOrder</code></td></tr>
+  <tr><td>Array</td><td>Pack each item via item schema</td></tr>
+  <tr><td>String</td><td>Encode per <code>x-binary-encoding</code> with optional null-terminator</td></tr>
+  <tr><td>Variable-length</td><td>Hex string or byte list</td></tr>
+  <tr><td><code>oneOf</code></td><td>Select variant by matching <code>const</code> discriminator field</td></tr>
+</table>
+
+<h3>Format Inference</h3>
+<p>If <code>binaryFormat</code> is absent, <code>infer_format()</code> derives it from the JSON Schema type and bounds (e.g., <code>maximum: 255</code> &rarr; <code>"B"</code>). For fields with <code>formatResolver.dependsOn</code>, the format is looked up dynamically via <code>x-binary-type-mapping</code>.</p>
+</div>
+</details>
+
+<!-- ========== 7. GENERATED OUTPUT ========== -->
+<details id="output">
+<summary><h2>7. Generated Output</h2></summary>
+<div class="section-body">
+
+<h3>Header File (<code>pdr_generated.h</code>)</h3>
+<pre><code><span class="kw">#ifndef</span> PDR_GENERATED_H_
+<span class="kw">#define</span> PDR_GENERATED_H_
+<span class="kw">#include</span> <span class="str">"pldm_pdr_repo.h"</span>
+
+<span class="cm">/* ---- Bound Macros (from macro_defs.yaml) ---- */</span>
+<span class="kw">#define</span> <span class="fn">SENSOR_INIT_SENSOR_ID</span>   <span class="num">256</span>
+<span class="kw">#define</span> <span class="fn">SENSOR_INIT_UPPER_WARN</span>  <span class="num">100</span>
+
+<span class="cm">/* ---- Blob Configuration ---- */</span>
+<span class="kw">#define</span> <span class="fn">PDR_BLOB_CAPACITY</span>       <span class="num">1480</span>
+<span class="kw">#define</span> <span class="fn">PDR_BLOB_DATA_SIZE</span>      <span class="num">1184</span>
+<span class="kw">#define</span> <span class="fn">PDR_HEADER_SIZE</span>         <span class="num">10</span>
+
+<span class="cm">/* ---- PDR Statistics ---- */</span>
+<span class="kw">#define</span> <span class="fn">PDR_COUNT</span>               <span class="num">30</span>
+<span class="kw">#define</span> <span class="fn">PDR_TYPE_COUNT</span>          <span class="num">28</span>
+<span class="kw">#define</span> <span class="fn">PDR_MAX_RECORD_SIZE</span>     <span class="num">90</span>
+<span class="kw">#define</span> <span class="fn">PDR_MIN_RECORD_SIZE</span>     <span class="num">19</span>
+
+<span class="cm">/* ---- Per-Record Macros ---- */</span>
+<span class="kw">#define</span> <span class="fn">PDR_HANDLE_TERMINUS</span>     <span class="num">1</span>
+<span class="kw">#define</span> <span class="fn">PDR_OFFSET_TERMINUS</span>     <span class="num">0</span>
+<span class="kw">#define</span> <span class="fn">PDR_SIZE_TERMINUS</span>       <span class="num">35</span>   <span class="cm">/* body=25 */</span>
+
+<span class="cm">/* ---- X-Macro Type List ---- */</span>
+<span class="kw">#define</span> <span class="fn">PDR_TYPE_LIST</span> \
+    <span class="fn">PDR_TYPE_ENTRY</span>(<span class="num">1</span>, <span class="num">2</span>) \
+    <span class="fn">PDR_TYPE_ENTRY</span>(<span class="num">2</span>, <span class="num">1</span>) \
+    <span class="cm">/* ... all 28 types */</span>
+
+<span class="cm">/* ---- Prototypes ---- */</span>
+<span class="kw">void</span> <span class="fn">pdr_repo_populate_ext</span>(<span class="ty">pdr_repo_t</span> *repo, <span class="kw">void</span> *ctx);
+<span class="kw">void</span> <span class="fn">pdr_repo_populate</span>(<span class="ty">pdr_repo_t</span> *repo, <span class="kw">void</span> *ctx);
+
+<span class="kw">#endif</span></code></pre>
+
+<h3>C File (<code>pdr_generated.c</code>)</h3>
+<pre><code><span class="kw">#include</span> <span class="str">"pdr_generated.h"</span>
+
+<span class="cm">/* Mutable blob with 25% headroom for runtime adds */</span>
+<span class="kw">static</span> <span class="ty">uint8_t</span> pdr_blob_data[<span class="fn">PDR_BLOB_CAPACITY</span>] = {
+    <span class="cm">/* [0] terminus.yaml  handle=1  type=1  total=35 */</span>
+    <span class="num">0x01</span>, <span class="num">0x00</span>, <span class="num">0x00</span>, <span class="num">0x00</span>,   <span class="cm">/* recordHandle    */</span>
+    <span class="num">0x01</span>,                     <span class="cm">/* headerVersion   */</span>
+    <span class="num">0x01</span>,                     <span class="cm">/* pdrType         */</span>
+    <span class="num">0x00</span>, <span class="num">0x00</span>,               <span class="cm">/* recordChangeNum */</span>
+    <span class="num">0x19</span>, <span class="num">0x00</span>,               <span class="cm">/* dataLength = 25 */</span>
+    <span class="cm">/* ... body bytes ... */</span>
+};
+
+<span class="cm">/* Const body-only backup for rebuild */</span>
+<span class="kw">static const</span> <span class="ty">uint8_t</span> pdr_blob_backup[] = { <span class="cm">/* ... */</span> };
+
+<span class="cm">/* Zero-copy fast init: index pre-packed records in-place */</span>
+<span class="kw">void</span> <span class="fn">pdr_repo_populate_ext</span>(<span class="ty">pdr_repo_t</span> *repo, <span class="kw">void</span> *ctx) {
+    (<span class="kw">void</span>)ctx;
+    <span class="fn">pdr_repo_init_ext</span>(repo, pdr_blob_data, <span class="fn">PDR_BLOB_CAPACITY</span>);
+    repo-&gt;blob_used = <span class="fn">PDR_BLOB_DATA_SIZE</span>;
+    <span class="fn">pdr_repo_index_record</span>(repo, <span class="num">0</span>);     <span class="cm">/* terminus  */</span>
+    <span class="fn">pdr_repo_index_record</span>(repo, <span class="num">35</span>);    <span class="cm">/* type_1    */</span>
+    <span class="cm">/* ... index all records ... */</span>
+    <span class="fn">pdr_repo_update_info</span>(repo);
+}
+
+<span class="cm">/* Rebuild callback (used by RunInitAgent) */</span>
+<span class="kw">void</span> <span class="fn">pdr_repo_populate</span>(<span class="ty">pdr_repo_t</span> *repo, <span class="kw">void</span> *ctx) {
+    (<span class="kw">void</span>)ctx;
+    <span class="fn">pdr_repo_add_record</span>(repo, <span class="num">1</span>, &amp;pdr_blob_backup[<span class="num">0</span>], <span class="num">25</span>, <span class="ty">NULL</span>);
+    <span class="cm">/* ... re-add all records ... */</span>
+}</code></pre>
+
+<h3>Two Blob Arrays</h3>
+<table>
+  <tr><th>Array</th><th>Mutability</th><th>Content</th><th>Purpose</th></tr>
+  <tr><td><code>pdr_blob_data[]</code></td><td>Mutable</td><td>Full records (header + body) + headroom</td><td>Primary runtime storage; used by <code>populate_ext</code></td></tr>
+  <tr><td><code>pdr_blob_backup[]</code></td><td><code>const</code></td><td>Body only, compact</td><td>Rebuild source for <code>populate</code> / <code>RunInitAgent</code></td></tr>
+</table>
+</div>
+</details>
+
+<!-- ========== 8. RUNTIME ARCHITECTURE ========== -->
+<details id="runtime">
+<summary><h2>8. Runtime Architecture</h2></summary>
+<div class="section-body">
+
+<h3>PDR Common Header (10 bytes)</h3>
+<pre><code> 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                       recordHandle (u32)                      |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|   version(u8) |   pdrType(u8) |     recordChangeNum (u16)     |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|         dataLength (u16)      |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+</code></pre>
+
+<h3>Repository Data Structures</h3>
+<pre><code><span class="kw">typedef struct</span> {
+    <span class="ty">uint8_t</span>  *blob;                <span class="cm">/* Contiguous PDR storage           */</span>
+    <span class="ty">uint32_t</span> blob_capacity;         <span class="cm">/* Total allocated size              */</span>
+    <span class="ty">uint32_t</span> blob_used;             <span class="cm">/* Bytes currently occupied          */</span>
+    <span class="ty">pdr_index_entry_t</span> index[<span class="num">64</span>];   <span class="cm">/* Metadata index (max 64 records)   */</span>
+    <span class="ty">uint16_t</span> count;                 <span class="cm">/* Active record count               */</span>
+    <span class="ty">pdr_repo_info_t</span> info;           <span class="cm">/* GetPDRRepositoryInfo response     */</span>
+    <span class="ty">uint32_t</span> signature;             <span class="cm">/* Cached CRC32                      */</span>
+    <span class="ty">bool</span>     signature_valid;       <span class="cm">/* Cache invalidation flag           */</span>
+    <span class="ty">uint32_t</span> next_record_handle;    <span class="cm">/* Auto-assign counter               */</span>
+} <span class="ty">pdr_repo_t</span>;
+
+<span class="kw">typedef struct</span> {
+    <span class="ty">uint32_t</span> record_handle;         <span class="cm">/* Opaque PDR identifier             */</span>
+    <span class="ty">uint32_t</span> offset;                <span class="cm">/* Byte offset in blob               */</span>
+    <span class="ty">uint16_t</span> size;                  <span class="cm">/* Total size (header + body)        */</span>
+    <span class="ty">uint8_t</span>  pdr_type;              <span class="cm">/* Type code (1-127)                 */</span>
+    <span class="ty">uint8_t</span>  flags;                 <span class="cm">/* Bit 0: tombstone                  */</span>
+} <span class="ty">pdr_index_entry_t</span>;</code></pre>
+
+<h3>Key Constants</h3>
+<table>
+  <tr><th>Constant</th><th>Value</th><th>Purpose</th></tr>
+  <tr><td><code>PDR_REPO_MAX_SIZE</code></td><td>8 KB</td><td>Maximum blob capacity</td></tr>
+  <tr><td><code>PDR_MAX_RECORD_COUNT</code></td><td>64</td><td>Maximum records per repository</td></tr>
+  <tr><td><code>PDR_TRANSFER_CHUNK_SIZE</code></td><td>128 B</td><td>Multi-part GetPDR chunk size</td></tr>
+  <tr><td><code>PDR_HEADER_SIZE</code></td><td>10 B</td><td>Common header size (fixed)</td></tr>
+</table>
+
+<h3>Core Operations</h3>
+
+<h4>Initialization</h4>
+<pre><code><span class="ty">pdr_repo_t</span> repo;
+<span class="fn">pdr_repo_populate_ext</span>(&amp;repo, <span class="ty">NULL</span>);  <span class="cm">/* Zero-copy: index pre-packed blob */</span></code></pre>
+
+<h4>Zero-Copy Read</h4>
+<pre><code><span class="kw">const</span> <span class="ty">uint8_t</span> *data;  <span class="ty">uint16_t</span> len;
+<span class="fn">pdr_repo_get_pdr</span>(&amp;repo, handle, <span class="num">0</span>,
+    &amp;next_handle, &amp;next_xfer, &amp;xfer_flag,
+    &amp;data, &amp;len);
+<span class="cm">/* data points directly into blob — no copy */</span></code></pre>
+
+<h4>Tombstone Deletion</h4>
+<pre><code><span class="fn">pdr_repo_remove_record</span>(&amp;repo, handle);  <span class="cm">/* O(1): sets tombstone flag */</span>
+<span class="cm">/* Space reclaimed on next pdr_repo_run_init_agent() */</span></code></pre>
+
+<h4>Signature</h4>
+<pre><code><span class="ty">uint32_t</span> sig = <span class="fn">pdr_repo_get_signature</span>(&amp;repo);
+<span class="cm">/* Lazy CRC32 — cached until mutation invalidates */</span></code></pre>
+
+<h3>Repository API Summary</h3>
+<table>
+  <tr><th>Function</th><th>Complexity</th><th>Description</th></tr>
+  <tr><td><code>pdr_repo_init_ext()</code></td><td>O(1)</td><td>Bind external blob buffer</td></tr>
+  <tr><td><code>pdr_repo_index_record()</code></td><td>O(1)</td><td>Index a pre-filled record at offset</td></tr>
+  <tr><td><code>pdr_repo_add_record()</code></td><td>O(1)</td><td>Append record, auto-assign handle</td></tr>
+  <tr><td><code>pdr_repo_remove_record()</code></td><td>O(n)</td><td>Find and tombstone by handle</td></tr>
+  <tr><td><code>pdr_repo_get_pdr()</code></td><td>O(n)</td><td>Fetch by handle, multi-part support</td></tr>
+  <tr><td><code>pdr_repo_find_pdr()</code></td><td>O(n)</td><td>Search by PDR type from start handle</td></tr>
+  <tr><td><code>pdr_repo_get_signature()</code></td><td>O(n)*</td><td>CRC32, cached after first computation</td></tr>
+  <tr><td><code>pdr_repo_run_init_agent()</code></td><td>O(n)</td><td>Full rebuild via callback (compacts tombstones)</td></tr>
+</table>
+</div>
+</details>
+
+<!-- ========== 9. PDR TYPES ========== -->
+<details id="types">
+<summary><h2>9. PDR Types</h2></summary>
+<div class="section-body">
+<p>The system supports <strong>28 PDR types</strong> defined by DSP0248. Each has a corresponding JSON schema and can have one or more YAML instances.</p>
+
+<table>
+  <tr><th>Type</th><th>Name</th><th>Category</th></tr>
+  <tr><td>1</td><td>Terminus Locator</td><td><span class="badge badge-blue">Platform</span></td></tr>
+  <tr><td>2</td><td>Numeric Sensor</td><td><span class="badge badge-green">Sensor</span></td></tr>
+  <tr><td>3</td><td>Numeric Sensor Initialization</td><td><span class="badge badge-green">Sensor</span></td></tr>
+  <tr><td>4</td><td>State Sensor</td><td><span class="badge badge-green">Sensor</span></td></tr>
+  <tr><td>5</td><td>Sensor Auxiliary Names</td><td><span class="badge badge-green">Sensor</span></td></tr>
+  <tr><td>6</td><td>OEM Unit</td><td><span class="badge badge-blue">Platform</span></td></tr>
+  <tr><td>7</td><td>OEM State Set</td><td><span class="badge badge-blue">Platform</span></td></tr>
+  <tr><td>8</td><td>Numeric Effecter</td><td><span class="badge badge-purple">Effecter</span></td></tr>
+  <tr><td>9</td><td>Numeric Effecter Initialization</td><td><span class="badge badge-purple">Effecter</span></td></tr>
+  <tr><td>10</td><td>State Effecter</td><td><span class="badge badge-purple">Effecter</span></td></tr>
+  <tr><td>11</td><td>Entity Association</td><td><span class="badge badge-blue">Platform</span></td></tr>
+  <tr><td>12</td><td>Effecter Auxiliary Names</td><td><span class="badge badge-purple">Effecter</span></td></tr>
+  <tr><td>13</td><td>OEM Entity ID</td><td><span class="badge badge-blue">Platform</span></td></tr>
+  <tr><td>14</td><td>Interrupt Association</td><td><span class="badge badge-blue">Platform</span></td></tr>
+  <tr><td>15</td><td>Event Log</td><td><span class="badge badge-orange">Event</span></td></tr>
+  <tr><td>16</td><td>FRU Record Set Identifier</td><td><span class="badge badge-blue">Platform</span></td></tr>
+  <tr><td>17</td><td>Compact Numeric Sensor</td><td><span class="badge badge-green">Sensor</span></td></tr>
+  <tr><td>18</td><td>Large Compact Numeric Sensor</td><td><span class="badge badge-green">Sensor</span></td></tr>
+  <tr><td>19</td><td>OEM Device</td><td><span class="badge badge-blue">Platform</span></td></tr>
+  <tr><td>20</td><td>OEM PDR</td><td><span class="badge badge-orange">OEM</span></td></tr>
+  <tr><td>21</td><td>Redfish Resource</td><td><span class="badge badge-blue">Platform</span></td></tr>
+  <tr><td>22</td><td>Redfish Entity Association</td><td><span class="badge badge-blue">Platform</span></td></tr>
+  <tr><td>23</td><td>Redfish Action</td><td><span class="badge badge-blue">Platform</span></td></tr>
+  <tr><td>24</td><td>Compact Numeric Sensor (Signed)</td><td><span class="badge badge-green">Sensor</span></td></tr>
+  <tr><td>25</td><td>Large Compact Numeric Sensor (Signed)</td><td><span class="badge badge-green">Sensor</span></td></tr>
+  <tr><td>30</td><td>Timing PDR</td><td><span class="badge badge-blue">Platform</span></td></tr>
+  <tr><td>126</td><td>OEM (Vendor Range Start)</td><td><span class="badge badge-orange">OEM</span></td></tr>
+  <tr><td>127</td><td>OEM (Vendor Range End)</td><td><span class="badge badge-orange">OEM</span></td></tr>
+</table>
+
+<div class="callout">
+  PDR type is determined from the YAML file's <code>pdrHeader.PDRType</code> value, not from the filename. The generator loads the corresponding <code>type_N.json</code> schema dynamically.
+</div>
+</div>
+</details>
+
+<!-- ========== 10. PDR MANAGER ========== -->
+<details id="manager">
+<summary><h2>10. PDR Manager</h2></summary>
+<div class="section-body">
+<p>The manager (<code>pldm_pdr_mgr.c/.h</code>) consolidates PDRs from multiple remote PLDM termini into a single local repository with handle remapping.</p>
+
+<h3>Handle Remapping Scheme</h3>
+<pre><code>  Terminus Index    Local Handle Range
+  ─────────────     ─────────────────────
+  idx 0             0x10001 – 0x1FFFF
+  idx 1             0x20001 – 0x2FFFF
+  idx 2             0x30001 – 0x3FFFF
+  ...
+  idx 7             0x80001 – 0x8FFFF</code></pre>
+<p>Remote handles are remapped into non-overlapping ranges. The original remote handle is preserved in the <code>handle_map</code> for reverse lookup.</p>
+
+<h3>Terminus State Machine</h3>
+<pre><code>  UNUSED ──&gt; DISCOVERED ──&gt; SYNCING ──&gt; SYNCED
+                 │              │           │
+                 │              v           v
+                 │           ERROR       STALE
+                 └──────────────────────────┘</code></pre>
+<table>
+  <tr><th>State</th><th>Description</th></tr>
+  <tr><td><code>UNUSED</code></td><td>Slot is free</td></tr>
+  <tr><td><code>DISCOVERED</code></td><td>Endpoint registered, not yet synced</td></tr>
+  <tr><td><code>SYNCING</code></td><td>Fetch in progress</td></tr>
+  <tr><td><code>SYNCED</code></td><td>PDRs fetched and merged</td></tr>
+  <tr><td><code>STALE</code></td><td>Signature changed, needs re-sync</td></tr>
+  <tr><td><code>ERROR</code></td><td>Fetch failed</td></tr>
+</table>
+
+<h3>Manager Constants</h3>
+<table>
+  <tr><th>Constant</th><th>Value</th></tr>
+  <tr><td><code>PDR_MGR_MAX_TERMINI</code></td><td>8</td></tr>
+  <tr><td><code>PDR_MGR_REASSEMBLY_BUF_SIZE</code></td><td>256 B</td></tr>
+  <tr><td><code>PDR_MGR_HANDLE_RANGE_SHIFT</code></td><td>16</td></tr>
+</table>
+
+<h3>Transport Abstraction</h3>
+<pre><code><span class="kw">typedef int</span> (*<span class="fn">pdr_mgr_send_recv_fn</span>)(
+    <span class="ty">uint8_t</span>        eid,        <span class="cm">/* MCTP endpoint ID     */</span>
+    <span class="ty">uint8_t</span>        pldm_type,  <span class="cm">/* 0x02 = Platform M&amp;C  */</span>
+    <span class="ty">uint8_t</span>        command,    <span class="cm">/* GetPDR, etc.         */</span>
+    <span class="kw">const</span> <span class="ty">uint8_t</span> *req_data,
+    <span class="ty">uint16_t</span>       req_len,
+    <span class="ty">uint8_t</span>       *resp_data,
+    <span class="ty">uint16_t</span>      *resp_len,
+    <span class="kw">void</span>          *ctx
+);</code></pre>
+<p>The manager is transport-agnostic. Callers provide a send/receive callback for MCTP communication.</p>
+
+<h3>Key Manager API</h3>
+<table>
+  <tr><th>Function</th><th>Description</th></tr>
+  <tr><td><code>pdr_mgr_init()</code></td><td>Initialize consolidated repo + transport binding</td></tr>
+  <tr><td><code>pdr_mgr_add_terminus()</code></td><td>Register remote endpoint (EID, TID, handle)</td></tr>
+  <tr><td><code>pdr_mgr_sync_terminus()</code></td><td>Fetch all PDRs from a terminus, remap handles</td></tr>
+  <tr><td><code>pdr_mgr_sync_all()</code></td><td>Sync all discovered termini</td></tr>
+  <tr><td><code>pdr_mgr_check_for_changes()</code></td><td>Compare signature to detect remote changes</td></tr>
+  <tr><td><code>pdr_mgr_lookup_origin()</code></td><td>Map local handle back to terminus + remote handle</td></tr>
+</table>
+</div>
+</details>
+
+<!-- ========== 11. CHANGE EVENTS ========== -->
+<details id="events">
+<summary><h2>11. Change Events</h2></summary>
+<div class="section-body">
+<p>Implements <code>pldmPDRRepositoryChgEvent</code> per DSP0248 &sect;16.14, enabling incremental PDR updates without full re-sync.</p>
+
+<h3>Event Formats</h3>
+<table>
+  <tr><th>Format</th><th>Value</th><th>Behavior</th></tr>
+  <tr><td><code>refreshEntireRepository</code></td><td>0x00</td><td>Full re-sync; zero change records</td></tr>
+  <tr><td><code>formatIsPDRTypes</code></td><td>0x01</td><td>Change records carry PDR type codes</td></tr>
+  <tr><td><code>formatIsPDRHandles</code></td><td>0x02</td><td>Change records carry specific handles</td></tr>
+</table>
+
+<h3>Operations</h3>
+<table>
+  <tr><th>Operation</th><th>Value</th></tr>
+  <tr><td><code>refreshAllRecords</code></td><td>0x00</td></tr>
+  <tr><td><code>recordsDeleted</code></td><td>0x01</td></tr>
+  <tr><td><code>recordsAdded</code></td><td>0x02</td></tr>
+  <tr><td><code>recordsModified</code></td><td>0x03</td></tr>
+</table>
+
+<h3>Wire Format</h3>
+<pre><code> ┌──────────────────────┐
+ │ eventDataFormat  (1B)│
+ │ numChangeRecords (1B)│
+ ├──────────────────────┤
+ │ Change Record 0:     │
+ │  operation    (1B)   │
+ │  numEntries   (1B)   │
+ │  entry[0]     (4B)   │
+ │  entry[1]     (4B)   │
+ │  ...                 │
+ ├──────────────────────┤
+ │ Change Record 1:     │
+ │  ...                 │
+ └──────────────────────┘
+ All multi-byte fields: little-endian</code></pre>
+
+<h3>Validation Rules (DSP0248)</h3>
+<table>
+  <tr><th>Rule</th><th>Constraint</th></tr>
+  <tr><td>V1</td><td><code>refreshEntireRepository</code> must have 0 change records</td></tr>
+  <tr><td>V2</td><td><code>formatIsPDRHandles</code> cannot use <code>refreshAllRecords</code> operation</td></tr>
+  <tr><td>V3</td><td>Format is per-event (cannot mix types and handles)</td></tr>
+  <tr><td>V4</td><td>Operations ordered: deletes &le; adds &le; modifies</td></tr>
+  <tr><td>V5</td><td>Entry count &le; <code>PDR_CHG_EVENT_MAX_ENTRIES</code> (16)</td></tr>
+</table>
+
+<h3>Tracker API (Terminus Side)</h3>
+<pre><code><span class="ty">pdr_chg_tracker_t</span> tracker;
+<span class="fn">pdr_chg_tracker_init</span>(&amp;tracker);
+
+<span class="cm">/* Record changes as they happen */</span>
+<span class="fn">pdr_chg_tracker_record_add</span>(&amp;tracker, new_handle);
+<span class="fn">pdr_chg_tracker_record_delete</span>(&amp;tracker, old_handle);
+<span class="fn">pdr_chg_tracker_record_modify</span>(&amp;tracker, changed_handle);
+
+<span class="cm">/* Build event for transmission */</span>
+<span class="ty">pdr_chg_event_t</span> event;
+<span class="fn">pdr_chg_tracker_build_event</span>(&amp;tracker, &amp;event,
+    <span class="fn">PDR_CHG_FORMAT_PDR_HANDLES</span>, <span class="fn">PDR_CHG_EVENT_DEFAULT_MTU</span>);</code></pre>
+
+<h3>Event Handler (Manager Side)</h3>
+<pre><code><span class="cm">/* Incoming event from remote terminus */</span>
+<span class="fn">pdr_chg_event_handle</span>(&amp;mgr, eid, event_data, event_data_len);
+<span class="cm">/* - refreshEntireRepository → full pdr_mgr_sync_terminus()
+   - formatIsPDRTypes        → full re-sync
+   - formatIsPDRHandles      → incremental add/delete/modify */</span></code></pre>
+</div>
+</details>
+
+<!-- ========== 12. QUICK START ========== -->
+<details id="quickstart" open>
+<summary><h2>12. Quick Start</h2></summary>
+<div class="section-body">
+
+<h3>Prerequisites</h3>
+<pre><code>pip install pyyaml jsonschema</code></pre>
+
+<h3>Generate C Code from YAML</h3>
+<pre><code>python3 source/code_gen.py source/data source/schema output/pdr_generated.c \
+    --macros source/data/macro_defs.yaml</code></pre>
+<p>Produces both <code>output/pdr_generated.c</code> and <code>output/pdr_generated.h</code>.</p>
+
+<h3>Compile and Run Example</h3>
+<pre><code>gcc -o pdr_example \
+    source/pldm_pdr_repo.c \
+    output/pdr_generated.c \
+    source/pldm_pdr_repo_example.c \
+    -Isource -Wall
+
+./pdr_example</code></pre>
+
+<h3>Reverse Decode (C/Binary to YAML)</h3>
+<pre><code>python3 pdr_repo_to_yaml.py &lt;input&gt; &lt;schema_dir&gt; [--output out.yaml]</code></pre>
+
+<h3>Build Sphinx Documentation</h3>
+<pre><code>make html
+<span class="cm"># or: sphinx-build -b html source build</span></code></pre>
+
+<h3>Minimal Integration</h3>
+<pre><code><span class="kw">#include</span> <span class="str">"pdr_generated.h"</span>
+
+<span class="kw">int</span> <span class="fn">main</span>(<span class="kw">void</span>) {
+    <span class="ty">pdr_repo_t</span> repo;
+
+    <span class="cm">/* Option A: Zero-copy init (fastest) */</span>
+    <span class="fn">pdr_repo_populate_ext</span>(&amp;repo, <span class="ty">NULL</span>);
+
+    <span class="cm">/* Read a PDR by handle */</span>
+    <span class="kw">const</span> <span class="ty">uint8_t</span> *data;
+    <span class="ty">uint16_t</span> len;
+    <span class="ty">uint32_t</span> next_h, next_xfer;
+    <span class="ty">uint8_t</span>  xfer_flag;
+    <span class="fn">pdr_repo_get_pdr</span>(&amp;repo, <span class="fn">PDR_HANDLE_TERMINUS</span>, <span class="num">0</span>,
+        &amp;next_h, &amp;next_xfer, &amp;xfer_flag, &amp;data, &amp;len);
+
+    <span class="cm">/* data now points directly into the blob */</span>
+    <span class="kw">return</span> <span class="num">0</span>;
+}</code></pre>
+</div>
+</details>
+
+<div style="text-align:center; padding:32px 0 0; color:var(--fg2); font-size:0.85em;">
+  PLDM PDR Repository &mdash; DSP0248 v1.3.0 &mdash; <a href="yaml-authoring-guide.html">YAML Authoring Guide</a>
+</div>
+
+</body>
+</html>
