@@ -78,6 +78,13 @@ Each remote terminus gets a dedicated handle range:
 - `dataLength` is always auto-computed from the packed body
 - `_doc: { hidden: true }` hides fields from Sphinx docs but keeps them in binary output
 
+## Documentation
+
+- `docs/design.html` / `docs/design.rst` — Architecture deep-dive: pipeline, runtime, manager, change events, all 28 PDR types
+- `docs/yaml-authoring-guide.html` / `docs/yaml-authoring-guide.rst` — Step-by-step guide for creating new YAML PDR data files (value/comment pattern, reading schemas, field type cookbook, complete examples, common errors)
+
+HTML files are self-contained (inline CSS, no external dependencies). RST files integrate with Sphinx — add to a `toctree` directive to include in built docs.
+
 ## Alternate Generator
 
 `generate_pdr_repo.py` is a standalone generator (not Sphinx-integrated) that produces a different output format (`pdr_repository[]` + `pdr_offsets[]`). The primary generator is `source/code_gen.py`.
