@@ -9,7 +9,7 @@ pdrHeader:
   recordChangeNumber:
     value: 0
   dataLength:
-    value: 11
+    value: auto
 
 vendorIANA:
   value: 55930

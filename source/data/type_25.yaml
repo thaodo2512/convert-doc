@@ -9,7 +9,7 @@ pdrHeader:
   recordChangeNumber:
     value: 0
   dataLength:
-    value: 38
+    value: auto
 
 ResourceID:
   value: 2000

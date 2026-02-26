@@ -9,7 +9,7 @@ pdrHeader:
   recordChangeNumber:
     value: 0
   dataLength:
-    value: 6
+    value: auto
 
 PLDMTerminusHandle:
   value: 256
@@ -17,9 +17,17 @@ PLDMTerminusHandle:
 effecterID:
   value: 310
 
-effecterDataSize:
-  value: 3
-  comment: "3 = uint16."
+effecterEnable:
+  value: 1
+  comment: "1 = enable effecter."
 
-initValue:
+initConditions:
+  value: 1
+  comment: "bit0 = Initialization Agent controller restart/update."
+
+effecterDataSize:
+  value: 2
+  comment: "2 = uint16."
+
+effecterData:
   value: 500

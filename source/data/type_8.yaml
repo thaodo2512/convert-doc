@@ -9,45 +9,48 @@ pdrHeader:
   recordChangeNumber:
     value: 0
   dataLength:
-    value: 48
+    value: auto
 
-oemStateSetID:
+PLDMTerminusHandle:
+  value: 256
+
+OEMStateSetIDHandle:
   value: 32968
 
-stateSetVersion:
-  major:
-    value: 1
-  minor:
-    value: 0
-  update:
-    value: 0
-  alpha:
-    value: 0
+vendorIANA:
+  value: 12345
+  comment: "Example vendor IANA Enterprise Number."
 
-nameStringCount:
+OEMStateSetID:
+  value: 32968
+
+unspecifiedValueHint:
   value: 0
+  comment: "0 = treatAsUnspecified."
 
-stateSetNames: []
-
-possibleStateCount:
+stateCount:
   value: 2
 
-possibleStates:
-  - possibleStateValue:
+stateValueRecords:
+  - minStateValue:
       value: 0
-    nameStringCount:
+    maxStateValue:
+      value: 0
+    stringCount:
       value: 1
-    possibleStateNames:
-      - nameLanguageTag:
+    stateNames:
+      - stateLanguageTag:
           value: "en"
-        possibleStateName:
+        stateName:
           value: "Idle"
-  - possibleStateValue:
+  - minStateValue:
       value: 1
-    nameStringCount:
+    maxStateValue:
       value: 1
-    possibleStateNames:
-      - nameLanguageTag:
+    stringCount:
+      value: 1
+    stateNames:
+      - stateLanguageTag:
           value: "en"
-        possibleStateName:
+        stateName:
           value: "Active"

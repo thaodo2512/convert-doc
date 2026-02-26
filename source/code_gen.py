@@ -206,12 +206,20 @@ def pack_field(field_schema, value, field_name, full_data=None):
         return packed
     
     elif field_type == 'string':
-        encoding = field_schema.get('pldmEncoding', 'utf-8')
+        encoding = field_schema.get('x-binary-encoding',
+                                    field_schema.get('pldmEncoding', 'utf-8'))
         if encoding == 'utf-16be':
             encoded = value.encode('utf-16-be')
+        elif encoding == 'us-ascii':
+            encoded = value.encode('ascii')
         else:
             encoded = value.encode(encoding)
-        return encoded + b'\x00' if 'null-terminated' in field_schema.get('description', '').lower() else encoded
+        terminator = field_schema.get('x-binary-terminator', '')
+        if terminator == '0x0000':
+            return encoded + b'\x00\x00'
+        elif terminator == '0x00' or 'null-terminated' in field_schema.get('description', '').lower():
+            return encoded + b'\x00'
+        return encoded
     
     elif bf == 'variable':
         bytes_list = None

@@ -1,16 +1,17 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "OEM Entity ID PDR (DSP0248 Type 17)",
-  "description": "Per DSP0248 v1.3.0 Clause 28.19 and DSP0240 v1.2.0 Section 2.5",
+  "description": "Per DSP0248 v1.3.0 Clause 28.19, Table 97",
   "type": "object",
   "additionalProperties": false,
   "binaryOrder": [
     "pdrHeader",
-    "entityType",
-    "entityInstanceNumber",
-    "containerID",
-    "oemEntityIDLength",
-    "oemEntityID"
+    "PLDMTerminusHandle",
+    "OEMEntityIDHandle",
+    "vendorIANA",
+    "vendorEntityID",
+    "stringCount",
+    "entityIDNames"
   ],
   "x-c-struct-packing": 1,
   "properties": {
@@ -63,54 +64,82 @@
       },
       "required": ["recordHandle", "PDRHeaderVersion", "PDRType", "recordChangeNumber", "dataLength"]
     },
-    "entityType": {
-      "type": "integer",
-      "minimum": 32768,
-      "maximum": 65535,
-      "binaryFormat": "H",
-      "description": "uint16; The OEM entity type number (8000h-FFFFh)"
-    },
-    "entityInstanceNumber": {
+    "PLDMTerminusHandle": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; The instance number for the contained entity"
+      "description": "uint16; The terminus that originated this PDR"
     },
-    "containerID": {
+    "OEMEntityIDHandle": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; The container ID for the contained entity"
+      "description": "uint16; [15]=0 reserved, [14:0]=OEM entityID handle value. Used in entity associations and other PDRs."
     },
-    "oemEntityIDLength": {
+    "vendorIANA": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 255,
+      "maximum": 4294967295,
+      "binaryFormat": "I",
+      "description": "uint32; IANA Enterprise Number for the vendor defining the OEM PDR vendor-specific data"
+    },
+    "vendorEntityID": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "binaryFormat": "H",
+      "description": "uint16; Vendor-assigned numeric ID for the vendor-defined entity. [15]=0 reserved, [14:0]=vendorEntityID value. Search field for FindPDR."
+    },
+    "stringCount": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 16,
       "binaryFormat": "B",
-      "description": "uint8; Length of the OEM Entity ID data in bytes"
+      "description": "uint8; Number of entityIDLanguageTag/entityIDName field pairs (1..N). 0 = no name information."
     },
-    "oemEntityID": {
+    "entityIDNames": {
       "type": "array",
-      "description": "OEM-specific entity ID data. Length must match 'oemEntityIDLength'.",
+      "description": "Array of entity ID name pairs. Length must match 'stringCount'.",
       "minItems": 0,
-      "maxItems": 255,
+      "maxItems": 16,
       "items": {
-        "type": "integer",
-        "minimum": 0,
-        "maximum": 255,
-        "binaryFormat": "B",
-        "description": "uint8"
+        "type": "object",
+        "additionalProperties": false,
+        "binaryOrder": [
+          "entityIDLanguageTag",
+          "entityIDName"
+        ],
+        "properties": {
+          "entityIDLanguageTag": {
+            "type": "string",
+            "description": "strASCII per DSP0240. RFC 5646 tag (e.g., 'en'). Null-terminated (0x00).",
+            "binaryFormat": "variable",
+            "x-binary-encoding": "us-ascii",
+            "x-binary-terminator": "0x00",
+            "maxLength": 32
+          },
+          "entityIDName": {
+            "type": "string",
+            "description": "strUTF-16BE per DSP0240. Null-terminated (0x0000). Name of the OEM entity ID.",
+            "binaryFormat": "variable",
+            "x-binary-encoding": "utf-16be",
+            "x-binary-terminator": "0x0000",
+            "maxLength": 128
+          }
+        },
+        "required": ["entityIDLanguageTag", "entityIDName"]
       }
     }
   },
   "required": [
     "pdrHeader",
-    "entityType",
-    "entityInstanceNumber",
-    "containerID",
-    "oemEntityIDLength",
-    "oemEntityID"
+    "PLDMTerminusHandle",
+    "OEMEntityIDHandle",
+    "vendorIANA",
+    "vendorEntityID",
+    "stringCount",
+    "entityIDNames"
   ]
 }

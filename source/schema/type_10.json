@@ -1,14 +1,17 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Numeric Effecter Initialization PDR (DSP0248 Type 10)",
-  "description": "Per DSP0248 v1.3.0 Clause 28.12 and DSP0240 v1.2.0 Section 2.5",
+  "description": "Per DSP0248 v1.3.0 Clause 28.12, Table 89",
   "type": "object",
   "additionalProperties": false,
   "binaryOrder": [
     "pdrHeader",
     "PLDMTerminusHandle",
     "effecterID",
-    "initValue"
+    "effecterEnable",
+    "initConditions",
+    "effecterDataSize",
+    "effecterData"
   ],
   "x-c-struct-packing": 1,
   "properties": {
@@ -75,23 +78,45 @@
       "binaryFormat": "H",
       "description": "uint16; Effecter ID of the effecter this initialization belongs to."
     },
+    "effecterEnable": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "enum8; Operational state of effecter after initialization. Written using SetEffecterEnable. 0xFF = do not issue SetEffecterEnable."
+    },
+    "initConditions": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "bitfield8; Conditions for initialization: [7:5] reserved, [4] terminus online, [3] warm reset, [2] hard reset, [1] subsystem power up, [0] agent restart/update"
+    },
     "effecterDataSize": {
       "type": "integer",
-      "enum": [1, 2, 3, 4, 5, 6, 7, 8, 9],
-      "x-binary-ignore": true,
-      "description": "Effecter data size code (1=uint8, 2=sint8, 3=uint16, 4=sint16, 5=uint32, 6=sint32, 7=uint64, 8=sint64, 9=real32). Not in binary; for code gen and validation only. Must match effecterDataSize in associated Numeric Effecter PDR."
+      "enum": [0, 1, 2, 3, 4, 5, 6, 7],
+      "binaryFormat": "B",
+      "description": "enum8; 0=uint8, 1=sint8, 2=uint16, 3=sint16, 4=uint32, 5=sint32, 6=uint64, 7=sint64"
     },
-    "initValue": {
-      "description": "The initial value for the effecter. Type and binary format determined by 'effecterDataSize'."
+    "effecterData": {
+      "description": "The numeric value written to the effecter. Type and binary format determined by 'effecterDataSize'."
     }
   },
   "allOf": [
     {
       "if": {
+        "properties": { "effecterDataSize": { "const": 0 } }
+      },
+      "then": {
+        "properties": { "effecterData": { "type": "integer", "minimum": 0, "maximum": 255, "binaryFormat": "B" } }
+      }
+    },
+    {
+      "if": {
         "properties": { "effecterDataSize": { "const": 1 } }
       },
       "then": {
-        "properties": { "initValue": { "type": "integer", "minimum": 0, "maximum": 255, "binaryFormat": "B" } }
+        "properties": { "effecterData": { "type": "integer", "minimum": -128, "maximum": 127, "binaryFormat": "b" } }
       }
     },
     {
@@ -99,7 +124,7 @@
         "properties": { "effecterDataSize": { "const": 2 } }
       },
       "then": {
-        "properties": { "initValue": { "type": "integer", "minimum": -128, "maximum": 127, "binaryFormat": "b" } }
+        "properties": { "effecterData": { "type": "integer", "minimum": 0, "maximum": 65535, "binaryFormat": "H" } }
       }
     },
     {
@@ -107,7 +132,7 @@
         "properties": { "effecterDataSize": { "const": 3 } }
       },
       "then": {
-        "properties": { "initValue": { "type": "integer", "minimum": 0, "maximum": 65535, "binaryFormat": "H" } }
+        "properties": { "effecterData": { "type": "integer", "minimum": -32768, "maximum": 32767, "binaryFormat": "h" } }
       }
     },
     {
@@ -115,7 +140,7 @@
         "properties": { "effecterDataSize": { "const": 4 } }
       },
       "then": {
-        "properties": { "initValue": { "type": "integer", "minimum": -32768, "maximum": 32767, "binaryFormat": "h" } }
+        "properties": { "effecterData": { "type": "integer", "minimum": 0, "maximum": 4294967295, "binaryFormat": "I" } }
       }
     },
     {
@@ -123,7 +148,7 @@
         "properties": { "effecterDataSize": { "const": 5 } }
       },
       "then": {
-        "properties": { "initValue": { "type": "integer", "minimum": 0, "maximum": 4294967295, "binaryFormat": "I" } }
+        "properties": { "effecterData": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647, "binaryFormat": "i" } }
       }
     },
     {
@@ -131,7 +156,7 @@
         "properties": { "effecterDataSize": { "const": 6 } }
       },
       "then": {
-        "properties": { "initValue": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647, "binaryFormat": "i" } }
+        "properties": { "effecterData": { "type": "string", "pattern": "^[0-9]{1,20}$", "binaryFormat": "Q" } }
       }
     },
     {
@@ -139,23 +164,7 @@
         "properties": { "effecterDataSize": { "const": 7 } }
       },
       "then": {
-        "properties": { "initValue": { "type": "string", "pattern": "^[0-9]{1,20}$", "binaryFormat": "Q" } }
-      }
-    },
-    {
-      "if": {
-        "properties": { "effecterDataSize": { "const": 8 } }
-      },
-      "then": {
-        "properties": { "initValue": { "type": "string", "pattern": "^-?[0-9]{1,20}$", "binaryFormat": "q" } }
-      }
-    },
-    {
-      "if": {
-        "properties": { "effecterDataSize": { "const": 9 } }
-      },
-      "then": {
-        "properties": { "initValue": { "type": "number", "binaryFormat": "f" } }
+        "properties": { "effecterData": { "type": "string", "pattern": "^-?[0-9]{1,20}$", "binaryFormat": "q" } }
       }
     }
   ],
@@ -163,7 +172,9 @@
     "pdrHeader",
     "PLDMTerminusHandle",
     "effecterID",
+    "effecterEnable",
+    "initConditions",
     "effecterDataSize",
-    "initValue"
+    "effecterData"
   ]
 }

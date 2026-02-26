@@ -9,22 +9,26 @@ pdrHeader:
   recordChangeNumber:
     value: 0
   dataLength:
-    value: 37
+    value: auto
 
-containerID:
-  value: 0
+PLDMTerminusHandle:
+  value: 256
 
-baseUnit:
-  value: 255
+OEMUnitHandle:
+  value: 1
 
-unitModifier:
-  value: 0
+vendorIANA:
+  value: 12345
+  comment: "Example vendor IANA Enterprise Number."
 
-nameStringCount:
+OEMUnitID:
+  value: 1
+
+stringCount:
   value: 1
 
 unitNames:
-  - nameLanguageTag:
+  - unitLanguageTag:
       value: "en"
-    oemUnitString:
+    unitName:
       value: "Cooling Fan"

@@ -9,16 +9,22 @@ pdrHeader:
   recordChangeNumber:
     value: 0
   dataLength:
-    value: 8
+    value: auto
 
 PLDMTerminusHandle:
   value: 256
 
-effecterID:
+OEMEffecterSemanticHandle:
   value: 1
 
-containerID:
+vendorIANA:
+  value: 12345
+  comment: "Example vendor IANA Enterprise Number."
+
+OEMEffecterSemanticID:
+  value: 10
+
+stringCount:
   value: 0
 
-effecterSemanticID:
-  value: 10
+semanticNames: []

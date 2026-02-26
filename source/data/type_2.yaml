@@ -10,7 +10,7 @@ pdrHeader:
   recordChangeNumber:
     value: 0
   dataLength:
-    value: 57
+    value: auto
     comment: "Body length in bytes."
 
 PLDMTerminusHandle:
@@ -45,8 +45,8 @@ eventMessageEnable:
   value: 0
 
 sensorDataSize:
-  value: 2
-  comment: "2 = sint8 readings."
+  value: 1
+  comment: "1 = sint8 readings."
 
 resolution:
   value: 1.0
@@ -92,8 +92,8 @@ minReadable:
   value: -40
 
 rangeFieldFormat:
-  value: 2
-  comment: "2 = sint8 range fields."
+  value: 1
+  comment: "1 = sint8 range fields."
 
 rangeFieldSupport:
   value: 31

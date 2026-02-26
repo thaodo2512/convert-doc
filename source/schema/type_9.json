@@ -11,10 +11,9 @@
     "entityType",
     "entityInstanceNumber",
     "containerID",
+    "effecterSemanticID",
     "effecterInit",
     "effecterAuxiliaryNames",
-    "effecterSemanticID",
-    "effecterDataSize",
     "baseUnit",
     "unitModifier",
     "rateUnit",
@@ -24,6 +23,7 @@
     "auxrateUnit",
     "auxOEMUnitHandle",
     "isLinear",
+    "effecterDataSize",
     "resolution",
     "offset",
     "accuracy",
@@ -107,7 +107,7 @@
       "if": {
         "properties": {
           "effecterDataSize": {
-            "enum": [1,2,3,4,5,7,8]
+            "enum": [0,1,2,3,4,5,6,7]
           }
         }
       },
@@ -128,7 +128,7 @@
       "if": {
         "properties": {
           "rangeFieldFormat": {
-            "enum": [1,2,3,4,5,7,8]
+            "enum": [0,1,2,3,4,5,6,7]
           }
         }
       },
@@ -258,9 +258,9 @@
     },
     "effecterDataSize": {
       "type": "integer",
-      "enum": [1, 2, 3, 4, 5, 6, 7, 8],
+      "enum": [0, 1, 2, 3, 4, 5, 6, 7],
       "binaryFormat": "B",
-      "description": "uint8; 1=uint8,2=sint8,3=sint16,4=uint32,5=sint32,6=real32,7=uint64,8=sint64"
+      "description": "uint8; 0=uint8,1=sint8,2=uint16,3=sint16,4=uint32,5=sint32,6=uint64,7=sint64"
     },
     "baseUnit": {
       "type": "integer",
@@ -379,9 +379,9 @@
     },
     "rangeFieldFormat": {
       "type": "integer",
-      "enum": [1, 2, 3, 4, 5, 6, 7, 8],
+      "enum": [0, 1, 2, 3, 4, 5, 6, 7],
       "binaryFormat": "B",
-      "description": "uint8; Format for range fields: 1=uint8,2=sint8,3=sint16,4=uint32,5=sint32,6=real32,7=uint64,8=sint64"
+      "description": "uint8; Format for range fields: 0=uint8,1=sint8,2=uint16,3=sint16,4=uint32,5=sint32,6=uint64,7=sint64"
     },
     "rangeFieldSupport": {
       "type": "integer",

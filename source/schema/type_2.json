@@ -187,10 +187,10 @@
     },
     "sensorDataSize": {
       "type": "integer",
-      "minimum": 1,
-      "maximum": 7,
+      "minimum": 0,
+      "maximum": 6,
       "binaryFormat": "B",
-      "description": "uint8; Sensor Data Size: 1=uint8, 2=sint8, 3=uint16, 4=sint16, 5=uint32, 6=sint32, 7=real32"
+      "description": "uint8; Sensor Data Size: 0=uint8, 1=sint8, 2=uint16, 3=sint16, 4=uint32, 5=sint32, 6=real32"
     },
     "resolution": {
       "type": "number",
@@ -228,13 +228,13 @@
       "binaryFormat": "variable",
       "x-binary-type-field": "sensorDataSize",
       "x-binary-type-mapping": {
-        "1": "B",
-        "2": "b",
-        "3": "H",
-        "4": "h",
-        "5": "I",
-        "6": "i",
-        "7": "f"
+        "0": "B",
+        "1": "b",
+        "2": "H",
+        "3": "h",
+        "4": "I",
+        "5": "i",
+        "6": "f"
       },
       "description": "Hysteresis value, format per sensorDataSize"
     },
@@ -243,13 +243,13 @@
       "binaryFormat": "variable",
       "x-binary-type-field": "sensorDataSize",
       "x-binary-type-mapping": {
-        "1": "B",
-        "2": "b",
-        "3": "H",
-        "4": "h",
-        "5": "I",
-        "6": "i",
-        "7": "f"
+        "0": "B",
+        "1": "b",
+        "2": "H",
+        "3": "h",
+        "4": "I",
+        "5": "i",
+        "6": "f"
       },
       "description": "Lower Non-Critical Threshold, format per sensorDataSize"
     },
@@ -258,13 +258,13 @@
       "binaryFormat": "variable",
       "x-binary-type-field": "sensorDataSize",
       "x-binary-type-mapping": {
-        "1": "B",
-        "2": "b",
-        "3": "H",
-        "4": "h",
-        "5": "I",
-        "6": "i",
-        "7": "f"
+        "0": "B",
+        "1": "b",
+        "2": "H",
+        "3": "h",
+        "4": "I",
+        "5": "i",
+        "6": "f"
       },
       "description": "Lower Critical Threshold, format per sensorDataSize"
     },
@@ -273,13 +273,13 @@
       "binaryFormat": "variable",
       "x-binary-type-field": "sensorDataSize",
       "x-binary-type-mapping": {
-        "1": "B",
-        "2": "b",
-        "3": "H",
-        "4": "h",
-        "5": "I",
-        "6": "i",
-        "7": "f"
+        "0": "B",
+        "1": "b",
+        "2": "H",
+        "3": "h",
+        "4": "I",
+        "5": "i",
+        "6": "f"
       },
       "description": "Lower Fatal Threshold, format per sensorDataSize"
     },
@@ -288,13 +288,13 @@
       "binaryFormat": "variable",
       "x-binary-type-field": "sensorDataSize",
       "x-binary-type-mapping": {
-        "1": "B",
-        "2": "b",
-        "3": "H",
-        "4": "h",
-        "5": "I",
-        "6": "i",
-        "7": "f"
+        "0": "B",
+        "1": "b",
+        "2": "H",
+        "3": "h",
+        "4": "I",
+        "5": "i",
+        "6": "f"
       },
       "description": "Upper Non-Critical Threshold, format per sensorDataSize"
     },
@@ -303,13 +303,13 @@
       "binaryFormat": "variable",
       "x-binary-type-field": "sensorDataSize",
       "x-binary-type-mapping": {
-        "1": "B",
-        "2": "b",
-        "3": "H",
-        "4": "h",
-        "5": "I",
-        "6": "i",
-        "7": "f"
+        "0": "B",
+        "1": "b",
+        "2": "H",
+        "3": "h",
+        "4": "I",
+        "5": "i",
+        "6": "f"
       },
       "description": "Upper Critical Threshold, format per sensorDataSize"
     },
@@ -318,13 +318,13 @@
       "binaryFormat": "variable",
       "x-binary-type-field": "sensorDataSize",
       "x-binary-type-mapping": {
-        "1": "B",
-        "2": "b",
-        "3": "H",
-        "4": "h",
-        "5": "I",
-        "6": "i",
-        "7": "f"
+        "0": "B",
+        "1": "b",
+        "2": "H",
+        "3": "h",
+        "4": "I",
+        "5": "i",
+        "6": "f"
       },
       "description": "Upper Fatal Threshold, format per sensorDataSize"
     },
@@ -333,13 +333,13 @@
       "binaryFormat": "variable",
       "x-binary-type-field": "sensorDataSize",
       "x-binary-type-mapping": {
-        "1": "B",
-        "2": "b",
-        "3": "H",
-        "4": "h",
-        "5": "I",
-        "6": "i",
-        "7": "f"
+        "0": "B",
+        "1": "b",
+        "2": "H",
+        "3": "h",
+        "4": "I",
+        "5": "i",
+        "6": "f"
       },
       "description": "Max Readable, format per sensorDataSize"
     },
@@ -348,22 +348,22 @@
       "binaryFormat": "variable",
       "x-binary-type-field": "sensorDataSize",
       "x-binary-type-mapping": {
-        "1": "B",
-        "2": "b",
-        "3": "H",
-        "4": "h",
-        "5": "I",
-        "6": "i",
-        "7": "f"
+        "0": "B",
+        "1": "b",
+        "2": "H",
+        "3": "h",
+        "4": "I",
+        "5": "i",
+        "6": "f"
       },
       "description": "Min Readable, format per sensorDataSize"
     },
     "rangeFieldFormat": {
       "type": "integer",
-      "minimum": 1,
-      "maximum": 7,
+      "minimum": 0,
+      "maximum": 6,
       "binaryFormat": "B",
-      "description": "uint8; Range Field Format, same codes as sensorDataSize"
+      "description": "uint8; Range Field Format, same codes as sensorDataSize: 0=uint8, 1=sint8, 2=uint16, 3=sint16, 4=uint32, 5=sint32, 6=real32"
     },
     "rangeFieldSupport": {
       "type": "integer",
@@ -377,13 +377,13 @@
       "binaryFormat": "variable",
       "x-binary-type-field": "rangeFieldFormat",
       "x-binary-type-mapping": {
-        "1": "B",
-        "2": "b",
-        "3": "H",
-        "4": "h",
-        "5": "I",
-        "6": "i",
-        "7": "f"
+        "0": "B",
+        "1": "b",
+        "2": "H",
+        "3": "h",
+        "4": "I",
+        "5": "i",
+        "6": "f"
       },
       "description": "Nominal Value, format per rangeFieldFormat"
     },
@@ -392,13 +392,13 @@
       "binaryFormat": "variable",
       "x-binary-type-field": "rangeFieldFormat",
       "x-binary-type-mapping": {
-        "1": "B",
-        "2": "b",
-        "3": "H",
-        "4": "h",
-        "5": "I",
-        "6": "i",
-        "7": "f"
+        "0": "B",
+        "1": "b",
+        "2": "H",
+        "3": "h",
+        "4": "I",
+        "5": "i",
+        "6": "f"
       },
       "description": "Normal Max, format per rangeFieldFormat"
     },
@@ -407,13 +407,13 @@
       "binaryFormat": "variable",
       "x-binary-type-field": "rangeFieldFormat",
       "x-binary-type-mapping": {
-        "1": "B",
-        "2": "b",
-        "3": "H",
-        "4": "h",
-        "5": "I",
-        "6": "i",
-        "7": "f"
+        "0": "B",
+        "1": "b",
+        "2": "H",
+        "3": "h",
+        "4": "I",
+        "5": "i",
+        "6": "f"
       },
       "description": "Normal Min, format per rangeFieldFormat"
     },
@@ -422,13 +422,13 @@
       "binaryFormat": "variable",
       "x-binary-type-field": "rangeFieldFormat",
       "x-binary-type-mapping": {
-        "1": "B",
-        "2": "b",
-        "3": "H",
-        "4": "h",
-        "5": "I",
-        "6": "i",
-        "7": "f"
+        "0": "B",
+        "1": "b",
+        "2": "H",
+        "3": "h",
+        "4": "I",
+        "5": "i",
+        "6": "f"
       },
       "description": "Rated Max, format per rangeFieldFormat"
     },
@@ -437,13 +437,13 @@
       "binaryFormat": "variable",
       "x-binary-type-field": "rangeFieldFormat",
       "x-binary-type-mapping": {
-        "1": "B",
-        "2": "b",
-        "3": "H",
-        "4": "h",
-        "5": "I",
-        "6": "i",
-        "7": "f"
+        "0": "B",
+        "1": "b",
+        "2": "H",
+        "3": "h",
+        "4": "I",
+        "5": "i",
+        "6": "f"
       },
       "description": "Rated Min, format per rangeFieldFormat"
     },

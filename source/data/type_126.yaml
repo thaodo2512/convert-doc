@@ -9,7 +9,7 @@ pdrHeader:
   recordChangeNumber:
     value: 0
   dataLength:
-    value: 15
+    value: auto
 
 PLDMTerminusHandle:
   value: 256

@@ -113,40 +113,100 @@
       "description": "enum8; 0=uint8, 1=sint8, 2=uint16, 3=sint16, 4=uint32, 5=sint32, 6=uint64, 7=sint64"
     },
     "upperThresholdWarning": {
-      "type": "integer",
-      "description": "Upper warning threshold in raw units. Present if thresholdInitMask bit 0 set.",
-      "x-binary-condition": { "field": "thresholdInitMask", "mask": 1 },
-      "x-binary-format": { "ref": "sensorDataSize", "map": { "0": "B", "1": "b", "2": "H", "3": "h", "4": "I", "5": "i", "6": "Q", "7": "q" } }
+      "type": "number",
+      "binaryFormat": "variable",
+      "x-binary-type-field": "sensorDataSize",
+      "x-binary-type-mapping": {
+        "0": "B",
+        "1": "b",
+        "2": "H",
+        "3": "h",
+        "4": "I",
+        "5": "i",
+        "6": "Q",
+        "7": "q"
+      },
+      "description": "Upper warning threshold in raw units. Present if thresholdInitMask bit 0 set."
     },
     "upperThresholdCritical": {
-      "type": "integer",
-      "description": "Upper critical threshold in raw units. Present if thresholdInitMask bit 1 set.",
-      "x-binary-condition": { "field": "thresholdInitMask", "mask": 2 },
-      "x-binary-format": { "ref": "sensorDataSize", "map": { "0": "B", "1": "b", "2": "H", "3": "h", "4": "I", "5": "i", "6": "Q", "7": "q" } }
+      "type": "number",
+      "binaryFormat": "variable",
+      "x-binary-type-field": "sensorDataSize",
+      "x-binary-type-mapping": {
+        "0": "B",
+        "1": "b",
+        "2": "H",
+        "3": "h",
+        "4": "I",
+        "5": "i",
+        "6": "Q",
+        "7": "q"
+      },
+      "description": "Upper critical threshold in raw units. Present if thresholdInitMask bit 1 set."
     },
     "upperThresholdFatal": {
-      "type": "integer",
-      "description": "Upper fatal threshold in raw units. Present if thresholdInitMask bit 2 set.",
-      "x-binary-condition": { "field": "thresholdInitMask", "mask": 4 },
-      "x-binary-format": { "ref": "sensorDataSize", "map": { "0": "B", "1": "b", "2": "H", "3": "h", "4": "I", "5": "i", "6": "Q", "7": "q" } }
+      "type": "number",
+      "binaryFormat": "variable",
+      "x-binary-type-field": "sensorDataSize",
+      "x-binary-type-mapping": {
+        "0": "B",
+        "1": "b",
+        "2": "H",
+        "3": "h",
+        "4": "I",
+        "5": "i",
+        "6": "Q",
+        "7": "q"
+      },
+      "description": "Upper fatal threshold in raw units. Present if thresholdInitMask bit 2 set."
     },
     "lowerThresholdWarning": {
-      "type": "integer",
-      "description": "Lower warning threshold in raw units. Present if thresholdInitMask bit 3 set.",
-      "x-binary-condition": { "field": "thresholdInitMask", "mask": 8 },
-      "x-binary-format": { "ref": "sensorDataSize", "map": { "0": "B", "1": "b", "2": "H", "3": "h", "4": "I", "5": "i", "6": "Q", "7": "q" } }
+      "type": "number",
+      "binaryFormat": "variable",
+      "x-binary-type-field": "sensorDataSize",
+      "x-binary-type-mapping": {
+        "0": "B",
+        "1": "b",
+        "2": "H",
+        "3": "h",
+        "4": "I",
+        "5": "i",
+        "6": "Q",
+        "7": "q"
+      },
+      "description": "Lower warning threshold in raw units. Present if thresholdInitMask bit 3 set."
     },
     "lowerThresholdCritical": {
-      "type": "integer",
-      "description": "Lower critical threshold in raw units. Present if thresholdInitMask bit 4 set.",
-      "x-binary-condition": { "field": "thresholdInitMask", "mask": 16 },
-      "x-binary-format": { "ref": "sensorDataSize", "map": { "0": "B", "1": "b", "2": "H", "3": "h", "4": "I", "5": "i", "6": "Q", "7": "q" } }
+      "type": "number",
+      "binaryFormat": "variable",
+      "x-binary-type-field": "sensorDataSize",
+      "x-binary-type-mapping": {
+        "0": "B",
+        "1": "b",
+        "2": "H",
+        "3": "h",
+        "4": "I",
+        "5": "i",
+        "6": "Q",
+        "7": "q"
+      },
+      "description": "Lower critical threshold in raw units. Present if thresholdInitMask bit 4 set."
     },
     "lowerThresholdFatal": {
-      "type": "integer",
-      "description": "Lower fatal threshold in raw units. Present if thresholdInitMask bit 5 set.",
-      "x-binary-condition": { "field": "thresholdInitMask", "mask": 32 },
-      "x-binary-format": { "ref": "sensorDataSize", "map": { "0": "B", "1": "b", "2": "H", "3": "h", "4": "I", "5": "i", "6": "Q", "7": "q" } }
+      "type": "number",
+      "binaryFormat": "variable",
+      "x-binary-type-field": "sensorDataSize",
+      "x-binary-type-mapping": {
+        "0": "B",
+        "1": "b",
+        "2": "H",
+        "3": "h",
+        "4": "I",
+        "5": "i",
+        "6": "Q",
+        "7": "q"
+      },
+      "description": "Lower fatal threshold in raw units. Present if thresholdInitMask bit 5 set."
     }
   },
   "required": [

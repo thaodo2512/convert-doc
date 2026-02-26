@@ -21,7 +21,7 @@ macros:
 
   - name: OEM_STATE_SET_ID
     file: "type_8.yaml"
-    field: "oemStateSetID.value"
+    field: "OEMStateSetID.value"
 
   # Numeric Sensor Initialization PDR (Type 3)
   - name: SENSOR_INIT_SENSOR_ID

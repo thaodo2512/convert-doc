@@ -11,6 +11,9 @@
     "initConditions",
     "sensorEnable",
     "sensorInitMask",
+    "sensorOpStateEventEnableMask",
+    "sensorStateEventEnableMask",
+    "sensorEventRearm",
     "stateValue0",
     "stateValue1",
     "stateValue2",
@@ -18,8 +21,7 @@
     "stateValue4",
     "stateValue5",
     "stateValue6",
-    "stateValue7",
-    "eventConditions"
+    "stateValue7"
   ],
   "x-c-struct-packing": 1,
   "properties": {
@@ -162,12 +164,26 @@
       "binaryFormat": "B",
       "description": "uint8; Initial state for sensor at offset 7: 0-254 value, 255 do not set"
     },
-    "eventConditions": {
+    "sensorOpStateEventEnableMask": {
       "type": "integer",
       "minimum": 0,
       "maximum": 255,
       "binaryFormat": "B",
-      "description": "bitfield8; Conditions to assess event on mismatch: [7:4] reserved, [3] warm reset, [2] hard reset, [1] power up, [0] agent restart/update"
+      "description": "bitfield8; Identifies which sensors should have their operational state event message generation enabled after initialization. [7]=offset7 ... [0]=offset0"
+    },
+    "sensorStateEventEnableMask": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "bitfield8; Identifies which sensors should have their state event message generation enabled after initialization. [7]=offset7 ... [0]=offset0"
+    },
+    "sensorEventRearm": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "bitfield8; 1=trigger event if init stateValue does not match present state, 0=accept init stateValue as present state. [7]=offset7 ... [0]=offset0"
     }
   },
   "required": [
@@ -177,6 +193,9 @@
     "initConditions",
     "sensorEnable",
     "sensorInitMask",
+    "sensorOpStateEventEnableMask",
+    "sensorStateEventEnableMask",
+    "sensorEventRearm",
     "stateValue0",
     "stateValue1",
     "stateValue2",
@@ -184,7 +203,6 @@
     "stateValue4",
     "stateValue5",
     "stateValue6",
-    "stateValue7",
-    "eventConditions"
+    "stateValue7"
   ]
 }

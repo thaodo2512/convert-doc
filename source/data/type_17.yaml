@@ -9,18 +9,22 @@ pdrHeader:
   recordChangeNumber:
     value: 0
   dataLength:
-    value: 7
+    value: auto
 
-entityType:
+PLDMTerminusHandle:
+  value: 256
+
+OEMEntityIDHandle:
   value: 40000
 
-entityInstanceNumber:
+vendorIANA:
+  value: 12345
+  comment: "Example vendor IANA Enterprise Number."
+
+vendorEntityID:
   value: 1
 
-containerID:
+stringCount:
   value: 0
 
-oemEntityIDLength:
-  value: 0
-
-oemEntityID: []
+entityIDNames: []

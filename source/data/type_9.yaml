@@ -26,19 +26,15 @@ entityInstanceNumber:
 containerID:
   value: 0
 
+effecterSemanticID:
+  value: 0
+
 effecterInit:
   value: 2
   comment: "Enable effecter."
 
 effecterAuxiliaryNames:
   value: 0
-
-effecterSemanticID:
-  value: 0
-
-effecterDataSize:
-  value: 1
-  comment: "1 = uint8."
 
 baseUnit:
   value: 2
@@ -66,6 +62,10 @@ auxOEMUnitHandle:
 
 isLinear:
   value: 1
+
+effecterDataSize:
+  value: 0
+  comment: "0 = uint8."
 
 resolution:
   value: 0.5
@@ -95,7 +95,7 @@ minSettable:
   value: 0
 
 rangeFieldFormat:
-  value: 1
+  value: 0
 
 rangeFieldSupport:
   value: 31

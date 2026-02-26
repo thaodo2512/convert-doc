@@ -1,15 +1,16 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "OEM Unit PDR (DSP0248 Type 7)",
-  "description": "Per DSP0248 v1.3.0 Clause 28.9 and DSP0240 v1.2.0 Section 2.5",
+  "description": "Per DSP0248 v1.3.0 Clause 28.9, Table 85",
   "type": "object",
   "additionalProperties": false,
   "binaryOrder": [
     "pdrHeader",
-    "containerID",
-    "baseUnit",
-    "unitModifier",
-    "nameStringCount",
+    "PLDMTerminusHandle",
+    "OEMUnitHandle",
+    "vendorIANA",
+    "OEMUnitID",
+    "stringCount",
     "unitNames"
   ],
   "x-c-struct-packing": 1,
@@ -63,73 +64,82 @@
       },
       "required": ["recordHandle", "PDRHeaderVersion", "PDRType", "recordChangeNumber", "dataLength"]
     },
-    "containerID": {
+    "PLDMTerminusHandle": {
       "type": "integer",
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; The container ID for the entity with which the OEM unit is associated. 0 = no container."
+      "description": "uint16; The terminus that originated this PDR"
     },
-    "baseUnit": {
+    "OEMUnitHandle": {
       "type": "integer",
-      "const": 255,
+      "minimum": 0,
+      "maximum": 255,
       "binaryFormat": "B",
-      "description": "uint8; Base unit code, set to 255 for OEM units."
+      "description": "uint8; Opaque number identifying different OEM Unit PDRs"
     },
-    "unitModifier": {
+    "vendorIANA": {
       "type": "integer",
-      "minimum": -128,
-      "maximum": 127,
-      "binaryFormat": "b",
-      "description": "sint8; Unit modifier (power of 10)."
+      "minimum": 0,
+      "maximum": 4294967295,
+      "binaryFormat": "I",
+      "description": "uint32; IANA Enterprise Number for the vendor defining the OEM Sensor Unit"
     },
-    "nameStringCount": {
+    "OEMUnitID": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "uint8; Vendor-assigned numeric ID for the vendor-defined Unit. Search field for FindPDR."
+    },
+    "stringCount": {
       "type": "integer",
       "minimum": 0,
       "maximum": 16,
       "binaryFormat": "B",
-      "description": "uint8; Number of unit name pairs. If 0, 'unitNames' array must be empty."
+      "description": "uint8; Number of unitLanguageTag/unitName field pairs. 0 = no name information."
     },
     "unitNames": {
       "type": "array",
-      "description": "Array of unit name pairs. Length must match 'nameStringCount'.",
+      "description": "Array of unit name pairs. Length must match 'stringCount'.",
       "minItems": 0,
       "maxItems": 16,
       "items": {
         "type": "object",
         "additionalProperties": false,
         "binaryOrder": [
-          "nameLanguageTag",
-          "oemUnitString"
+          "unitLanguageTag",
+          "unitName"
         ],
         "properties": {
-          "nameLanguageTag": {
+          "unitLanguageTag": {
             "type": "string",
-            "description": "strASCII per DSP0240. RFC 5646 tag (e.g., 'en'). Null-terminated (0x00). Includes terminator in binary length. Empty: just terminator.",
+            "description": "strASCII per DSP0240. RFC 5646 tag (e.g., 'en'). Null-terminated (0x00).",
             "binaryFormat": "variable",
             "x-binary-encoding": "us-ascii",
             "x-binary-terminator": "0x00",
             "maxLength": 32
           },
-          "oemUnitString": {
+          "unitName": {
             "type": "string",
-            "description": "strUTF-16BE per DSP0240. Null-terminated (0x0000). No BOM required; empty string is just the terminator. Includes terminator in binary length.",
+            "description": "strUTF-16BE per DSP0240. Null-terminated (0x0000). Name of the OEM Sensor Unit.",
             "binaryFormat": "variable",
             "x-binary-encoding": "utf-16be",
             "x-binary-terminator": "0x0000",
             "maxLength": 128
           }
         },
-        "required": ["nameLanguageTag", "oemUnitString"]
+        "required": ["unitLanguageTag", "unitName"]
       }
     }
   },
   "required": [
     "pdrHeader",
-    "containerID",
-    "baseUnit",
-    "unitModifier",
-    "nameStringCount",
+    "PLDMTerminusHandle",
+    "OEMUnitHandle",
+    "vendorIANA",
+    "OEMUnitID",
+    "stringCount",
     "unitNames"
   ]
 }

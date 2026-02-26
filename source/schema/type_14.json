@@ -1,15 +1,17 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Effecter OEM Semantic PDR (DSP0248 Type 14)",
-  "description": "Per DSP0248 v1.3.0 Clause 28.16 and DSP0240 v1.2.0 Section 2.5",
+  "description": "Per DSP0248 v1.3.0 Clause 28.16, Table 94",
   "type": "object",
   "additionalProperties": false,
   "binaryOrder": [
     "pdrHeader",
     "PLDMTerminusHandle",
-    "effecterID",
-    "containerID",
-    "effecterSemanticID"
+    "OEMEffecterSemanticHandle",
+    "vendorIANA",
+    "OEMEffecterSemanticID",
+    "stringCount",
+    "semanticNames"
   ],
   "x-c-struct-packing": 1,
   "properties": {
@@ -67,35 +69,77 @@
       "minimum": 0,
       "maximum": 65535,
       "binaryFormat": "H",
-      "description": "uint16; Terminus Handle"
+      "description": "uint16; The terminus that originated this PDR"
     },
-    "effecterID": {
+    "OEMEffecterSemanticHandle": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 65535,
-      "binaryFormat": "H",
-      "description": "uint16; Effecter ID of the effecter this PDR refers to."
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "uint8; Opaque number identifying different OEM effecter semantics from the given vendor on the given terminus"
     },
-    "containerID": {
+    "vendorIANA": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 65535,
-      "binaryFormat": "H",
-      "description": "uint16; Container ID for the container of the entity associated with the effecter. 0 indicates no container."
+      "maximum": 4294967295,
+      "binaryFormat": "I",
+      "description": "uint32; IANA Enterprise Number for the vendor defining the OEM effecter semantic"
     },
-    "effecterSemanticID": {
+    "OEMEffecterSemanticID": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 65535,
-      "binaryFormat": "H",
-      "description": "uint16; OEM-defined value identifying the semantic for the effecter. 0 indicates no OEM semantic."
+      "maximum": 255,
+      "binaryFormat": "B",
+      "description": "uint8; Vendor-assigned numeric ID for the vendor-defined effecter semantic. Search field for FindPDR."
+    },
+    "stringCount": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 16,
+      "binaryFormat": "B",
+      "description": "uint8; Number of languageTag/name field pairs (1..N). 0 = no name information."
+    },
+    "semanticNames": {
+      "type": "array",
+      "description": "Array of name pairs. Length must match 'stringCount'.",
+      "minItems": 0,
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "binaryOrder": [
+          "languageTag",
+          "name"
+        ],
+        "properties": {
+          "languageTag": {
+            "type": "string",
+            "description": "strASCII per DSP0240. RFC 5646 tag (e.g., 'en'). Null-terminated (0x00).",
+            "binaryFormat": "variable",
+            "x-binary-encoding": "us-ascii",
+            "x-binary-terminator": "0x00",
+            "maxLength": 32
+          },
+          "name": {
+            "type": "string",
+            "description": "strUTF-16BE per DSP0240. Null-terminated (0x0000). Name of the OEM effecter semantic.",
+            "binaryFormat": "variable",
+            "x-binary-encoding": "utf-16be",
+            "x-binary-terminator": "0x0000",
+            "maxLength": 128
+          }
+        },
+        "required": ["languageTag", "name"]
+      }
     }
   },
   "required": [
     "pdrHeader",
     "PLDMTerminusHandle",
-    "effecterID",
-    "containerID",
-    "effecterSemanticID"
+    "OEMEffecterSemanticHandle",
+    "vendorIANA",
+    "OEMEffecterSemanticID",
+    "stringCount",
+    "semanticNames"
   ]
 }
