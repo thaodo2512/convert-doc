@@ -1,0 +1,1383 @@
+#!/usr/bin/env bash
+# =============================================================================
+# dev-script — Zephyr PLDM subsystem development helper
+#
+# Builds, tests, runs, and cleans the Zephyr PLDM subsystem inside the
+# official Zephyr Docker build image so the host needs nothing but Docker.
+#
+# Usage:
+#   ./dev-script build            — compile the PLDM loopback sample (qemu_cortex_m3)
+#   ./dev-script test             — run PLDM unit tests via west twister + QEMU
+#   ./dev-script run              — build and launch the sample interactively in QEMU
+#   ./dev-script build-pdr-codegen — compile PDR codegen sample (native_sim, two processes)
+#   ./dev-script run-pdr-codegen   — build and run PDR codegen two-node demo
+#   ./dev-script build-pdr-codegen-qemu — compile PDR codegen sample (qemu_cortex_m3)
+#   ./dev-script run-pdr-codegen-qemu   — build and run PDR codegen QEMU demo
+#   ./dev-script build-multi-node — compile multi-node sample (native_sim)
+#   ./dev-script run-multi-node   — build and run two-node PLDM demo
+#   ./dev-script doc              — build Zephyr HTML docs and serve on localhost:8000
+#   ./dev-script clean            — remove build/ and twister-out/ directories
+#   ./dev-script clean-sdk        — remove the cached Zephyr SDK Docker volume
+#   ./dev-script help             — show this message
+#
+# Requirements (Docker mode — macOS or Linux without native SDK):
+#   - Docker ≥ 20.10 installed and daemon running
+#   - Internet access on first use (to pull the Docker image and Zephyr SDK)
+#
+# Requirements (native mode — Linux with Zephyr SDK):
+#   - west, cmake, ninja, dtc installed (pip install west; apt install cmake ninja-build device-tree-compiler)
+#   - Zephyr SDK installed (ZEPHYR_SDK_INSTALL_DIR set, or SDK in ~/zephyr-sdk-* or /opt/zephyr-sdk*)
+#   - socat installed for multi-node / PDR codegen demos (apt install socat)
+#
+# SDK note:
+#   zephyrprojectrtos/zephyr-build does NOT bundle the Zephyr SDK (ARM
+#   toolchain + host tools).  On macOS the host SDK is macOS binaries and
+#   cannot be used inside a Linux container.  This script downloads the Linux
+#   SDK once into the named Docker volume 'zephyr-dev-sdk' on first use.
+#   Subsequent runs reuse the cached volume; only 'clean-sdk' forces a
+#   re-download.
+# =============================================================================
+
+set -euo pipefail
+
+# -----------------------------------------------------------------------------
+# Constants — edit these if your layout differs
+# -----------------------------------------------------------------------------
+
+# Absolute path to the workspace root (directory that contains zephyr/ and libpldm/)
+readonly WORKSPACE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+readonly DOCKER_IMAGE="zephyrprojectrtos/zephyr-build:latest"
+
+# Zephyr SDK — downloaded once into a named Docker volume.
+readonly ZEPHYR_SDK_VERSION="0.16.8"
+readonly ZEPHYR_SDK_VOLUME="zephyr-dev-sdk"
+readonly ZEPHYR_SDK_MOUNT="/opt/zephyr-sdk"
+# Sentinel file in WORKSPACE_DIR: records the installed SDK version so we
+# avoid spawning an extra container on every pre-flight check.
+# Add '.zephyr-sdk-*' to your root .gitignore to keep this out of version control.
+readonly ZEPHYR_SDK_SENTINEL="${WORKSPACE_DIR}/.zephyr-sdk-${ZEPHYR_SDK_VERSION}"
+
+# Paths relative to WORKSPACE_DIR
+readonly SAMPLE_PATH="zephyr/samples/subsys/pmci/pldm/loopback"
+readonly TEST_PATH="zephyr/tests/subsys/pmci/pldm"
+readonly BUILD_DIR="${WORKSPACE_DIR}/build"
+readonly TWISTER_OUT_DIR="${WORKSPACE_DIR}/twister-out"
+
+# PDR codegen sample path and build directories
+readonly PDR_CODEGEN_SAMPLE_PATH="zephyr/samples/subsys/pmci/pldm/pdr_codegen"
+readonly PDR_CODEGEN_BUILD_RESP="${BUILD_DIR}/pdr_codegen_responder"
+readonly PDR_CODEGEN_BUILD_REQ="${BUILD_DIR}/pdr_codegen_requester"
+readonly PDR_CODEGEN_QEMU_BUILD_RESP="${BUILD_DIR}/pdr_codegen_qemu_responder"
+readonly PDR_CODEGEN_QEMU_BUILD_REQ="${BUILD_DIR}/pdr_codegen_qemu_requester"
+
+# Multi-node sample paths
+readonly MULTI_NODE_SAMPLE_PATH="zephyr/samples/subsys/pmci/pldm_multi_node"
+
+# Documentation build output
+readonly DOC_BUILD_DIR="${WORKSPACE_DIR}/build/doc"
+
+# Inside-container workspace mount point
+readonly CONTAINER_WORKDIR="/workdir"
+
+# Runtime working directory: set to CONTAINER_WORKDIR (Docker) or
+# WORKSPACE_DIR (native Linux) by detect_mode().
+RUN_WORKDIR="${CONTAINER_WORKDIR}"
+
+# Execution mode: 1 = Docker (default), 0 = native Linux
+USE_DOCKER=1
+
+# -----------------------------------------------------------------------------
+# Logging helpers
+# -----------------------------------------------------------------------------
+
+log()  { printf '\033[1;32m[dev-script]\033[0m %s\n' "$*"; }
+info() { printf '\033[1;34m[dev-script]\033[0m %s\n' "$*"; }
+warn() { printf '\033[1;33m[dev-script]\033[0m WARNING: %s\n' "$*" >&2; }
+err()  { printf '\033[1;31m[dev-script]\033[0m ERROR: %s\n' "$*" >&2; }
+die()  { err "$*"; exit 1; }
+
+# -----------------------------------------------------------------------------
+# Native Linux mode detection
+#
+# On Linux hosts with west + Zephyr SDK already installed, we can skip Docker
+# entirely and run commands directly.  The user can also force a mode with:
+#   ./dev-script --native <cmd>    (skip Docker, require native SDK)
+#   ./dev-script --docker <cmd>    (always use Docker)
+# Without a flag, the script auto-detects: native on Linux if SDK is found,
+# Docker otherwise (or always Docker on macOS / other platforms).
+# -----------------------------------------------------------------------------
+
+# Search common Zephyr SDK install locations on native Linux.
+# Returns the path on stdout if found, or returns 1.
+find_native_sdk() {
+    # Explicit env var takes priority
+    if [[ -n "${ZEPHYR_SDK_INSTALL_DIR:-}" ]] && [[ -d "${ZEPHYR_SDK_INSTALL_DIR}" ]]; then
+        echo "${ZEPHYR_SDK_INSTALL_DIR}"
+        return 0
+    fi
+    local sdk_dir
+    for sdk_dir in \
+        "${HOME}/zephyr-sdk-${ZEPHYR_SDK_VERSION}" \
+        "${HOME}/.local/zephyr-sdk-${ZEPHYR_SDK_VERSION}" \
+        "/opt/zephyr-sdk-${ZEPHYR_SDK_VERSION}" \
+        "/opt/zephyr-sdk"; do
+        if [[ -d "${sdk_dir}" ]]; then
+            echo "${sdk_dir}"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Choose Docker or native mode.  Called from main() after flag parsing.
+detect_mode() {
+    # Non-Linux always uses Docker
+    if [[ "$(uname -s)" != "Linux" ]]; then
+        USE_DOCKER=1
+        RUN_WORKDIR="${CONTAINER_WORKDIR}"
+        return
+    fi
+
+    # On Linux, try native mode if west and SDK are available
+    local sdk_dir
+    if command -v west &>/dev/null && sdk_dir="$(find_native_sdk)"; then
+        USE_DOCKER=0
+        RUN_WORKDIR="${WORKSPACE_DIR}"
+        export ZEPHYR_SDK_INSTALL_DIR="${sdk_dir}"
+        export ZEPHYR_BASE="${WORKSPACE_DIR}/zephyr"
+        info "Native Linux mode (SDK: ${sdk_dir})"
+        return
+    fi
+
+    # Fall back to Docker
+    USE_DOCKER=1
+    RUN_WORKDIR="${CONTAINER_WORKDIR}"
+}
+
+# Verify native prerequisites before running a command.
+ensure_native_deps() {
+    local missing=()
+    for tool in west cmake ninja dtc; do
+        command -v "${tool}" &>/dev/null || missing+=("${tool}")
+    done
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        die "Native mode requires: ${missing[*]}
+Install them with:  pip install west  &&  sudo apt install cmake ninja-build device-tree-compiler"
+    fi
+}
+
+# Check that socat is available (needed by multi-node / PDR codegen runners).
+ensure_socat() {
+    if ! command -v socat &>/dev/null; then
+        die "socat is required for multi-node demos.
+Install with:  sudo apt install socat"
+    fi
+}
+
+# -----------------------------------------------------------------------------
+# Docker pre-flight checks
+# -----------------------------------------------------------------------------
+
+check_docker() {
+    if ! command -v docker &>/dev/null; then
+        die "Docker is not installed or not on PATH. \
+See https://docs.docker.com/get-docker/ to install it."
+    fi
+
+    if ! docker info &>/dev/null; then
+        die "Docker daemon is not running. \
+Start it with 'sudo systemctl start docker' (Linux) or open Docker Desktop (macOS/Windows)."
+    fi
+}
+
+# Warn once if the image is not cached locally so the user isn't surprised
+# by a long first-run pull.
+check_image_cached() {
+    if ! docker image inspect "${DOCKER_IMAGE}" &>/dev/null; then
+        warn "Image '${DOCKER_IMAGE}' not found locally — Docker will pull it now."
+        warn "This may take several minutes on a slow connection."
+    fi
+}
+
+# -----------------------------------------------------------------------------
+# Zephyr SDK management
+#
+# The zephyr-build image provides cmake/ninja/python/west/QEMU but NOT the
+# Zephyr SDK (arm-zephyr-eabi toolchain + host tools such as dtc).
+# We download the Linux minimal SDK tarball once into a named Docker volume
+# so it survives container restarts and is available to all build containers.
+# -----------------------------------------------------------------------------
+
+# Detect the CPU architecture as seen inside the Linux container.
+# On Apple Silicon Docker Desktop may run containers as linux/arm64 or
+# linux/amd64 (Rosetta); this always picks the right tarball.
+container_arch() {
+    if [[ "${USE_DOCKER}" -eq 0 ]]; then
+        uname -m
+    else
+        # --entrypoint /bin/bash bypasses the image's VNC/Openbox startup script,
+        # which would otherwise pollute stdout and block on a password prompt.
+        docker run --rm --entrypoint /bin/bash "${DOCKER_IMAGE}" -c "uname -m"
+    fi
+}
+
+# Return 0 if the SDK volume is already populated with the requested version.
+sdk_ready() {
+    [[ -f "${ZEPHYR_SDK_SENTINEL}" ]] || return 1
+    docker volume inspect "${ZEPHYR_SDK_VOLUME}" &>/dev/null || return 1
+    return 0
+}
+
+# Download the Linux Zephyr SDK into the named Docker volume.
+# Called at most once; subsequent invocations are guarded by sdk_ready().
+setup_sdk() {
+    local arch
+    arch="$(container_arch)"
+
+    local tarball="zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-${arch}_minimal.tar.xz"
+    local url="https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZEPHYR_SDK_VERSION}/${tarball}"
+
+    log  "Zephyr SDK not found — performing one-time setup."
+    info "  SDK version : ${ZEPHYR_SDK_VERSION} (${arch})"
+    info "  Docker volume: ${ZEPHYR_SDK_VOLUME}  →  ${ZEPHYR_SDK_MOUNT}"
+    info "  Tarball     : ${tarball}"
+    info "  Download ~400 MB.  Please wait..."
+    echo
+
+    # Run inside the same build image so wget/tar/bash versions are consistent.
+    # No --user flag here: SDK files are written as root inside the volume,
+    # but will be readable by the non-root user in subsequent build containers.
+    docker run --rm \
+        --entrypoint /bin/bash \
+        --user root \
+        -v "${ZEPHYR_SDK_VOLUME}:${ZEPHYR_SDK_MOUNT}" \
+        -e HOME=/tmp \
+        "${DOCKER_IMAGE}" \
+        -c "
+            set -euo pipefail
+
+            echo '[sdk] Downloading ${tarball}...'
+            wget -q -O /tmp/sdk.tar.xz '${url}'
+            echo '[sdk] Download complete.'
+
+            echo '[sdk] Extracting archive...'
+            tar -xf /tmp/sdk.tar.xz -C /tmp
+            rm /tmp/sdk.tar.xz
+
+            echo '[sdk] Copying to ${ZEPHYR_SDK_MOUNT}...'
+            cp -a /tmp/zephyr-sdk-${ZEPHYR_SDK_VERSION}/. '${ZEPHYR_SDK_MOUNT}/'
+            rm -rf /tmp/zephyr-sdk-${ZEPHYR_SDK_VERSION}
+
+            echo '[sdk] Running setup.sh (arm-zephyr-eabi toolchain + host tools)...'
+            cd '${ZEPHYR_SDK_MOUNT}'
+            ./setup.sh -t arm-zephyr-eabi -h
+
+            echo '[sdk] Setup complete.'
+        "
+
+    # Write sentinel only after a fully successful setup.
+    touch "${ZEPHYR_SDK_SENTINEL}"
+    echo
+    log "Zephyr SDK ${ZEPHYR_SDK_VERSION} installed in volume '${ZEPHYR_SDK_VOLUME}'."
+    echo
+}
+
+# Ensure the SDK volume is ready; install it if not.
+ensure_sdk() {
+    # In native mode, the SDK is already on the host — just verify it exists.
+    if [[ "${USE_DOCKER}" -eq 0 ]]; then
+        ensure_native_deps
+        if [[ ! -d "${ZEPHYR_SDK_INSTALL_DIR:-}" ]]; then
+            die "Zephyr SDK not found. Set ZEPHYR_SDK_INSTALL_DIR or install the SDK.
+See: https://docs.zephyrproject.org/latest/develop/toolchains/zephyr_sdk.html"
+        fi
+        return 0
+    fi
+
+    if sdk_ready; then
+        return 0
+    fi
+    setup_sdk
+}
+
+# -----------------------------------------------------------------------------
+# Core Docker wrapper
+#
+# docker_run [--interactive] -- <cmd> [args...]
+#
+# Runs <cmd> inside the Zephyr build container with:
+#   • The workspace mounted read-write at ${CONTAINER_WORKDIR}
+#   • The Zephyr SDK volume mounted read-only at ${ZEPHYR_SDK_MOUNT}
+#   • Host UID/GID forwarded so generated files are owned by the current user
+#   • HOME set to /tmp so Python/west caches inside the container are writable
+#   • ZEPHYR_BASE pointing at the mounted zephyr tree
+#   • ZEPHYR_SDK_INSTALL_DIR pointing at the SDK volume mount
+# -----------------------------------------------------------------------------
+
+docker_run() {
+    # Optional --interactive flag: needed for QEMU's serial console
+    local interactive=0
+    if [[ "${1:-}" == "--interactive" ]]; then
+        interactive=1
+        shift
+    fi
+
+    # Skip the '--' separator if present (defensive, not required)
+    [[ "${1:-}" == "--" ]] && shift
+
+    # --- Native mode: run the command directly on the host ---
+    if [[ "${USE_DOCKER}" -eq 0 ]]; then
+        eval "$@"
+        return
+    fi
+
+    # --- Docker mode ---
+    local -a docker_flags=(
+        run --rm
+        # Bypass the image's VNC/Openbox ENTRYPOINT; run bash directly so the
+        # GUI startup script does not pollute stdout or block on a password prompt.
+        --entrypoint /bin/bash
+        # Forward host UID/GID so files written to the mounted volume are
+        # owned by the current user, not root.
+        --user "$(id -u):$(id -g)"
+        # Mount the entire workspace into the container.
+        -v "${WORKSPACE_DIR}:${CONTAINER_WORKDIR}"
+        # Start in the workspace root so 'west' finds .west/config.
+        -w "${CONTAINER_WORKDIR}"
+        # Put caches (pip, west, cmake) in /tmp which is always writable.
+        -e HOME=/tmp
+        # Tell west/cmake where the Zephyr tree is.
+        -e ZEPHYR_BASE="${CONTAINER_WORKDIR}/zephyr"
+        # Mount the Zephyr SDK (arm toolchain + host tools) read-only.
+        -v "${ZEPHYR_SDK_VOLUME}:${ZEPHYR_SDK_MOUNT}:ro"
+        # Tell Zephyr's cmake where to find the SDK.
+        -e ZEPHYR_SDK_INSTALL_DIR="${ZEPHYR_SDK_MOUNT}"
+    )
+
+    if [[ "${interactive}" -eq 1 ]]; then
+        # Allocate a pseudo-TTY and keep stdin open for interactive QEMU sessions.
+        docker_flags+=( --interactive --tty )
+    fi
+
+    docker_flags+=( "${DOCKER_IMAGE}" )
+
+    # Pass the command as a single string to bash -c.
+    # "$*" joins all positional parameters with spaces; this is safe because
+    # none of our command arguments contain spaces.
+    docker "${docker_flags[@]}" -c "$*"
+}
+
+# -----------------------------------------------------------------------------
+# Command: build
+# -----------------------------------------------------------------------------
+
+cmd_build() {
+    log "Building PLDM loopback sample..."
+    info "  Board   : qemu_cortex_m3"
+    info "  Sample  : ${SAMPLE_PATH}"
+    info "  Output  : ${BUILD_DIR}/"
+    echo
+
+    docker_run \
+        west build \
+            --board qemu_cortex_m3 \
+            --build-dir "${RUN_WORKDIR}/build" \
+            "${SAMPLE_PATH}"
+
+    echo
+    log "Build succeeded. Artefacts written to ${BUILD_DIR}/"
+}
+
+# -----------------------------------------------------------------------------
+# Command: test
+# -----------------------------------------------------------------------------
+
+cmd_test() {
+    # Verify the test directory exists so we give a clear error rather than a
+    # cryptic west-twister failure.
+    if [[ ! -d "${WORKSPACE_DIR}/${TEST_PATH}" ]]; then
+        die "Test directory '${TEST_PATH}' does not exist yet.
+Create it with at least a CMakeLists.txt and testcase.yaml before running 'test'."
+    fi
+
+    log "Running PLDM unit tests via west twister..."
+    info "  Test root : ${TEST_PATH}"
+    info "  Platform  : qemu_cortex_m3 (emulation only)"
+    info "  Output    : ${TWISTER_OUT_DIR}/"
+    echo
+
+    docker_run \
+        west twister \
+            --testsuite-root "${RUN_WORKDIR}/${TEST_PATH}" \
+            --platform qemu_cortex_m3 \
+            --emulation-only \
+            --outdir "${RUN_WORKDIR}/twister-out"
+
+    echo
+    log "Tests complete. Results written to ${TWISTER_OUT_DIR}/"
+    info "Open ${TWISTER_OUT_DIR}/twister.log for the full log."
+}
+
+# -----------------------------------------------------------------------------
+# Command: run
+# -----------------------------------------------------------------------------
+
+cmd_run() {
+    # The QEMU serial console requires an interactive terminal.
+    # Detect whether we have one and bail out gracefully if not.
+    if [[ ! -t 0 ]] || [[ ! -t 1 ]]; then
+        die "'run' requires an interactive terminal (stdin and stdout must be a TTY).
+If you are inside a script or CI pipeline, use 'build' instead and invoke
+QEMU directly with the generated ELF."
+    fi
+
+    log "Building and launching PLDM sample in QEMU..."
+    info "  Board  : qemu_cortex_m3"
+    info "  Sample : ${SAMPLE_PATH}"
+    info ""
+    info "  Attach to the QEMU serial console below."
+    info "  Press  Ctrl-A then X  to exit QEMU."
+    echo
+
+    # Pass --interactive so the TTY flags are added to 'docker run'.
+    docker_run --interactive \
+        west build \
+            --board qemu_cortex_m3 \
+            --build-dir "${RUN_WORKDIR}/build" \
+            "${SAMPLE_PATH}" \
+            --target run
+}
+
+# -----------------------------------------------------------------------------
+# Command: build-pdr-codegen
+# -----------------------------------------------------------------------------
+
+cmd_build_pdr_codegen() {
+    # Detect the architecture so we pick the right native_sim variant.
+    local board
+    board="$(container_arch)"
+    if [[ "${board}" == "aarch64" || "${board}" == "arm64" ]]; then
+        board="native_sim/native/64"
+    else
+        board="native_sim"
+    fi
+
+    log "Building PLDM PDR codegen sample (responder + requester)..."
+    info "  Board    : ${board}"
+    info "  Sample   : ${PDR_CODEGEN_SAMPLE_PATH}"
+    info "  Responder: ${PDR_CODEGEN_BUILD_RESP}/"
+    info "  Requester: ${PDR_CODEGEN_BUILD_REQ}/"
+    echo
+
+    log "Building responder image (with codegen)..."
+    docker_run \
+        west build \
+            --board "${board}" \
+            --build-dir "${RUN_WORKDIR}/build/pdr_codegen_responder" \
+            "${PDR_CODEGEN_SAMPLE_PATH}" \
+            -- -DCONF_FILE=prj_responder.conf
+
+    echo
+    log "Building requester image (libpldm only)..."
+    docker_run \
+        west build \
+            --board "${board}" \
+            --build-dir "${RUN_WORKDIR}/build/pdr_codegen_requester" \
+            "${PDR_CODEGEN_SAMPLE_PATH}" \
+            -- -DCONF_FILE=prj_requester.conf
+
+    echo
+    log "PDR codegen build succeeded."
+}
+
+# -----------------------------------------------------------------------------
+# Command: run-pdr-codegen
+# -----------------------------------------------------------------------------
+
+cmd_run_pdr_codegen() {
+    # Build both images first.
+    cmd_build_pdr_codegen
+
+    # The native_sim UART console requires an interactive terminal.
+    if [[ ! -t 0 ]] || [[ ! -t 1 ]]; then
+        die "'run-pdr-codegen' requires an interactive terminal (stdin and stdout must be a TTY).
+Use 'build-pdr-codegen' instead if you are in a CI pipeline."
+    fi
+
+    log "Running PDR codegen sample..."
+    info "  Two native_sim processes connected via UART PTY bridge (socat)."
+    info "  Responder: codegen-populated PDR repo (EID=9)"
+    info "  Requester: GetPDRRepositoryInfo + GetPDR queries (EID=8)"
+    info "  Press Ctrl+C to stop."
+    echo
+
+    # Pre-check socat in native mode (Docker runner installs it on the fly).
+    if [[ "${USE_DOCKER}" -eq 0 ]]; then
+        ensure_socat
+    fi
+
+    # Write a helper runner script into the workspace; it gets mounted
+    # into the container at ${CONTAINER_WORKDIR}/.pdr_codegen_runner.sh
+    # (Docker) or run directly (native).
+    local runner="${WORKSPACE_DIR}/.pdr_codegen_runner.sh"
+    cat > "${runner}" << RUNNER_SCRIPT
+#!/bin/bash
+set -euo pipefail
+
+WORKDIR=${RUN_WORKDIR}
+RESP_EXE="\${WORKDIR}/build/pdr_codegen_responder/zephyr/zephyr.exe"
+REQ_EXE="\${WORKDIR}/build/pdr_codegen_requester/zephyr/zephyr.exe"
+
+# Ensure socat is available (the zephyr-build image may not ship it).
+if ! command -v socat &>/dev/null; then
+    echo "[runner] Installing socat..."
+    apt-get update -qq && apt-get install -y -qq socat >/dev/null 2>&1
+fi
+
+# PIDs to track for cleanup
+RESP_PID=""
+REQ_PID=""
+SOCAT_PID=""
+TAIL_PID=""
+
+cleanup() {
+    echo ""
+    echo "[runner] Shutting down..."
+    [ -n "\${TAIL_PID}"  ] && kill "\${TAIL_PID}"  2>/dev/null || true
+    [ -n "\${SOCAT_PID}" ] && kill "\${SOCAT_PID}" 2>/dev/null || true
+    [ -n "\${REQ_PID}"   ] && kill "\${REQ_PID}"   2>/dev/null || true
+    [ -n "\${RESP_PID}"  ] && kill "\${RESP_PID}"  2>/dev/null || true
+    wait 2>/dev/null || true
+    echo "[runner] Done."
+    exit 0
+}
+trap cleanup INT TERM
+
+# --- Start responder ---
+echo "[runner] Starting responder..."
+\${RESP_EXE} --no-color --uart_stdinout > /tmp/resp.log 2>&1 &
+RESP_PID=\$!
+sleep 2
+
+RESP_PTY=\$(grep -o 'uart_1 connected to pseudotty: /dev/pts/[0-9]*' /tmp/resp.log \\
+           | head -1 | awk '{print \$NF}')
+if [ -z "\${RESP_PTY}" ]; then
+    echo "[runner] ERROR: Could not find responder uart_1 PTY path."
+    echo "[runner] Responder output:"
+    cat /tmp/resp.log
+    cleanup
+fi
+echo "[runner] Responder uart_1 PTY: \${RESP_PTY}"
+
+# --- Start requester ---
+echo "[runner] Starting requester..."
+\${REQ_EXE} --no-color --uart_stdinout > /tmp/req.log 2>&1 &
+REQ_PID=\$!
+sleep 2
+
+REQ_PTY=\$(grep -o 'uart_1 connected to pseudotty: /dev/pts/[0-9]*' /tmp/req.log \\
+          | head -1 | awk '{print \$NF}')
+if [ -z "\${REQ_PTY}" ]; then
+    echo "[runner] ERROR: Could not find requester uart_1 PTY path."
+    echo "[runner] Requester output:"
+    cat /tmp/req.log
+    cleanup
+fi
+echo "[runner] Requester uart_1 PTY: \${REQ_PTY}"
+
+# --- Bridge the two uart_1 PTYs via socat ---
+echo "[runner] Bridging \${RESP_PTY} <-> \${REQ_PTY}..."
+socat "\${RESP_PTY},raw,echo=0" "\${REQ_PTY},raw,echo=0" &
+SOCAT_PID=\$!
+
+# Show combined log output from both processes.
+echo ""
+echo "========== PDR Codegen PLDM Output =========="
+echo ""
+tail -f /tmp/resp.log /tmp/req.log &
+TAIL_PID=\$!
+
+# Wait for any of the main processes to exit.
+wait \${RESP_PID} \${REQ_PID} 2>/dev/null || true
+cleanup
+RUNNER_SCRIPT
+    chmod +x "${runner}"
+
+    if [[ "${USE_DOCKER}" -eq 0 ]]; then
+        # Native mode: run the script directly.
+        "${runner}"
+    else
+        # Docker mode: run as root (socat install may need it).
+        docker run --rm \
+            --interactive --tty \
+            --entrypoint /bin/bash \
+            --user root \
+            -v "${WORKSPACE_DIR}:${CONTAINER_WORKDIR}" \
+            -w "${CONTAINER_WORKDIR}" \
+            -e HOME=/tmp \
+            -e ZEPHYR_BASE="${CONTAINER_WORKDIR}/zephyr" \
+            -v "${ZEPHYR_SDK_VOLUME}:${ZEPHYR_SDK_MOUNT}:ro" \
+            -e ZEPHYR_SDK_INSTALL_DIR="${ZEPHYR_SDK_MOUNT}" \
+            "${DOCKER_IMAGE}" \
+            "${CONTAINER_WORKDIR}/.pdr_codegen_runner.sh"
+    fi
+
+    rm -f "${runner}"
+}
+
+# -----------------------------------------------------------------------------
+# Command: build-pdr-codegen-qemu
+# -----------------------------------------------------------------------------
+
+cmd_build_pdr_codegen_qemu() {
+    log "Building PLDM PDR codegen sample for QEMU (responder + requester)..."
+    info "  Board    : qemu_cortex_m3"
+    info "  Sample   : ${PDR_CODEGEN_SAMPLE_PATH}"
+    info "  Responder: ${PDR_CODEGEN_QEMU_BUILD_RESP}/"
+    info "  Requester: ${PDR_CODEGEN_QEMU_BUILD_REQ}/"
+    echo
+
+    log "Building responder image (with codegen)..."
+    docker_run \
+        west build \
+            --board qemu_cortex_m3 \
+            --build-dir "${RUN_WORKDIR}/build/pdr_codegen_qemu_responder" \
+            "${PDR_CODEGEN_SAMPLE_PATH}" \
+            -- -DCONF_FILE=prj_responder_qemu.conf
+
+    echo
+    log "Building requester image (libpldm only)..."
+    docker_run \
+        west build \
+            --board qemu_cortex_m3 \
+            --build-dir "${RUN_WORKDIR}/build/pdr_codegen_qemu_requester" \
+            "${PDR_CODEGEN_SAMPLE_PATH}" \
+            -- -DCONF_FILE=prj_requester_qemu.conf
+
+    echo
+    log "PDR codegen QEMU build succeeded."
+}
+
+# -----------------------------------------------------------------------------
+# Command: run-pdr-codegen-qemu
+# -----------------------------------------------------------------------------
+
+cmd_run_pdr_codegen_qemu() {
+    # Build both images first.
+    cmd_build_pdr_codegen_qemu
+
+    # QEMU requires an interactive terminal.
+    if [[ ! -t 0 ]] || [[ ! -t 1 ]]; then
+        die "'run-pdr-codegen-qemu' requires an interactive terminal (stdin and stdout must be a TTY).
+Use 'build-pdr-codegen-qemu' instead if you are in a CI pipeline."
+    fi
+
+    log "Running PDR codegen sample on QEMU..."
+    info "  Two qemu_cortex_m3 instances connected via UART PTY bridge (socat)."
+    info "  Responder: codegen-populated PDR repo (EID=9)"
+    info "  Requester: GetPDRRepositoryInfo + GetPDR queries (EID=8)"
+    info "  Press Ctrl+C to stop."
+    echo
+
+    # Pre-check socat in native mode.
+    if [[ "${USE_DOCKER}" -eq 0 ]]; then
+        ensure_socat
+    fi
+
+    # Resolve the SDK path for the runner script.  In Docker mode, the SDK
+    # volume is mounted at ZEPHYR_SDK_MOUNT; in native mode, use the real path.
+    local sdk_path
+    if [[ "${USE_DOCKER}" -eq 0 ]]; then
+        sdk_path="${ZEPHYR_SDK_INSTALL_DIR}"
+    else
+        sdk_path="${ZEPHYR_SDK_MOUNT}"
+    fi
+
+    local runner="${WORKSPACE_DIR}/.pdr_codegen_qemu_runner.sh"
+    cat > "${runner}" << RUNNER_SCRIPT
+#!/bin/bash
+set -euo pipefail
+
+WORKDIR=${RUN_WORKDIR}
+RESP_ELF="\${WORKDIR}/build/pdr_codegen_qemu_responder/zephyr/zephyr.elf"
+REQ_ELF="\${WORKDIR}/build/pdr_codegen_qemu_requester/zephyr/zephyr.elf"
+
+# Resolve QEMU binary from the Zephyr SDK (not in PATH by default).
+QEMU_ARM=\$(find "${sdk_path}" -name qemu-system-arm -type f 2>/dev/null | head -1)
+if [ -z "\${QEMU_ARM}" ]; then
+    # Fall back to system PATH
+    QEMU_ARM=\$(command -v qemu-system-arm 2>/dev/null || true)
+fi
+if [ -z "\${QEMU_ARM}" ]; then
+    echo "[runner] ERROR: qemu-system-arm not found in ${sdk_path} or PATH"
+    exit 1
+fi
+echo "[runner] Using QEMU: \${QEMU_ARM}"
+
+# Ensure socat is available.
+if ! command -v socat &>/dev/null; then
+    echo "[runner] Installing socat..."
+    apt-get update -qq && apt-get install -y -qq socat >/dev/null 2>&1
+fi
+
+# PIDs to track for cleanup
+RESP_PID=""
+REQ_PID=""
+SOCAT_PID=""
+TAIL_PID=""
+
+cleanup() {
+    echo ""
+    echo "[runner] Shutting down..."
+    [ -n "\${TAIL_PID}"  ] && kill "\${TAIL_PID}"  2>/dev/null || true
+    [ -n "\${SOCAT_PID}" ] && kill "\${SOCAT_PID}" 2>/dev/null || true
+    [ -n "\${REQ_PID}"   ] && kill "\${REQ_PID}"   2>/dev/null || true
+    [ -n "\${RESP_PID}"  ] && kill "\${RESP_PID}"  2>/dev/null || true
+    wait 2>/dev/null || true
+    echo "[runner] Done."
+    exit 0
+}
+trap cleanup INT TERM
+
+# --- Start responder QEMU ---
+# uart0 = console (file — no stdin needed when backgrounded)
+# uart1 = MCTP transport (PTY)
+# -monitor none: disable QEMU monitor so no stdin is required
+echo "[runner] Starting responder QEMU..."
+"\${QEMU_ARM}" \\
+    -cpu cortex-m3 -machine lm3s6965evb -nographic -vga none \\
+    -monitor none \\
+    -serial file:/tmp/resp_console.log \\
+    -serial pty \\
+    -kernel "\${RESP_ELF}" \\
+    > /tmp/resp_qemu.log 2>&1 &
+RESP_PID=\$!
+sleep 3
+
+RESP_PTY=\$(grep -o 'char device redirected to /dev/pts/[0-9]*' /tmp/resp_qemu.log \\
+           | head -1 | sed 's/char device redirected to //')
+if [ -z "\${RESP_PTY}" ]; then
+    echo "[runner] ERROR: Could not find responder QEMU PTY path."
+    echo "[runner] QEMU stderr:"
+    cat /tmp/resp_qemu.log
+    echo "[runner] Console output:"
+    cat /tmp/resp_console.log 2>/dev/null || true
+    cleanup
+fi
+echo "[runner] Responder uart1 PTY: \${RESP_PTY}"
+
+# --- Start requester QEMU ---
+echo "[runner] Starting requester QEMU..."
+"\${QEMU_ARM}" \\
+    -cpu cortex-m3 -machine lm3s6965evb -nographic -vga none \\
+    -monitor none \\
+    -serial file:/tmp/req_console.log \\
+    -serial pty \\
+    -kernel "\${REQ_ELF}" \\
+    > /tmp/req_qemu.log 2>&1 &
+REQ_PID=\$!
+sleep 3
+
+REQ_PTY=\$(grep -o 'char device redirected to /dev/pts/[0-9]*' /tmp/req_qemu.log \\
+          | head -1 | sed 's/char device redirected to //')
+if [ -z "\${REQ_PTY}" ]; then
+    echo "[runner] ERROR: Could not find requester QEMU PTY path."
+    echo "[runner] QEMU stderr:"
+    cat /tmp/req_qemu.log
+    echo "[runner] Console output:"
+    cat /tmp/req_console.log 2>/dev/null || true
+    cleanup
+fi
+echo "[runner] Requester uart1 PTY: \${REQ_PTY}"
+
+# --- Bridge the two uart1 PTYs via socat ---
+echo "[runner] Bridging \${RESP_PTY} <-> \${REQ_PTY}..."
+socat "\${RESP_PTY},raw,echo=0" "\${REQ_PTY},raw,echo=0" &
+SOCAT_PID=\$!
+
+# Show combined console output from both QEMU instances.
+echo ""
+echo "========== PDR Codegen QEMU PLDM Output =========="
+echo ""
+tail -f /tmp/resp_console.log /tmp/req_console.log &
+TAIL_PID=\$!
+
+# Wait for any of the main processes to exit.
+wait \${RESP_PID} \${REQ_PID} 2>/dev/null || true
+cleanup
+RUNNER_SCRIPT
+    chmod +x "${runner}"
+
+    if [[ "${USE_DOCKER}" -eq 0 ]]; then
+        # Native mode: run the script directly.
+        "${runner}"
+    else
+        docker run --rm \
+            --interactive --tty \
+            --entrypoint /bin/bash \
+            --user root \
+            -v "${WORKSPACE_DIR}:${CONTAINER_WORKDIR}" \
+            -w "${CONTAINER_WORKDIR}" \
+            -e HOME=/tmp \
+            -e ZEPHYR_BASE="${CONTAINER_WORKDIR}/zephyr" \
+            -v "${ZEPHYR_SDK_VOLUME}:${ZEPHYR_SDK_MOUNT}:ro" \
+            -e ZEPHYR_SDK_INSTALL_DIR="${ZEPHYR_SDK_MOUNT}" \
+            "${DOCKER_IMAGE}" \
+            "${CONTAINER_WORKDIR}/.pdr_codegen_qemu_runner.sh"
+    fi
+
+    rm -f "${runner}"
+}
+
+# -----------------------------------------------------------------------------
+# Command: build-multi-node
+# -----------------------------------------------------------------------------
+
+cmd_build_multi_node() {
+    # Detect the architecture so we pick the right native_sim variant.
+    # On AArch64 (Apple Silicon / ARM64 VMs) the 32-bit native_sim fails with
+    # "CONFIG_64BIT=n but this Aarch64 machine has a 64-bit userspace".
+    local board
+    board="$(container_arch)"
+    if [[ "${board}" == "aarch64" || "${board}" == "arm64" ]]; then
+        board="native_sim/native/64"
+    else
+        board="native_sim"
+    fi
+
+    log "Building PLDM multi-node sample (requester + responder)..."
+    info "  Board    : ${board}"
+    info "  Sample   : ${MULTI_NODE_SAMPLE_PATH}"
+    info "  Requester: ${BUILD_DIR}/multi_node_requester/"
+    info "  Responder: ${BUILD_DIR}/multi_node_responder/"
+    echo
+
+    log "Building responder image..."
+    docker_run \
+        west build \
+            --board "${board}" \
+            --build-dir "${RUN_WORKDIR}/build/multi_node_responder" \
+            "${MULTI_NODE_SAMPLE_PATH}" \
+            -- -DCONF_FILE=prj_responder.conf
+
+    echo
+    log "Building requester image..."
+    docker_run \
+        west build \
+            --board "${board}" \
+            --build-dir "${RUN_WORKDIR}/build/multi_node_requester" \
+            "${MULTI_NODE_SAMPLE_PATH}" \
+            -- -DCONF_FILE=prj_requester.conf
+
+    echo
+    log "Multi-node build succeeded."
+}
+
+# -----------------------------------------------------------------------------
+# Command: run-multi-node
+# -----------------------------------------------------------------------------
+
+cmd_run_multi_node() {
+    # Build both images first.
+    cmd_build_multi_node
+
+    # The native_sim UART console requires an interactive terminal.
+    if [[ ! -t 0 ]] || [[ ! -t 1 ]]; then
+        die "'run-multi-node' requires an interactive terminal (stdin and stdout must be a TTY).
+Use 'build-multi-node' instead if you are in a CI pipeline."
+    fi
+
+    log "Running multi-node PLDM sample..."
+    info "  Two native_sim processes connected via UART PTY bridge (socat)."
+    info "  Press Ctrl+C to stop."
+    echo
+
+    # Pre-check socat in native mode.
+    if [[ "${USE_DOCKER}" -eq 0 ]]; then
+        ensure_socat
+    fi
+
+    # Write a helper runner script into the workspace; it gets mounted
+    # into the container (Docker) or run directly (native).
+    local runner="${WORKSPACE_DIR}/.multi_node_runner.sh"
+    cat > "${runner}" << RUNNER_SCRIPT
+#!/bin/bash
+set -euo pipefail
+
+WORKDIR=${RUN_WORKDIR}
+RESP_EXE="\${WORKDIR}/build/multi_node_responder/zephyr/zephyr.exe"
+REQ_EXE="\${WORKDIR}/build/multi_node_requester/zephyr/zephyr.exe"
+
+# Ensure socat is available (the zephyr-build image may not ship it).
+if ! command -v socat &>/dev/null; then
+    echo "[runner] Installing socat..."
+    apt-get update -qq && apt-get install -y -qq socat >/dev/null 2>&1
+fi
+
+# PIDs to track for cleanup
+RESP_PID=""
+REQ_PID=""
+SOCAT_PID=""
+TAIL_PID=""
+
+cleanup() {
+    echo ""
+    echo "[runner] Shutting down..."
+    [ -n "\${TAIL_PID}"  ] && kill "\${TAIL_PID}"  2>/dev/null || true
+    [ -n "\${SOCAT_PID}" ] && kill "\${SOCAT_PID}" 2>/dev/null || true
+    [ -n "\${REQ_PID}"   ] && kill "\${REQ_PID}"   2>/dev/null || true
+    [ -n "\${RESP_PID}"  ] && kill "\${RESP_PID}"  2>/dev/null || true
+    wait 2>/dev/null || true
+    echo "[runner] Done."
+    exit 0
+}
+trap cleanup INT TERM
+
+# --- Start responder ---
+# --uart_stdinout sends the Zephyr console (uart0) to stdout so we can
+# capture logs.  uart_1 (MCTP) gets its own PTY automatically.
+echo "[runner] Starting responder..."
+\${RESP_EXE} --no-color --uart_stdinout > /tmp/resp.log 2>&1 &
+RESP_PID=\$!
+sleep 2
+
+RESP_PTY=\$(grep -o 'uart_1 connected to pseudotty: /dev/pts/[0-9]*' /tmp/resp.log \\
+           | head -1 | awk '{print \$NF}')
+if [ -z "\${RESP_PTY}" ]; then
+    echo "[runner] ERROR: Could not find responder uart_1 PTY path."
+    echo "[runner] Responder output:"
+    cat /tmp/resp.log
+    cleanup
+fi
+echo "[runner] Responder uart_1 PTY: \${RESP_PTY}"
+
+# --- Start requester ---
+echo "[runner] Starting requester..."
+\${REQ_EXE} --no-color --uart_stdinout > /tmp/req.log 2>&1 &
+REQ_PID=\$!
+sleep 2
+
+REQ_PTY=\$(grep -o 'uart_1 connected to pseudotty: /dev/pts/[0-9]*' /tmp/req.log \\
+          | head -1 | awk '{print \$NF}')
+if [ -z "\${REQ_PTY}" ]; then
+    echo "[runner] ERROR: Could not find requester uart_1 PTY path."
+    echo "[runner] Requester output:"
+    cat /tmp/req.log
+    cleanup
+fi
+echo "[runner] Requester uart_1 PTY: \${REQ_PTY}"
+
+# --- Bridge the two uart_1 PTYs via socat ---
+echo "[runner] Bridging \${RESP_PTY} <-> \${REQ_PTY}..."
+socat "\${RESP_PTY},raw,echo=0" "\${REQ_PTY},raw,echo=0" &
+SOCAT_PID=\$!
+
+# Show combined log output from both processes.
+echo ""
+echo "========== Multi-Node PLDM Output =========="
+echo ""
+tail -f /tmp/resp.log /tmp/req.log &
+TAIL_PID=\$!
+
+# Wait for any of the main processes to exit.
+wait \${RESP_PID} \${REQ_PID} 2>/dev/null || true
+cleanup
+RUNNER_SCRIPT
+    chmod +x "${runner}"
+
+    if [[ "${USE_DOCKER}" -eq 0 ]]; then
+        # Native mode: run the script directly.
+        "${runner}"
+    else
+        # Docker mode: run as root (socat install may need it).
+        docker run --rm \
+            --interactive --tty \
+            --entrypoint /bin/bash \
+            --user root \
+            -v "${WORKSPACE_DIR}:${CONTAINER_WORKDIR}" \
+            -w "${CONTAINER_WORKDIR}" \
+            -e HOME=/tmp \
+            -e ZEPHYR_BASE="${CONTAINER_WORKDIR}/zephyr" \
+            -v "${ZEPHYR_SDK_VOLUME}:${ZEPHYR_SDK_MOUNT}:ro" \
+            -e ZEPHYR_SDK_INSTALL_DIR="${ZEPHYR_SDK_MOUNT}" \
+            "${DOCKER_IMAGE}" \
+            "${CONTAINER_WORKDIR}/.multi_node_runner.sh"
+    fi
+
+    rm -f "${runner}"
+}
+
+# -----------------------------------------------------------------------------
+# Command: doc
+# -----------------------------------------------------------------------------
+
+cmd_doc() {
+    log "Building Zephyr HTML documentation..."
+    info "  Source : zephyr/doc/"
+    info "  Output : ${DOC_BUILD_DIR}/"
+    info "  Server : http://localhost:8000"
+    echo
+
+    # The doc build needs doxygen, graphviz, and Python doc packages.
+    # In Docker mode these are installed inside the container; in native
+    # mode the user is expected to have them already.
+    local doc_script="${WORKSPACE_DIR}/.doc_builder.sh"
+    cat > "${doc_script}" << DOC_SCRIPT
+#!/bin/bash
+set -euo pipefail
+
+WORKDIR=${RUN_WORKDIR}
+DOC_SRC="\${WORKDIR}/zephyr/doc"
+BUILD_DIR="\${WORKDIR}/build/doc"
+
+# Install doc deps (Docker: apt-get as root; native: expect pre-installed).
+if command -v apt-get &>/dev/null && [ "\$(id -u)" = "0" ]; then
+    echo "[doc] Installing documentation dependencies..."
+    apt-get update -qq && apt-get install -y -qq doxygen graphviz >/dev/null 2>&1
+fi
+pip install --quiet -r "\${DOC_SRC}/requirements.in" 2>&1 | tail -1
+
+echo "[doc] Configuring documentation build (fast mode)..."
+# DT_TURBO_MODE=1    — skip devicetree binding generation
+# HW_FEATURES_TURBO_MODE=1 — skip Twister-based hardware feature extraction
+#   (the Twister run builds hello_world for every board, taking ~60 min)
+DOXYGEN_PATH=\$(command -v doxygen 2>/dev/null || echo /usr/bin/doxygen)
+cmake -GNinja -B "\${BUILD_DIR}" "\${DOC_SRC}" \\
+    -DDOXYGEN_EXECUTABLE="\${DOXYGEN_PATH}" \\
+    -DDT_TURBO_MODE=1 \\
+    -DHW_FEATURES_TURBO_MODE=1 \\
+    -DSPHINXOPTS="-j auto --keep-going -T"
+
+NJOBS="\$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)"
+echo "[doc] Building HTML documentation (\${NJOBS} parallel jobs, fast mode)..."
+cmake --build "\${BUILD_DIR}" --target html --parallel "\${NJOBS}"
+
+HTML_DIR="\${BUILD_DIR}/html"
+if [ ! -d "\${HTML_DIR}" ]; then
+    # Some Zephyr doc builds put output under zephyr/html
+    HTML_DIR="\${BUILD_DIR}/zephyr/html"
+fi
+
+if [ ! -d "\${HTML_DIR}" ]; then
+    echo "[doc] ERROR: Could not find HTML output directory."
+    echo "[doc] Contents of \${BUILD_DIR}:"
+    ls -la "\${BUILD_DIR}/"
+    exit 1
+fi
+
+echo ""
+echo "[doc] ============================================"
+echo "[doc] Documentation built successfully!"
+echo "[doc] Serving at http://localhost:8000"
+echo "[doc] Press Ctrl+C to stop."
+echo "[doc] ============================================"
+echo ""
+
+cd "\${HTML_DIR}"
+python3 -m http.server 8000
+DOC_SCRIPT
+    chmod +x "${doc_script}"
+
+    if [[ "${USE_DOCKER}" -eq 0 ]]; then
+        # Native mode: run directly.
+        "${doc_script}"
+    else
+        docker run --rm \
+            --interactive --tty \
+            --entrypoint /bin/bash \
+            --user root \
+            -v "${WORKSPACE_DIR}:${CONTAINER_WORKDIR}" \
+            -w "${CONTAINER_WORKDIR}" \
+            -p 8000:8000 \
+            -e HOME=/tmp \
+            -e ZEPHYR_BASE="${CONTAINER_WORKDIR}/zephyr" \
+            -v "${ZEPHYR_SDK_VOLUME}:${ZEPHYR_SDK_MOUNT}:ro" \
+            -e ZEPHYR_SDK_INSTALL_DIR="${ZEPHYR_SDK_MOUNT}" \
+            "${DOCKER_IMAGE}" \
+            "${CONTAINER_WORKDIR}/.doc_builder.sh"
+    fi
+
+    rm -f "${doc_script}"
+}
+
+# -----------------------------------------------------------------------------
+# Command: clean
+# -----------------------------------------------------------------------------
+
+cmd_clean() {
+    local removed=0
+
+    if [[ -d "${BUILD_DIR}" ]]; then
+        log "Removing ${BUILD_DIR} ..."
+        rm -rf "${BUILD_DIR}"
+        removed=$(( removed + 1 ))
+    fi
+
+    if [[ -d "${TWISTER_OUT_DIR}" ]]; then
+        log "Removing ${TWISTER_OUT_DIR} ..."
+        rm -rf "${TWISTER_OUT_DIR}"
+        removed=$(( removed + 1 ))
+    fi
+
+    if [[ "${removed}" -eq 0 ]]; then
+        log "Nothing to clean — no build artefacts found."
+    else
+        log "Clean complete (${removed} director$(( removed == 1 ? 0 : 1 ))y removed)."
+    fi
+}
+
+# -----------------------------------------------------------------------------
+# Command: clean-sdk
+# -----------------------------------------------------------------------------
+
+cmd_clean_sdk() {
+    local removed=0
+
+    if [[ -f "${ZEPHYR_SDK_SENTINEL}" ]]; then
+        log "Removing SDK sentinel ${ZEPHYR_SDK_SENTINEL} ..."
+        rm -f "${ZEPHYR_SDK_SENTINEL}"
+        removed=$(( removed + 1 ))
+    fi
+
+    if docker volume inspect "${ZEPHYR_SDK_VOLUME}" &>/dev/null; then
+        log "Removing Docker volume '${ZEPHYR_SDK_VOLUME}' ..."
+        docker volume rm "${ZEPHYR_SDK_VOLUME}"
+        removed=$(( removed + 1 ))
+    fi
+
+    if [[ "${removed}" -eq 0 ]]; then
+        log "Nothing to clean — SDK volume '${ZEPHYR_SDK_VOLUME}' not found."
+    else
+        log "SDK cleaned. Run 'build', 'test', or 'run' to reinstall."
+    fi
+}
+
+# -----------------------------------------------------------------------------
+# Help / usage
+# -----------------------------------------------------------------------------
+
+show_help() {
+    cat <<EOF
+
+Usage: $(basename "${BASH_SOURCE[0]}") [--native|--docker] <command>
+
+Automates Zephyr PLDM subsystem development.
+
+On Linux with west + Zephyr SDK installed natively, commands run directly on
+the host (no Docker needed).  On macOS or when the SDK is not found, commands
+run inside the official Docker image:
+  ${DOCKER_IMAGE}
+
+Flags:
+  --native            Force native execution (Linux only, skip Docker)
+  --docker            Force Docker execution (even on Linux with native SDK)
+
+(Auto-detected when no flag is given: native on Linux if SDK found, else Docker.)
+
+Docker mode: The Zephyr SDK is downloaded once into the Docker volume
+'${ZEPHYR_SDK_VOLUME}' on first use (~400 MB).  Subsequent runs reuse the
+cached volume.
+
+Commands:
+  build             Compile the PLDM loopback sample for qemu_cortex_m3.
+                    Output: ${BUILD_DIR}/
+
+  test              Execute all PLDM unit tests found under:
+                      ${TEST_PATH}/
+                    Uses west twister with QEMU emulation (no hardware required).
+                    Output: ${TWISTER_OUT_DIR}/
+
+  run               Build the sample and launch it interactively in QEMU.
+                    The QEMU serial console is attached to your terminal.
+                    Exit: Ctrl-A then X
+
+  build-pdr-codegen Build the PLDM PDR codegen sample (responder + requester)
+                    for native_sim (auto-detects 32/64-bit).  Responder runs
+                    YAML→C codegen at build time.  Output:
+                      ${PDR_CODEGEN_BUILD_RESP}/
+                      ${PDR_CODEGEN_BUILD_REQ}/
+
+  run-pdr-codegen   Build and run two native_sim processes: responder with
+                    codegen-populated PDR repo (EID=9) and requester that
+                    fetches all PDRs via GetPDRRepositoryInfo + GetPDR (EID=8).
+                    Connected over MCTP UART via a socat PTY bridge.
+                    Exit: Ctrl+C
+
+  build-pdr-codegen-qemu
+                    Build the PLDM PDR codegen sample for qemu_cortex_m3
+                    (responder + requester) using interrupt-driven MCTP UART.
+                    Output:
+                      ${PDR_CODEGEN_QEMU_BUILD_RESP}/
+                      ${PDR_CODEGEN_QEMU_BUILD_REQ}/
+
+  run-pdr-codegen-qemu
+                    Build and run two QEMU ARM (Cortex-M3) instances: responder
+                    with codegen-populated PDR repo (EID=9) and requester that
+                    fetches all PDRs (EID=8).  Connected over MCTP UART via a
+                    socat PTY bridge on the second serial port.
+                    Exit: Ctrl+C
+
+  build-multi-node  Build the PLDM multi-node sample (requester + responder)
+                    for native_sim (auto-detects 32/64-bit).  Output:
+                      ${BUILD_DIR}/multi_node_requester/
+                      ${BUILD_DIR}/multi_node_responder/
+
+  run-multi-node    Build and run two native_sim processes (requester +
+                    responder) connected over MCTP UART via a socat PTY bridge.
+                    Exit: Ctrl+C
+
+  doc               Build Zephyr HTML documentation (Sphinx + Doxygen) and
+                    serve it at http://localhost:8000.  Installs doc deps
+                    (doxygen, graphviz, Python packages) inside Docker.
+                    Exit: Ctrl+C
+
+  clean             Delete ${BUILD_DIR}/ and ${TWISTER_OUT_DIR}/.
+
+  clean-sdk         Remove the cached Zephyr SDK Docker volume '${ZEPHYR_SDK_VOLUME}'.
+                    The next build/test/run will re-download the SDK (~400 MB).
+
+  help              Print this message.
+
+Environment:
+  DOCKER_IMAGE  Override the Docker image (default: ${DOCKER_IMAGE})
+
+Examples:
+  ./dev-script build              # compile (installs SDK on first run)
+  ./dev-script run                # build + run in QEMU
+  ./dev-script test               # run unit tests
+  ./dev-script build-pdr-codegen  # compile PDR codegen (responder + requester)
+  ./dev-script run-pdr-codegen    # build + run PDR codegen two-node demo
+  ./dev-script build-pdr-codegen-qemu  # compile PDR codegen for QEMU ARM
+  ./dev-script run-pdr-codegen-qemu    # build + run PDR codegen on QEMU
+  ./dev-script build-multi-node   # compile requester + responder
+  ./dev-script run-multi-node     # build + run two-node PLDM demo
+  ./dev-script doc                # build HTML docs + serve at localhost:8000
+  ./dev-script clean build        # clean then rebuild
+  ./dev-script clean-sdk          # wipe SDK cache (Docker mode only)
+  ./dev-script --native build     # force native mode on Ubuntu
+  ./dev-script --docker build     # force Docker mode on Linux
+
+Tip: Add '.zephyr-sdk-*' to your root .gitignore to exclude the SDK
+     sentinel file from version control.
+
+EOF
+}
+
+# -----------------------------------------------------------------------------
+# Entry point — dispatch on the first argument
+# -----------------------------------------------------------------------------
+
+main() {
+    # Parse optional --native / --docker flag before the command.
+    local force_mode=""
+    while [[ "${1:-}" == --* ]]; do
+        case "${1}" in
+            --native) force_mode="native"; shift ;;
+            --docker) force_mode="docker"; shift ;;
+            --help|-h) show_help; exit 0 ;;
+            *) break ;;
+        esac
+    done
+
+    local cmd="${1:-help}"
+    shift || true   # consume $1; tolerate the case where there are no more args
+
+    # Determine execution mode (native Linux vs Docker).
+    case "${force_mode}" in
+        native)
+            if [[ "$(uname -s)" != "Linux" ]]; then
+                die "--native is only supported on Linux hosts."
+            fi
+            USE_DOCKER=0
+            RUN_WORKDIR="${WORKSPACE_DIR}"
+            local sdk_dir
+            if sdk_dir="$(find_native_sdk)"; then
+                export ZEPHYR_SDK_INSTALL_DIR="${sdk_dir}"
+            fi
+            export ZEPHYR_BASE="${WORKSPACE_DIR}/zephyr"
+            info "Forced native mode"
+            ;;
+        docker)
+            USE_DOCKER=1
+            RUN_WORKDIR="${CONTAINER_WORKDIR}"
+            info "Forced Docker mode"
+            ;;
+        *)
+            detect_mode
+            ;;
+    esac
+
+    # Pre-flight helper: only run Docker checks when in Docker mode.
+    preflight() {
+        if [[ "${USE_DOCKER}" -eq 1 ]]; then
+            check_docker
+            check_image_cached
+        fi
+        ensure_sdk
+    }
+
+    case "${cmd}" in
+        build)
+            preflight
+            cmd_build "$@"
+            ;;
+        test)
+            preflight
+            cmd_test "$@"
+            ;;
+        run)
+            preflight
+            cmd_run "$@"
+            ;;
+        build-pdr-codegen)
+            preflight
+            cmd_build_pdr_codegen "$@"
+            ;;
+        run-pdr-codegen)
+            preflight
+            cmd_run_pdr_codegen "$@"
+            ;;
+        build-pdr-codegen-qemu)
+            preflight
+            cmd_build_pdr_codegen_qemu "$@"
+            ;;
+        run-pdr-codegen-qemu)
+            preflight
+            cmd_run_pdr_codegen_qemu "$@"
+            ;;
+        build-multi-node)
+            preflight
+            cmd_build_multi_node "$@"
+            ;;
+        run-multi-node)
+            preflight
+            cmd_run_multi_node "$@"
+            ;;
+        doc)
+            preflight
+            cmd_doc "$@"
+            ;;
+        clean)
+            # 'clean' is purely local — no Docker or SDK needed.
+            cmd_clean "$@"
+            ;;
+        clean-sdk)
+            if [[ "${USE_DOCKER}" -eq 0 ]]; then
+                die "'clean-sdk' only applies to Docker mode (removes the SDK Docker volume)."
+            fi
+            check_docker
+            cmd_clean_sdk "$@"
+            ;;
+        help|--help|-h)
+            show_help
+            ;;
+        *)
+            err "Unknown command: '${cmd}'"
+            show_help
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"
