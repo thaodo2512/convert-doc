@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PLDM FileDescriptor Session Management — Sequence Diagram</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:     #07090f;
+  --surf:   #0c1020;
+  --surf2:  #0f1428;
+  --bord:   #1a2540;
+  --bord2:  #252f48;
+  --fd1:    #22d3ee;
+  --fd2:    #fbbf24;
+  --fd3:    #4ade80;
+  --fd4:    #c084fc;
+  --err:    #f87171;
+  --qry:    #818cf8;
+  --int:    #64748b;
+  --txt:    #c8d8f0;
+  --muted:  #4a5a80;
+  --mono:   'Fira Code', monospace;
+  --disp:   'Plus Jakarta Sans', sans-serif;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; font-size:16px; }
+body { background:var(--bg); color:var(--txt); font-family:var(--disp); font-size:14px; min-height:100vh; overflow-x:hidden; }
+
+.app {
+  display:grid;
+  grid-template-rows: auto 1fr auto;
+  min-height:100vh;
+  max-width:1380px;
+  margin:0 auto;
+  padding:20px 24px;
+  gap:14px;
+}
+
+/* ── HEADER ── */
+.hdr {
+  display:flex; align-items:flex-start; justify-content:space-between;
+  border-bottom:1px solid var(--bord); padding-bottom:16px; gap:16px;
+}
+.hdr-left .tag {
+  font-size:12px; letter-spacing:3px; text-transform:uppercase; color:var(--fd1);
+  margin-bottom:6px; font-family:var(--mono);
+}
+.hdr-left h1 {
+  font-family:var(--disp); font-size:28px; font-weight:800; color:#fff;
+  margin-bottom:4px; letter-spacing:-0.5px;
+}
+.hdr-left .sub { font-size:13px; color:var(--muted); letter-spacing:.2px; font-family:var(--disp); }
+
+/* ── TABS ── */
+.tabs {
+  display:flex; gap:3px; flex-wrap:wrap; justify-content:flex-end;
+  background:var(--surf2); border:1px solid var(--bord); border-radius:6px; padding:4px;
+}
+.tab {
+  font-family:var(--disp); font-size:12px; font-weight:600;
+  padding:7px 14px; border-radius:4px; border:none; cursor:pointer;
+  color:var(--muted); background:transparent; transition:all .18s;
+  white-space:nowrap;
+}
+.tab:hover { color:var(--txt); background:rgba(255,255,255,.05); }
+.tab.active { background:var(--bord2); color:#fff; }
+
+/* ── MAIN GRID ── */
+.main { display:grid; grid-template-columns:1fr 340px; gap:16px; align-items:start; }
+
+/* ── DIAGRAM PANEL ── */
+.diag-wrap {
+  background:var(--surf); border:1px solid var(--bord); border-radius:8px;
+  padding:0; overflow:hidden;
+}
+.diag-head {
+  padding:14px 18px 10px;
+  border-bottom:1px solid var(--bord);
+  background:var(--surf2);
+}
+.diag-head .sc-title {
+  font-family:var(--disp); font-size:17px; font-weight:700; color:#fff;
+}
+.diag-head .sc-sub { font-size:12px; color:var(--muted); margin-top:3px; font-family:var(--disp); }
+.diag-scroll { overflow-x:auto; overflow-y:auto; max-height:calc(100vh - 260px); padding:16px; }
+#svg-wrap svg { display:block; }
+
+/* ── SIDE PANEL ── */
+.side { display:flex; flex-direction:column; gap:12px; }
+
+/* FD state table */
+.fd-panel {
+  background:var(--surf); border:1px solid var(--bord); border-radius:8px;
+  overflow:hidden;
+}
+.panel-hdr {
+  padding:11px 16px;
+  background:var(--surf2);
+  border-bottom:1px solid var(--bord);
+  font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--muted);
+  display:flex; align-items:center; gap:8px; font-family:var(--mono);
+}
+.panel-hdr::before {
+  content:''; display:inline-block;
+  width:3px; height:12px; border-radius:2px; background:var(--fd1);
+}
+.fd-entries { padding:12px; display:flex; flex-direction:column; gap:8px; min-height:60px; }
+.fd-empty-msg {
+  font-size:13px; color:var(--muted); text-align:center;
+  padding:18px 0; font-style:italic; font-family:var(--disp);
+}
+.fd-entry {
+  display:grid; grid-template-columns:44px 1fr;
+  gap:10px; align-items:start;
+  padding:10px; border-radius:6px;
+  border:1px solid var(--bord);
+  background:rgba(0,0,0,.3);
+  transition:all .3s ease;
+}
+.fd-entry.entering { animation:fdIn .3s ease; }
+@keyframes fdIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
+.fd-badge {
+  width:42px; height:42px; border-radius:6px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  font-weight:700; font-size:13px; flex-shrink:0; font-family:var(--mono);
+}
+.fd-badge .fd-num { font-size:17px; line-height:1; }
+.fd-badge .fd-lbl { font-size:9px; opacity:.7; margin-top:2px; }
+.fd-info { display:flex; flex-direction:column; gap:3px; }
+.fd-file { font-size:13px; font-weight:700; color:#fff; font-family:var(--disp); }
+.fd-detail { font-size:11px; color:var(--muted); font-family:var(--mono); }
+.fd-status-row { display:flex; align-items:center; gap:6px; margin-top:4px; }
+.fd-status {
+  font-size:9px; padding:2px 7px; border-radius:2px; font-weight:700; letter-spacing:.5px;
+  text-transform:uppercase; font-family:var(--mono);
+}
+.fd-status.open    { background:#0d2a1a; color:#4ade80; border:1px solid #1a4a2a; }
+.fd-status.closed  { background:#2a0d0d; color:var(--err); border:1px solid #4a1a1a; }
+.fd-status.timeout { background:#2a1a00; color:var(--fd2); border:1px solid #4a3000; }
+.fd-ni { font-size:10px; color:var(--muted); font-family:var(--mono); }
+.fd-timer-wrap { margin-top:5px; }
+.fd-timer-bg { height:3px; background:#1a2540; border-radius:2px; overflow:hidden; }
+.fd-timer-bar { height:100%; border-radius:2px; transition:width .5s ease; }
+
+/* Annotation */
+.anno-panel {
+  background:var(--surf); border:1px solid var(--bord); border-radius:8px;
+  padding:16px;
+}
+.anno-step { font-size:10px; color:var(--muted); letter-spacing:2px; text-transform:uppercase; margin-bottom:10px; font-family:var(--mono); }
+.anno-note { font-size:13px; color:var(--txt); line-height:1.75; font-family:var(--disp); }
+.anno-rule {
+  margin-top:12px; padding:10px 12px;
+  background:rgba(129,140,248,.08); border:1px solid rgba(129,140,248,.2);
+  border-radius:4px;
+  font-size:11.5px; color:var(--qry); line-height:1.65; font-family:var(--disp);
+}
+.anno-rule::before { content:"§ "; opacity:.6; }
+
+/* ── FOOTER NAV ── */
+.nav {
+  border-top:1px solid var(--bord); padding-top:14px;
+  display:flex; align-items:center; justify-content:space-between; gap:16px;
+}
+.nav-btn {
+  font-family:var(--disp); font-size:13px; font-weight:600;
+  padding:10px 26px; border-radius:6px; cursor:pointer;
+  border:1px solid var(--bord2); background:var(--surf2);
+  color:var(--txt); transition:all .18s;
+}
+.nav-btn:hover:not(:disabled) { background:var(--bord2); color:#fff; border-color:#3a4a70; }
+.nav-btn:disabled { opacity:.25; cursor:default; }
+.nav-center { display:flex; flex-direction:column; align-items:center; gap:7px; }
+.step-dots { display:flex; gap:6px; }
+.step-dot {
+  width:8px; height:8px; border-radius:50%;
+  background:var(--bord2); transition:all .2s;
+}
+.step-dot.done   { background:#1e4060; }
+.step-dot.active { background:var(--fd1); box-shadow:0 0 7px var(--fd1); }
+.step-label { font-size:12px; color:var(--muted); font-family:var(--disp); }
+
+/* keyboard hint */
+.key-hint { font-size:11px; color:#2a3a55; margin-top:2px; text-align:center; font-family:var(--disp); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="hdr">
+    <div class="hdr-left">
+      <div class="tag">DSP0242 · PLDMType 0x07 · FileDescriptor Management</div>
+      <h1>Multi-Session FileDescriptor Sequence Diagrams</h1>
+      <p class="sub">Concurrent sessions · Per-FD heartbeat timers · FIFO constraints · Global pool limits</p>
+    </div>
+    <div class="tabs" id="tabs"></div>
+  </header>
+
+  <main class="main">
+    <div class="diag-wrap">
+      <div class="diag-head">
+        <div class="sc-title" id="sc-title"></div>
+        <div class="sc-sub" id="sc-sub"></div>
+      </div>
+      <div class="diag-scroll">
+        <div id="svg-wrap"></div>
+      </div>
+    </div>
+    <div class="side">
+      <div class="fd-panel">
+        <div class="panel-hdr">Active FD State</div>
+        <div class="fd-entries" id="fd-entries"></div>
+      </div>
+      <div class="anno-panel">
+        <div class="anno-step" id="anno-step"></div>
+        <div class="anno-note" id="anno-note"></div>
+        <div class="anno-rule" id="anno-rule" style="display:none"></div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="nav">
+    <button class="nav-btn" id="btn-prev">← Prev</button>
+    <div class="nav-center">
+      <div class="step-dots" id="step-dots"></div>
+      <div class="step-label" id="step-label"></div>
+      <div class="key-hint">← → arrow keys to navigate</div>
+    </div>
+    <button class="nav-btn" id="btn-next">Next →</button>
+  </footer>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// COLOR PALETTE
+// ═══════════════════════════════════════════════════════════
+const C = {
+  fd1:   '#22d3ee',
+  fd2:   '#fbbf24',
+  fd3:   '#4ade80',
+  fd4:   '#c084fc',
+  err:   '#f87171',
+  qry:   '#818cf8',
+  int:   '#64748b',
+};
+
+// ═══════════════════════════════════════════════════════════
+// SCENARIO DATA
+// ═══════════════════════════════════════════════════════════
+const SCENARIOS = [
+
+// ────────────────────────────────────────────────────────
+// SCENARIO 1: Concurrent Multi-File Sessions
+// ────────────────────────────────────────────────────────
+{
+  title: '① Concurrent Multi-File Sessions',
+  sub:   'FD=1 (CrashDump, FI=100) and FD=2 (DiagLog, FI=200) open simultaneously',
+  steps: [
+    {
+      req:'DfProperties(MaxFileDescriptors?)', res:'MaxFileDescriptors = 4',
+      dir:'c2h', col:'qry',
+      note:'Client first queries the host\'s total FD pool capacity. Essential before opening multiple files to avoid MAX_NUM_FDS_EXCEEDED later.',
+      rule:'§9.1 DfProperties: returns MaxFileDescriptors — total simultaneous FileDescriptors the host supports globally.',
+      fds:[]
+    },
+    {
+      req:'DfOpen(FI=100, Read, Non-Exclusive)', res:'→  FD = 1  ✓',
+      dir:'c2h', col:'fd1',
+      note:'Open File A (CrashDumpFile, FI=100). Host allocates FileDescriptor=1 for this session. Note: FI=100 is static (from PDR), FD=1 is a dynamic session handle.',
+      rule:'§9.2: FileDescriptor shall be unique to the File Host. It is used by the File Client for DfRead, DfHeartbeat, and DfClose.',
+      fds:[{ fd:1, fi:100, file:'CrashDump', mode:'Read', offset:'0x0000', ni:'—', pct:100, st:'open' }]
+    },
+    {
+      req:'DfOpen(FI=200, Read, Non-Exclusive)', res:'→  FD = 2  ✓',
+      dir:'c2h', col:'fd2',
+      note:'Open File B (DiagLog, FI=200). Host allocates FD=2 independently. Both FD=1 and FD=2 sessions are live concurrently. Host has now used 2 of its 4 FD slots.',
+      rule:'§9.2.4: Checked against both FileMaximumFileDescriptorCount (per-file) and MaxFileDescriptors (global). Both must have headroom.',
+      fds:[
+        { fd:1, fi:100, file:'CrashDump', mode:'Read', offset:'0x0000', ni:'—', pct:100, st:'open' },
+        { fd:2, fi:200, file:'DiagLog',   mode:'Read', offset:'0x0000', ni:'—', pct:100, st:'open' },
+      ]
+    },
+    {
+      req:'DfHeartbeat(FD=1, reqInterval=5000ms)', res:'NegotiatedInterval = 3000ms',
+      dir:'c2h', col:'fd1',
+      note:'Negotiate the implicit-close timeout for FD=1. Host tightens it to 3000ms. This timer runs independently — FD=2 is on its own separate timer!',
+      rule:'§9.6: NegotiatedInterval = min(RequesterMaxInterval, ResponderMaxInterval). Tracked per FileDescriptor, independently.',
+      fds:[
+        { fd:1, fi:100, file:'CrashDump', mode:'Read', offset:'0x0000', ni:'NI=3000ms ⚡', pct:100, st:'open' },
+        { fd:2, fi:200, file:'DiagLog',   mode:'Read', offset:'0x0000', ni:'—',            pct:100, st:'open' },
+      ]
+    },
+    {
+      req:'DfHeartbeat(FD=2, reqInterval=5000ms)', res:'NegotiatedInterval = 5000ms',
+      dir:'c2h', col:'fd2',
+      note:'Negotiate timeout for FD=2 independently. Host allows 5000ms for this file. The two FD timers tick at different rates.',
+      rule:'§9.6: Each FileDescriptor maintains its own NegotiatedInterval. DfRead on FD=1 does NOT reset FD=2\'s timer.',
+      fds:[
+        { fd:1, fi:100, file:'CrashDump', mode:'Read', offset:'0x0000', ni:'NI=3000ms ⚡', pct:85, st:'open' },
+        { fd:2, fi:200, file:'DiagLog',   mode:'Read', offset:'0x0000', ni:'NI=5000ms',    pct:100, st:'open' },
+      ]
+    },
+    {
+      req:'DfRead(FD=1, offset=0x0000, len=0x100)', res:'data[0x100], START_AND_END  ✓',
+      dir:'c2h', col:'fd1',
+      note:'Read 256 bytes from File A (FD=1). File B session (FD=2) is completely independent — its read offset stays at 0x0000 and its timer ticks on separately.',
+      rule:'§9.8: DfRead = MultipartReceive with PLDMType=0x07, TransferContext=FileDescriptor. A DfRead resets the NI timer for that specific FD only.',
+      fds:[
+        { fd:1, fi:100, file:'CrashDump', mode:'Read', offset:'0x0100', ni:'NI=3000ms ⚡', pct:100, st:'open' },
+        { fd:2, fi:200, file:'DiagLog',   mode:'Read', offset:'0x0000', ni:'NI=5000ms',    pct:60,  st:'open' },
+      ]
+    },
+    {
+      req:'DfRead(FD=2, offset=0x0000, len=0x100)', res:'data[0x100], START_AND_END  ✓',
+      dir:'c2h', col:'fd2',
+      note:'Interleaved read from File B (FD=2). Each FD tracks its own read offset independently. FD=1 offset is still 0x0100 — untouched by this read.',
+      rule:'§9.8: Client computes the next offset as: FileOffset += DataLengthBytes. This is per-session state maintained by the client.',
+      fds:[
+        { fd:1, fi:100, file:'CrashDump', mode:'Read', offset:'0x0100', ni:'NI=3000ms ⚡', pct:70, st:'open' },
+        { fd:2, fi:200, file:'DiagLog',   mode:'Read', offset:'0x0100', ni:'NI=5000ms',    pct:100, st:'open' },
+      ]
+    },
+    {
+      req:'DfClose(FD=1)', res:'SUCCESS  —  FD=1 invalidated',
+      dir:'c2h', col:'fd1',
+      note:'Close File A session. Host invalidates FD=1 and frees that global slot. File B session (FD=2) remains completely unaffected and continues normally.',
+      rule:'§9.3: On DfClose SUCCESS, host SHALL: (1) close the active open file session, (2) invalidate the FileDescriptor.',
+      fds:[
+        { fd:1, fi:100, file:'CrashDump', mode:'—',    offset:'—',      ni:'—',          pct:0,   st:'closed' },
+        { fd:2, fi:200, file:'DiagLog',   mode:'Read', offset:'0x0100', ni:'NI=5000ms',  pct:55,  st:'open'   },
+      ]
+    },
+    {
+      req:'DfRead(FD=2, offset=0x0100, len=0x100)', res:'data[0x80], START_AND_END  ✓',
+      dir:'c2h', col:'fd2',
+      note:'FD=2 remains fully valid even after FD=1 was closed. Returns the last 0x80 bytes of DiagLog (DataLen < part_size → end of current file).',
+      rule:'§9.8: DataLengthBytes less than the negotiated part size signals end of available data at that offset.',
+      fds:[
+        { fd:2, fi:200, file:'DiagLog', mode:'Read', offset:'0x0180', ni:'NI=5000ms', pct:100, st:'open' },
+      ]
+    },
+    {
+      req:'DfClose(FD=2)', res:'SUCCESS  —  FD=2 invalidated',
+      dir:'c2h', col:'fd2',
+      note:'All sessions cleanly closed. Host FD pool is back to 0/4 used. Client must stop issuing DfHeartbeat for any closed FileDescriptor.',
+      rule:'§9.3: After a successful DfClose, the File Client no longer needs to issue DfHeartbeat commands for that file.',
+      fds:[]
+    },
+  ]
+},
+
+// ────────────────────────────────────────────────────────
+// SCENARIO 2: Per-FD Implicit Close (timeout)
+// ────────────────────────────────────────────────────────
+{
+  title: '② Per-FD Heartbeat Timers & Implicit Close',
+  sub:   'FD=1 (tight 2s NI) expires while FD=2 (10s NI) stays alive',
+  steps: [
+    {
+      req:'DfOpen(FI=100, Read)', res:'→  FD = 1  ✓',
+      dir:'c2h', col:'fd1',
+      note:'Open CrashDump file. FD=1 allocated. No NegotiatedInterval set yet — host may use an implementation-specific default timeout.',
+      rule:'§9.6.1: If there is no current valid NegotiatedInterval, the host may do implicit close after an implementation-specific amount of time.',
+      fds:[{ fd:1, fi:100, file:'CrashDump', mode:'Read', offset:'0x0000', ni:'—', pct:100, st:'open' }]
+    },
+    {
+      req:'DfOpen(FI=200, Read)', res:'→  FD = 2  ✓',
+      dir:'c2h', col:'fd2',
+      note:'Open DiagLog file. FD=2 allocated. Two independent sessions now active — each will get its own NegotiatedInterval.',
+      fds:[
+        { fd:1, fi:100, file:'CrashDump', mode:'Read', offset:'0x0000', ni:'—', pct:100, st:'open' },
+        { fd:2, fi:200, file:'DiagLog',   mode:'Read', offset:'0x0000', ni:'—', pct:100, st:'open' },
+      ]
+    },
+    {
+      req:'DfHeartbeat(FD=1, req=2000ms)', res:'NegotiatedInterval = 2000ms',
+      dir:'c2h', col:'fd1',
+      note:'FD=1 gets a tight 2000ms NegotiatedInterval. Both client and host agree. Timer starts ticking now. This is intentionally tight to illustrate what happens when a session is neglected.',
+      rule:'§9.6.1: If host has not received DfHeartbeat or DfRead within NegotiatedInterval, it MAY do implicit close of that FileDescriptor.',
+      fds:[
+        { fd:1, fi:100, file:'CrashDump', mode:'Read', offset:'0x0000', ni:'NI=2000ms ⚡', pct:100, st:'open' },
+        { fd:2, fi:200, file:'DiagLog',   mode:'Read', offset:'0x0000', ni:'—',             pct:100, st:'open' },
+      ]
+    },
+    {
+      req:'DfHeartbeat(FD=2, req=10000ms)', res:'NegotiatedInterval = 10000ms',
+      dir:'c2h', col:'fd2',
+      note:'FD=2 negotiates a relaxed 10000ms interval. The two FD timers are completely independent — FD=1 at 2s and FD=2 at 10s.',
+      fds:[
+        { fd:1, fi:100, file:'CrashDump', mode:'Read', offset:'0x0000', ni:'NI=2000ms ⚡', pct:80, st:'open' },
+        { fd:2, fi:200, file:'DiagLog',   mode:'Read', offset:'0x0000', ni:'NI=10000ms',   pct:100, st:'open' },
+      ]
+    },
+    {
+      req:'DfRead(FD=2, offset=0x0000, len=0x100)', res:'data[0x100]  ✓',
+      dir:'c2h', col:'fd2',
+      note:'Client reads from FD=2 — resets FD=2 timer to full 10s. FD=1 timer is still independently ticking down toward 2s and was NOT reset by this DfRead!',
+      rule:'§9.8: A DfRead within the NegotiatedInterval is equivalent to DfHeartbeat — but ONLY for the FileDescriptor used in that DfRead.',
+      fds:[
+        { fd:1, fi:100, file:'CrashDump', mode:'Read', offset:'0x0000', ni:'NI=2000ms ⚡', pct:20, st:'open' },
+        { fd:2, fi:200, file:'DiagLog',   mode:'Read', offset:'0x0100', ni:'NI=10000ms',   pct:100, st:'open' },
+      ]
+    },
+    {
+      req:'[ FD=1 NegotiatedInterval (2000ms) expires ]', res:'Host implicitly closes  FD=1',
+      dir:'int', col:'err',
+      note:'FD=1\'s 2000ms timer expired! Client was reading FD=2 and missed the heartbeat deadline for FD=1. Host silently invalidates FD=1. FD=2 is completely unaffected.',
+      rule:'§9.6.1: If the File Host has closed the FileDescriptor, it SHALL return INVALID_FILE_DESCRIPTOR CompletionCode on any subsequent use of that FileDescriptor.',
+      fds:[
+        { fd:1, fi:100, file:'CrashDump', mode:'—',    offset:'—',      ni:'—',           pct:0,   st:'timeout' },
+        { fd:2, fi:200, file:'DiagLog',   mode:'Read', offset:'0x0100', ni:'NI=10000ms',  pct:80,  st:'open'    },
+      ]
+    },
+    {
+      req:'DfRead(FD=1, offset=0x0000)', res:'INVALID_FILE_DESCRIPTOR  ✗',
+      dir:'c2h', col:'err',
+      note:'Client attempts to read FD=1 — but it was silently closed by the host. Error returned. FD=2 remains alive and healthy. Client must re-DfOpen FI=100 to get a new FileDescriptor.',
+      rule:'§9.6.1: Host SHALL return INVALID_FILE_DESCRIPTOR. Note: the host SHALL NOT have invalidated FD=2 — only the timed-out descriptor is affected.',
+      fds:[
+        { fd:1, fi:100, file:'CrashDump', mode:'—',    offset:'—',      ni:'—',           pct:0,   st:'timeout' },
+        { fd:2, fi:200, file:'DiagLog',   mode:'Read', offset:'0x0100', ni:'NI=10000ms',  pct:65,  st:'open'    },
+      ]
+    },
+    {
+      req:'DfHeartbeat(FD=2)', res:'SUCCESS  —  NI timer refreshed',
+      dir:'c2h', col:'fd2',
+      note:'FD=2 is still alive. Client sends a heartbeat to reset its 10s timer. From here, client should re-DfOpen FI=100 to recover access to the crash dump.',
+      fds:[
+        { fd:2, fi:200, file:'DiagLog', mode:'Read', offset:'0x0100', ni:'NI=10000ms', pct:100, st:'open' },
+      ]
+    },
+    {
+      req:'DfOpen(FI=100, Read)  [re-open]', res:'→  FD = 5  ✓  (new FD)',
+      dir:'c2h', col:'fd1',
+      note:'Client recovers by re-opening FI=100. Host issues a brand new FileDescriptor (FD=5 — not FD=1!). The old FD=1 value must never be reused by the client.',
+      rule:'§9.2: FileDescriptor values are opaque and host-determined. After an implicit close, client must treat the old FD as permanently invalid.',
+      fds:[
+        { fd:2, fi:200, file:'DiagLog',   mode:'Read', offset:'0x0100', ni:'NI=10000ms', pct:85, st:'open' },
+        { fd:5, fi:100, file:'CrashDump', mode:'Read', offset:'0x0000', ni:'—',           pct:100, st:'open' },
+      ]
+    },
+  ]
+},
+
+// ────────────────────────────────────────────────────────
+// SCENARIO 3: FIFO Single-Session Enforcement
+// ────────────────────────────────────────────────────────
+{
+  title: '③ SerialTxFIFO — Single Session Enforcement',
+  sub:   'FIFO (FI=300) allows only 1 concurrent session; exclusive open forbidden',
+  steps: [
+    {
+      req:'DfOpen(FI=300, DfOpenRegFIFO=1, Polled)', res:'→  FD = 3  ✓',
+      dir:'c2h', col:'fd3',
+      note:'Open the SerialTxFIFO (FI=300) with Polled mode. Succeeds — this is the first (and only allowed) session. File PDR FileMaximumFileDescriptorCount=1.',
+      rule:'§9.2.3: By definition of FIFO (first in, first out), DfOpen of a SerialTxFIFO does NOT support multiple simultaneous sessions.',
+      fds:[{ fd:3, fi:300, file:'SerialFIFO', mode:'FIFO/Poll', offset:'n/a', ni:'—', pct:100, st:'open' }]
+    },
+    {
+      req:'DfOpen(FI=300, DfOpenRegFIFO=1, Polled)', res:'MAX_NUM_FDS_EXCEEDED  ✗',
+      dir:'c2h', col:'err',
+      note:'Second open attempt on the same FIFO — rejected. FileMaximumFileDescriptorCount=1 is already reached for FI=300. The first session (FD=3) is still active.',
+      rule:'§9.2.4: If open FDs for a FileIdentifier would exceed FileMaximumFileDescriptorCount, host SHALL return MAX_NUM_FDS_EXCEEDED.',
+      fds:[{ fd:3, fi:300, file:'SerialFIFO', mode:'FIFO/Poll', offset:'n/a', ni:'—', pct:88, st:'open' }]
+    },
+    {
+      req:'DfOpen(FI=300, DfOpenExclusive=1)', res:'INVALID_DF_ATTRIBUTE  ✗',
+      dir:'c2h', col:'err',
+      note:'Try to open FIFO with exclusive flag — always forbidden for FIFO type, regardless of session count. ExReadOpen is set to 0 in the File PDR for all FIFO files.',
+      rule:'§9.2.3: DfOpenExclusive=1 on a SerialTxFIFO is NOT supported. Host SHALL return INVALID_DF_ATTRIBUTE. File PDR ExReadOpen SHALL be 0.',
+      fds:[{ fd:3, fi:300, file:'SerialFIFO', mode:'FIFO/Poll', offset:'n/a', ni:'—', pct:76, st:'open' }]
+    },
+    {
+      req:'DfOpen(FI=100, Read, Non-Exclusive)', res:'→  FD = 1  ✓',
+      dir:'c2h', col:'fd1',
+      note:'A different file (FI=100, Regular) CAN still be opened in parallel with the FIFO. Per-file and global limits are checked independently.',
+      rule:'§9.2.4: Two limits apply: (1) per-file FileMaximumFileDescriptorCount (blocks second FIFO), (2) global MaxFileDescriptors (must have headroom).',
+      fds:[
+        { fd:3, fi:300, file:'SerialFIFO', mode:'FIFO/Poll', offset:'n/a',    ni:'—', pct:65, st:'open' },
+        { fd:1, fi:100, file:'CrashDump',  mode:'Read',      offset:'0x0000', ni:'—', pct:100, st:'open' },
+      ]
+    },
+    {
+      req:'DfClose(FD=3)', res:'SUCCESS  —  FIFO slot freed',
+      dir:'c2h', col:'fd3',
+      note:'Close the FIFO session. The per-FileIdentifier slot (and one global slot) is now free. Note: FIFO data consumed via XFER_COMPLETE is lost; unread data position resets.',
+      fds:[
+        { fd:3, fi:300, file:'SerialFIFO', mode:'—',    offset:'—',      ni:'—', pct:0,   st:'closed' },
+        { fd:1, fi:100, file:'CrashDump',  mode:'Read', offset:'0x0000', ni:'—', pct:85, st:'open'   },
+      ]
+    },
+    {
+      req:'DfOpen(FI=300, DfOpenRegFIFO=1, Polled)', res:'→  FD = 7  ✓  (new FD value)',
+      dir:'c2h', col:'fd3',
+      note:'New FIFO session allowed now that the slot is freed. Host issues FD=7 — a brand new value. The old FD=3 is permanently invalid. Never reuse stale FileDescriptors.',
+      rule:'§9.2: FileDescriptor is unique and determined by the host. Its value may differ from any previous session on the same file.',
+      fds:[
+        { fd:1, fi:100, file:'CrashDump',  mode:'Read',      offset:'0x0000', ni:'—', pct:70, st:'open' },
+        { fd:7, fi:300, file:'SerialFIFO', mode:'FIFO/Poll', offset:'n/a',    ni:'—', pct:100, st:'open' },
+      ]
+    },
+  ]
+},
+
+// ────────────────────────────────────────────────────────
+// SCENARIO 4: Global MaxFileDescriptors Pool
+// ────────────────────────────────────────────────────────
+{
+  title: '④ Global FD Pool — MaxFileDescriptors Enforcement',
+  sub:   'Host has MaxFileDescriptors=2; third open attempt is rejected regardless of file type',
+  steps: [
+    {
+      req:'DfProperties(MaxFileDescriptors?)', res:'MaxFileDescriptors = 2',
+      dir:'c2h', col:'qry',
+      note:'Host reports only 2 global FD slots. This is a hard ceiling across ALL files simultaneously. Best practice: always query DfProperties at initialization.',
+      rule:'§9.1 DfProperties: MaxConcurrentMedium shall be 1. MaxFileDescriptors = total FileDescriptors the host supports.',
+      fds:[]
+    },
+    {
+      req:'DfOpen(FI=100, Read)', res:'→  FD = 1  ✓',
+      dir:'c2h', col:'fd1',
+      note:'First file opened. 1 of 2 global FD slots consumed.',
+      fds:[
+        { fd:1, fi:100, file:'CrashDump', mode:'Read', offset:'0x0000', ni:'—', pct:100, st:'open' },
+      ]
+    },
+    {
+      req:'DfOpen(FI=200, Read)', res:'→  FD = 2  ✓',
+      dir:'c2h', col:'fd2',
+      note:'Second file opened. 2 of 2 global FD slots now full. Host has no more capacity to issue any new FileDescriptor to any client for any file.',
+      rule:'§9.2.4: Both per-file and global limits are enforced independently. Global pool is now exhausted.',
+      fds:[
+        { fd:1, fi:100, file:'CrashDump', mode:'Read', offset:'0x0000', ni:'—', pct:90, st:'open' },
+        { fd:2, fi:200, file:'DiagLog',   mode:'Read', offset:'0x0000', ni:'—', pct:100, st:'open' },
+      ]
+    },
+    {
+      req:'DfOpen(FI=300, FIFO, Polled)', res:'MAX_NUM_FDS_EXCEEDED  ✗',
+      dir:'c2h', col:'err',
+      note:'Third open attempt fails — global pool exhausted. It doesn\'t matter that FI=300 is a different file type or that it has its own per-file slot available. Global limit wins.',
+      rule:'§9.2.4: If open FDs for the File Host would exceed MaxFileDescriptors (DfProperties), host SHALL return MAX_NUM_FDS_EXCEEDED.',
+      fds:[
+        { fd:1, fi:100, file:'CrashDump', mode:'Read', offset:'0x0000', ni:'—', pct:75, st:'open' },
+        { fd:2, fi:200, file:'DiagLog',   mode:'Read', offset:'0x0000', ni:'—', pct:85, st:'open' },
+      ]
+    },
+    {
+      req:'DfRead(FD=1, offset=0x000)', res:'data[0x200]  ✓',
+      dir:'c2h', col:'fd1',
+      note:'Client reads and finishes with FD=1. Preparing to close it to free up the global slot.',
+      fds:[
+        { fd:1, fi:100, file:'CrashDump', mode:'Read', offset:'0x0200', ni:'—', pct:100, st:'open' },
+        { fd:2, fi:200, file:'DiagLog',   mode:'Read', offset:'0x0000', ni:'—', pct:65,  st:'open' },
+      ]
+    },
+    {
+      req:'DfClose(FD=1)', res:'SUCCESS  —  global slot freed',
+      dir:'c2h', col:'fd1',
+      note:'FD=1 closed. The global FD pool is now back to 1 of 2 used. The freed slot is immediately available for a new DfOpen.',
+      rule:'§9.3: After DfClose SUCCESS, host invalidates FD and frees the global slot back to the pool.',
+      fds:[
+        { fd:1, fi:100, file:'CrashDump', mode:'—',    offset:'—',      ni:'—', pct:0,   st:'closed' },
+        { fd:2, fi:200, file:'DiagLog',   mode:'Read', offset:'0x0000', ni:'—', pct:55,  st:'open'   },
+      ]
+    },
+    {
+      req:'DfOpen(FI=300, FIFO, Polled)', res:'→  FD = 3  ✓',
+      dir:'c2h', col:'fd3',
+      note:'FIFO session now allowed. The freed slot is available. Always close FDs promptly when done reading to avoid starving other files or clients.',
+      rule:'Best practice: Use DfProperties at init to size your session management. Design Zephyr implementation to track active FD count.',
+      fds:[
+        { fd:2, fi:200, file:'DiagLog',   mode:'Read',      offset:'0x0000', ni:'—', pct:45, st:'open' },
+        { fd:3, fi:300, file:'SerialFIFO', mode:'FIFO/Poll', offset:'n/a',   ni:'—', pct:100, st:'open' },
+      ]
+    },
+  ]
+},
+
+]; // end SCENARIOS
+
+// ═══════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════
+let curScenario = 0;
+let curStep = 0;
+
+// ═══════════════════════════════════════════════════════════
+// SVG RENDERING
+// ═══════════════════════════════════════════════════════════
+const SVG_W   = 760;
+const CX      = 130;   // client lifeline x
+const HX      = 630;   // host lifeline x
+const ACTOR_H = 100;
+const STEP_H  = 96;
+const FONT    = 'Fira Code,monospace';
+
+function fdColorKey(col) {
+  return C[col] || C.fd1;
+}
+
+function makeDefs() {
+  let d = '<defs>';
+  for (const [k, hex] of Object.entries(C)) {
+    d += `
+    <marker id="ah-${k}" viewBox="0 0 10 7" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="${hex}"/>
+    </marker>
+    <marker id="aho-${k}" viewBox="0 0 10 7" markerWidth="10" markerHeight="7" refX="1" refY="3.5" orient="auto">
+      <polyline points="10 0, 0 3.5, 10 7" fill="none" stroke="${hex}" stroke-width="2"/>
+    </marker>`;
+  }
+  d += '</defs>';
+  return d;
+}
+
+function actorBox(x, label, sublabel, color) {
+  const bw = 148, bh = 66;
+  const bx = x - bw / 2, by = 10;
+  return `
+  <rect x="${bx}" y="${by}" width="${bw}" height="${bh}" rx="6"
+    fill="#0c1422" stroke="${color}" stroke-width="1.8"/>
+  <text x="${x}" y="${by + 28}" text-anchor="middle" font-size="14" font-weight="700" fill="${color}"
+    font-family="${FONT}">${label}</text>
+  <text x="${x}" y="${by + 48}" text-anchor="middle" font-size="11.5" fill="#4a5a80"
+    font-family="${FONT}">${sublabel}</text>
+  <line x1="${x}" y1="${by + bh}" x2="${x}" y2="${ACTOR_H}" stroke="${color}" stroke-width="1.5" opacity="0.4"/>`;
+}
+
+function drawStep(step, idx, curIdx) {
+  const y = ACTOR_H + idx * STEP_H + STEP_H * 0.5;
+  const past    = idx < curIdx;
+  const current = idx === curIdx;
+  const future  = idx > curIdx;
+  const op = future ? '0' : past ? '0.35' : '1';
+  const color = fdColorKey(step.col);
+  const errColor = fdColorKey('err');
+
+  let out = `<g opacity="${op}" style="transition:opacity .3s">`;
+
+  // Current step highlight row
+  if (current) {
+    out += `<rect x="2" y="${y - STEP_H * 0.44}" width="${SVG_W - 4}" height="${STEP_H * 0.88}"
+      rx="5" fill="${color}" fill-opacity="0.05" stroke="${color}" stroke-width="0.8" stroke-opacity="0.35"/>`;
+  }
+
+  // Step number badge
+  const badgeFill = current ? color : past ? '#1a2a3a' : '#0c1422';
+  const badgeText = current ? '#000' : color;
+  out += `<circle cx="24" cy="${y}" r="13" fill="${badgeFill}"/>`;
+  out += `<text x="24" y="${y + 5}" text-anchor="middle" font-size="12.5" font-weight="700"
+    fill="${badgeText}" font-family="${FONT}">${idx + 1}</text>`;
+
+  if (step.dir === 'int') {
+    // Internal event box
+    const bx = CX + 38, bw = HX - CX - 76;
+    out += `<rect x="${bx}" y="${y - 22}" width="${bw}" height="44" rx="5"
+      fill="${color}" fill-opacity="0.07" stroke="${color}" stroke-width="1.2" stroke-dasharray="6,3"/>`;
+    out += `<text x="${(CX + HX) / 2}" y="${y - 5}" text-anchor="middle"
+      font-size="12" font-weight="600" fill="${color}" font-family="${FONT}">${escSVG(step.req)}</text>`;
+    out += `<text x="${(CX + HX) / 2}" y="${y + 15}" text-anchor="middle"
+      font-size="12" fill="${color}" font-style="italic" font-family="${FONT}">${escSVG(step.res)}</text>`;
+  } else {
+    const isErr = step.col === 'err';
+    const [ax1, ax2] = step.dir === 'h2c' ? [HX - 75, CX + 75] : [CX + 75, HX - 75];
+    const midX = (ax1 + ax2) / 2;
+
+    // Forward arrow (request)
+    const fwdMarker = step.dir === 'h2c' ? `aho-${step.col}` : `ah-${step.col}`;
+    out += `<line x1="${ax1}" y1="${y - 12}" x2="${ax2}" y2="${y - 12}"
+      stroke="${color}" stroke-width="2.2" marker-end="url(#${fwdMarker})"/>`;
+
+    // Request label
+    out += `<text x="${midX}" y="${y - 21}" text-anchor="middle"
+      font-size="12.5" font-weight="600" fill="${color}" font-family="${FONT}">${escSVG(step.req)}</text>`;
+
+    // Return arrow (response, dashed)
+    const retCol  = isErr ? errColor : color;
+    const retKey  = isErr ? 'err' : step.col;
+    const [rx1, rx2] = step.dir === 'h2c' ? [CX + 75, HX - 75] : [HX - 75, CX + 75];
+    const retMarker = step.dir === 'h2c' ? `ah-${retKey}` : `aho-${retKey}`;
+    out += `<line x1="${rx1}" y1="${y + 12}" x2="${rx2}" y2="${y + 12}"
+      stroke="${retCol}" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#${retMarker})"/>`;
+
+    // Response label
+    out += `<text x="${midX}" y="${y + 28}" text-anchor="middle"
+      font-size="12" fill="${retCol}" font-style="italic" font-family="${FONT}">${escSVG(step.res)}</text>`;
+  }
+
+  out += '</g>';
+  return out;
+}
+
+function escSVG(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderSVG() {
+  const sc   = SCENARIOS[curScenario];
+  const n    = sc.steps.length;
+  const h    = ACTOR_H + n * STEP_H + 20;
+
+  let svg = `<svg width="${SVG_W}" height="${h}" xmlns="http://www.w3.org/2000/svg">`;
+  svg += makeDefs();
+
+  // Background
+  svg += `<rect width="${SVG_W}" height="${h}" rx="0" fill="transparent"/>`;
+
+  // Subtle row bands
+  for (let i = 0; i < n; i++) {
+    if (i % 2 === 0) {
+      svg += `<rect x="0" y="${ACTOR_H + i * STEP_H}" width="${SVG_W}" height="${STEP_H}"
+        fill="rgba(255,255,255,0.012)"/>`;
+    }
+  }
+
+  // Lifelines
+  svg += `<line x1="${CX}" y1="${ACTOR_H}" x2="${CX}" y2="${h - 10}"
+    stroke="#22d3ee" stroke-width="1" stroke-dasharray="3,5" opacity="0.25"/>`;
+  svg += `<line x1="${HX}" y1="${ACTOR_H}" x2="${HX}" y2="${h - 10}"
+    stroke="#fbbf24" stroke-width="1" stroke-dasharray="3,5" opacity="0.25"/>`;
+
+  // Steps
+  for (let i = 0; i < n; i++) {
+    svg += drawStep(sc.steps[i], i, curStep);
+  }
+
+  // Actor boxes on top
+  svg += actorBox(CX, 'FILE CLIENT', 'BMC / Requester', '#22d3ee');
+  svg += actorBox(HX, 'FILE HOST',   'FD Registry',     '#fbbf24');
+
+  svg += '</svg>';
+  document.getElementById('svg-wrap').innerHTML = svg;
+}
+
+// ═══════════════════════════════════════════════════════════
+// FD TABLE
+// ═══════════════════════════════════════════════════════════
+const FD_COLORS = { 1:'fd1', 2:'fd2', 3:'fd3', 4:'fd4', 5:'fd1', 6:'fd2', 7:'fd3' };
+function fdColor(fd) { return C[FD_COLORS[fd] || 'fd1']; }
+
+function renderFDTable() {
+  const step = SCENARIOS[curScenario].steps[curStep];
+  const fds  = step.fds || [];
+  const el   = document.getElementById('fd-entries');
+
+  if (fds.length === 0) {
+    el.innerHTML = '<div class="fd-empty-msg">No active sessions</div>';
+    return;
+  }
+
+  el.innerHTML = fds.map(fd => {
+    const col = fdColor(fd.fd);
+    const bg  = col + '18';
+    const brd = col + '40';
+    const stClass = fd.st === 'timeout' ? 'timeout' : fd.st;
+    const stLabel = fd.st === 'timeout' ? 'TIMED OUT' : fd.st.toUpperCase();
+    const timerColor = fd.st === 'open' ? col : (fd.st === 'timeout' ? C.fd2 : C.err);
+    return `
+    <div class="fd-entry entering" style="border-color:${brd};background:${bg}08">
+      <div class="fd-badge" style="background:${col}20;border:1px solid ${col}50;color:${col}">
+        <div class="fd-num">${fd.fd}</div>
+        <div class="fd-lbl">FD</div>
+      </div>
+      <div class="fd-info">
+        <div class="fd-file">${fd.file} <span style="font-size:9px;color:var(--muted);font-weight:400">FI=${fd.fi}</span></div>
+        <div class="fd-detail">mode: ${fd.mode} · offset: ${fd.offset}</div>
+        <div class="fd-status-row">
+          <span class="fd-status ${stClass}">${stLabel}</span>
+          ${fd.ni !== '—' ? `<span class="fd-ni">${fd.ni}</span>` : ''}
+        </div>
+        ${fd.st !== 'closed' ? `
+        <div class="fd-timer-wrap">
+          <div class="fd-timer-bg">
+            <div class="fd-timer-bar" style="width:${fd.pct}%;background:${timerColor}"></div>
+          </div>
+        </div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+// ANNOTATION
+// ═══════════════════════════════════════════════════════════
+function renderAnnotation() {
+  const sc   = SCENARIOS[curScenario];
+  const step = sc.steps[curStep];
+  document.getElementById('anno-step').textContent = `Step ${curStep + 1} of ${sc.steps.length}`;
+  document.getElementById('anno-note').textContent = step.note || '';
+  const ruleEl = document.getElementById('anno-rule');
+  if (step.rule) {
+    ruleEl.style.display = 'block';
+    ruleEl.textContent = step.rule;
+  } else {
+    ruleEl.style.display = 'none';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// NAVIGATION DOTS + LABEL
+// ═══════════════════════════════════════════════════════════
+function renderNav() {
+  const sc = SCENARIOS[curScenario];
+  const n  = sc.steps.length;
+
+  const dots = document.getElementById('step-dots');
+  dots.innerHTML = sc.steps.map((_, i) => {
+    let cls = i < curStep ? 'step-dot done' : i === curStep ? 'step-dot active' : 'step-dot';
+    return `<div class="${cls}"></div>`;
+  }).join('');
+
+  document.getElementById('step-label').textContent = `Step ${curStep + 1} / ${n}`;
+  document.getElementById('btn-prev').disabled = curStep === 0;
+  document.getElementById('btn-next').disabled = curStep === n - 1;
+}
+
+// ═══════════════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════════════
+function renderTabs() {
+  const el = document.getElementById('tabs');
+  el.innerHTML = SCENARIOS.map((sc, i) =>
+    `<button class="tab ${i === curScenario ? 'active' : ''}" onclick="switchScenario(${i})">${sc.title.split(' ').slice(0,2).join(' ')}</button>`
+  ).join('');
+}
+
+function switchScenario(i) {
+  curScenario = i;
+  curStep = 0;
+  renderAll();
+}
+
+// ═══════════════════════════════════════════════════════════
+// FULL RENDER
+// ═══════════════════════════════════════════════════════════
+function renderAll() {
+  const sc = SCENARIOS[curScenario];
+  document.getElementById('sc-title').textContent = sc.title;
+  document.getElementById('sc-sub').textContent   = sc.sub;
+  renderTabs();
+  renderSVG();
+  renderFDTable();
+  renderAnnotation();
+  renderNav();
+}
+
+// ═══════════════════════════════════════════════════════════
+// NAVIGATION CONTROLS
+// ═══════════════════════════════════════════════════════════
+function navigate(dir) {
+  const n = SCENARIOS[curScenario].steps.length;
+  curStep = Math.max(0, Math.min(n - 1, curStep + dir));
+  renderSVG();
+  renderFDTable();
+  renderAnnotation();
+  renderNav();
+}
+
+document.getElementById('btn-prev').addEventListener('click', () => navigate(-1));
+document.getElementById('btn-next').addEventListener('click', () => navigate(+1));
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') navigate(+1);
+  if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   navigate(-1);
+});
+
+// ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+renderAll();
+</script>
+</body>
+</html>
