@@ -1,3 +1,5 @@
+import os
+import struct
 import yaml
 import json
 from jsonschema import validate, ValidationError
@@ -7,6 +9,26 @@ from sphinx.util.docutils import SphinxDirective
 import docutils.parsers.rst.directives as directives
 
 DOC_META_KEYS = {"docHidden", "_doc_hidden", "_docHide", "_doc"}
+
+_INT_FORMATS = set('BbHhIiQq')
+
+def validate_value_range(value, field_schema, field_name):
+    """Check that a numeric value fits within the binaryFormat range.
+
+    Returns a list of warning strings (empty if all OK).
+    """
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return []
+    bf = field_schema.get('binaryFormat', '')
+    if not bf or bf not in _INT_FORMATS:
+        return []
+    try:
+        struct.pack(f'<{bf}', int(value))
+    except struct.error:
+        prefix = 'sint' if bf.islower() else 'uint'
+        bits = struct.calcsize(bf) * 8
+        return [f"Value {value} for '{field_name}' is out of range for {prefix}{bits}"]
+    return []
 
 def is_hidden(node):
     if not isinstance(node, dict):
@@ -84,6 +106,7 @@ class PldmPdrTableDirective(SphinxDirective):
 
         # 5. Flatten Data (for table)
         rows = []
+        range_warnings = []
         def flatten(data, parent_key='', schema=schema, hidden=False, root_schema=None, condition_data=None):
             if root_schema is None:
                 root_schema = schema
@@ -105,7 +128,11 @@ class PldmPdrTableDirective(SphinxDirective):
                     # Leaf Node
                     val = data['value']
                     comment = data.get('comment', '')
-                    
+
+                    # Validate value against binaryFormat range
+                    warnings = validate_value_range(val, schema, parent_key)
+                    range_warnings.extend(warnings)
+
                     if 'type' in data:
                         field_type = data['type']
                     else:
@@ -181,6 +208,11 @@ class PldmPdrTableDirective(SphinxDirective):
                     flatten(item, full_key, subschema, hidden=hidden or is_hidden(item), root_schema=root_schema, condition_data=condition_data)
 
         flatten(raw_data, root_schema=schema, condition_data=condition_data)
+
+        if range_warnings:
+            yaml_name = os.path.basename(yaml_abs_path)
+            msg = f"Value range errors in {yaml_name}:\n" + "\n".join(f"  - {w}" for w in range_warnings)
+            raise self.error(msg)
 
         if not rows:
             raise self.error("No data found to generate table.")
