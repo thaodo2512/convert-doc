@@ -1,0 +1,694 @@
+/*
+ * pldm_file_host.c
+ * PLDM for File Transfer (DSP0242) — File Host implementation
+ * Zephyr RTOS
+ *
+ * Supported commands:
+ *   DfProperties     (0x10)
+ *   DfOpen           (0x01)
+ *   DfHeartbeat      (0x03)
+ *   DfRead           (0x09 — MultipartReceive, PLDMType=0x07)
+ *   DfClose          (0x02)
+ *
+ * NOT supported:
+ *   DfClose ZeroLength=1
+ *   DfFIFOSend (Pushed mode)
+ *   DfGetFileAttribute / DfSetFileAttribute
+ *
+ * FD Allocation — Method B (generation counter):
+ *
+ *   FD (uint16_t) = [ generation:9 bits | slot_index:7 bits ]
+ *
+ *   - slot_index : direct O(1) array index, supports up to 128 slots
+ *   - generation : incremented on every reuse of a slot (1..511)
+ *   - stale FD from a closed/timed-out session is always rejected,
+ *     even if the underlying slot has been reused by a new session
+ */
+
+#include <zephyr/kernel.h>
+#include <zephyr/logging/log.h>
+#include <string.h>
+#include <stdint.h>
+#include <stdbool.h>
+
+LOG_MODULE_REGISTER(pldm_file_host, LOG_LEVEL_DBG);
+
+/* ═══════════════════════════════════════════════════════════
+ * CONFIGURATION
+ * ═══════════════════════════════════════════════════════════ */
+
+#define MAX_SESSIONS        128     /* configurable via Kconfig, max 128 */
+#define DEFAULT_NI_MS       5000    /* default NegotiatedInterval = 5s   */
+#define HOST_MAX_NI_MS      30000   /* host upper bound = 30s             */
+#define WATCHDOG_PERIOD_MS  200     /* how often watchdog scans           */
+
+/* ═══════════════════════════════════════════════════════════
+ * FD ENCODING  (Method B — generation counter)
+ *
+ *  bit 15                    bit 7  bit 6        bit 0
+ *  [      generation (9 bits)      |  slot_index (7 bits) ]
+ *
+ *  generation range : 1..511  (0 reserved — FD=0 is always invalid)
+ *  slot_index range : 0..127
+ *
+ *  Example:
+ *    slot=2, gen=1  →  FD = (1<<7)|2 = 0x0082
+ *    slot=2, gen=2  →  FD = (2<<7)|2 = 0x0102  ← different, stale 0x0082 rejected
+ * ═══════════════════════════════════════════════════════════ */
+
+#define FD_SLOT_BITS    7u
+#define FD_SLOT_MASK    ((1u << FD_SLOT_BITS) - 1u)            /* 0x7F  */
+#define FD_GEN_SHIFT    FD_SLOT_BITS
+#define FD_GEN_MAX      ((1u << (16u - FD_SLOT_BITS)) - 1u)    /* 511   */
+
+#define FD_ENCODE(slot, gen) \
+    ((uint16_t)(((uint16_t)(gen) << FD_GEN_SHIFT) | ((uint16_t)(slot) & FD_SLOT_MASK)))
+
+#define FD_SLOT(fd)     ((uint8_t)((fd) & FD_SLOT_MASK))
+#define FD_GEN(fd)      ((uint16_t)((uint16_t)(fd) >> FD_GEN_SHIFT))
+
+#define FD_INVALID      0u  /* generation=0 → always invalid */
+
+BUILD_ASSERT(MAX_SESSIONS <= (1 << FD_SLOT_BITS),
+             "MAX_SESSIONS exceeds FD_SLOT_BITS capacity (max 128)");
+
+/* ═══════════════════════════════════════════════════════════
+ * COMPLETION CODES  (DSP0242 Table 16)
+ * ═══════════════════════════════════════════════════════════ */
+
+#define PLDM_SUCCESS                                0x00
+#define PLDM_ERROR_INVALID_DATA                     0x03
+#define PLDM_ERROR_UNSUPPORTED_PLDM_CMD             0x05
+#define PLDM_FILE_INVALID_FILE_DESCRIPTOR           0x80
+#define PLDM_FILE_INVALID_DF_ATTRIBUTE              0x81
+#define PLDM_FILE_ZEROLENGTH_NOT_ALLOWED            0x82
+#define PLDM_FILE_EXCLUSIVE_OWNERSHIP_NOT_ALLOWED   0x84
+#define PLDM_FILE_EXCLUSIVE_OWNERSHIP_NOT_AVAILABLE 0x85
+#define PLDM_FILE_INVALID_FILE_IDENTIFIER           0x86
+#define PLDM_FILE_DFOPEN_DIR_NOT_ALLOWED            0x87
+#define PLDM_FILE_MAX_NUM_FDS_EXCEEDED              0x88
+
+/* ═══════════════════════════════════════════════════════════
+ * DfOpen ATTRIBUTE BITS  (DSP0242 Table 9)
+ * ═══════════════════════════════════════════════════════════ */
+
+#define DFOPEN_ATTR_READ_WRITE  BIT(0)  /* 1=Write (not supported), 0=Read */
+#define DFOPEN_ATTR_EXCLUSIVE   BIT(1)  /* 1=Exclusive open                */
+#define DFOPEN_ATTR_REG_FIFO    BIT(2)  /* 1=SerialTxFIFO                  */
+#define DFOPEN_ATTR_PUSHED      BIT(3)  /* 1=Pushed (not supported)        */
+
+/* ═══════════════════════════════════════════════════════════
+ * DfProperties ATTRIBUTE BITS  (DSP0242 Table 7)
+ * ═══════════════════════════════════════════════════════════ */
+
+#define DFPROP_ATTR_MAX_CONCURRENT_MEDIUM   BIT(0)
+#define DFPROP_ATTR_MAX_FILE_DESCRIPTORS    BIT(1)
+
+/* ═══════════════════════════════════════════════════════════
+ * MultipartReceive TransferOperation values  (DSP0240)
+ * ═══════════════════════════════════════════════════════════ */
+
+#define XFER_FIRST_PART     0x01
+#define XFER_NEXT_PART      0x02
+#define XFER_COMPLETE       0x03
+#define XFER_ABORT          0x04
+
+/* TransferFlag values */
+#define XFER_FLAG_START_AND_END         0x05
+#define XFER_FLAG_ACKNOWLEDGE_COMPLETE  0x06
+
+/* ═══════════════════════════════════════════════════════════
+ * FILE FLAGS
+ * ═══════════════════════════════════════════════════════════ */
+
+#define FILE_FLAG_IS_DIR        BIT(0)  /* Device File Directory — DfOpen forbidden */
+#define FILE_FLAG_EXCL_ALLOWED  BIT(1)  /* file supports exclusive open              */
+#define FILE_FLAG_IS_FIFO       BIT(2)  /* SerialTxFIFO — single session, no seek   */
+
+/* ═══════════════════════════════════════════════════════════
+ * SESSION FLAGS
+ * ═══════════════════════════════════════════════════════════ */
+
+#define SESSION_FLAG_EXCLUSIVE  BIT(0)
+#define SESSION_FLAG_FIFO       BIT(1)
+
+/* ═══════════════════════════════════════════════════════════
+ * DATA STRUCTURES
+ * ═══════════════════════════════════════════════════════════ */
+
+/* One file hosted by this endpoint */
+typedef struct {
+    uint16_t  fi;               /* FileIdentifier — static, define at build time  */
+    uint8_t  *buf;              /* pointer to RAM buffer (NULL for directories)    */
+    uint32_t  max_size;         /* buffer capacity = FileMaximumSize in PDR        */
+    uint32_t  cur_size;         /* current valid data size, updated by firmware    */
+    uint8_t   max_fd_count;     /* max concurrent sessions allowed for this file   */
+    uint8_t   flags;            /* FILE_FLAG_*                                     */
+} pldm_file_t;
+
+/* One active session slot */
+typedef struct {
+    uint16_t  fd;               /* encoded FD = (generation << 7) | slot_index    */
+    uint16_t  fi;               /* FileIdentifier this session refers to           */
+    bool      in_use;           /* true = slot occupied                            */
+    uint16_t  generation;       /* incremented each time this slot is reused       */
+    uint8_t   flags;            /* SESSION_FLAG_*                                  */
+    uint32_t  ni_ms;            /* NegotiatedInterval in ms                        */
+    int64_t   last_activity_ms; /* k_uptime_get() at last DfRead / DfHeartbeat     */
+} pldm_session_t;
+
+/* ═══════════════════════════════════════════════════════════
+ * FILE REGISTRY  — define your files here
+ * ═══════════════════════════════════════════════════════════ */
+
+/* Example RAM buffers — replace with your actual buffers */
+static uint8_t crash_dump_buf[1024];
+static uint8_t diag_log_buf[4096];
+
+#define FI_LOGS_DIR     50   /* Device File Directory — no buffer         */
+#define FI_CRASH_DUMP   100
+#define FI_DIAG_LOG     200
+
+static pldm_file_t files[] = {
+    {
+        /* Directory — no buffer, DfOpen always rejected */
+        .fi           = FI_LOGS_DIR,
+        .buf          = NULL,
+        .max_size     = 0xFFFFFFFFu,    /* spec requires this for directories */
+        .cur_size     = 0,
+        .max_fd_count = 0,
+        .flags        = FILE_FLAG_IS_DIR,
+    },
+    {
+        .fi           = FI_CRASH_DUMP,
+        .buf          = crash_dump_buf,
+        .max_size     = sizeof(crash_dump_buf),
+        .cur_size     = 0,              /* updated by firmware on crash        */
+        .max_fd_count = 4,
+        .flags        = FILE_FLAG_EXCL_ALLOWED,
+    },
+    {
+        .fi           = FI_DIAG_LOG,
+        .buf          = diag_log_buf,
+        .max_size     = sizeof(diag_log_buf),
+        .cur_size     = 0,              /* updated by firmware as log grows    */
+        .max_fd_count = 4,
+        .flags        = 0,
+    },
+};
+
+#define NUM_FILES ARRAY_SIZE(files)
+
+/* ═══════════════════════════════════════════════════════════
+ * SESSION TABLE
+ * ═══════════════════════════════════════════════════════════ */
+
+static pldm_session_t sessions[MAX_SESSIONS];
+
+static K_MUTEX_DEFINE(sessions_lock);
+
+/* ═══════════════════════════════════════════════════════════
+ * INTERNAL HELPERS
+ * ═══════════════════════════════════════════════════════════ */
+
+static pldm_file_t *find_file(uint16_t fi)
+{
+    for (int i = 0; i < NUM_FILES; i++)
+        if (files[i].fi == fi)
+            return &files[i];
+    return NULL;
+}
+
+/*
+ * find_session — O(1) lookup using slot_index encoded in FD.
+ *
+ * Rejects stale FDs by comparing the generation in the FD
+ * against the current generation stored in the slot.
+ *
+ * Rejected cases:
+ *   - FD == FD_INVALID (0)
+ *   - slot_index out of range
+ *   - slot not in_use
+ *   - generation mismatch → stale FD from closed/timed-out session
+ */
+static pldm_session_t *find_session(uint16_t fd)
+{
+    if (fd == FD_INVALID)
+        return NULL;
+
+    uint8_t  slot = FD_SLOT(fd);
+    uint16_t gen  = FD_GEN(fd);
+
+    if (slot >= MAX_SESSIONS)
+        return NULL;
+
+    pldm_session_t *s = &sessions[slot];
+
+    if (!s->in_use)
+        return NULL;
+
+    if (s->generation != gen) {
+        LOG_WRN("find_session: stale FD=0x%04x (slot=%u req_gen=%u cur_gen=%u)",
+                fd, slot, gen, s->generation);
+        return NULL;
+    }
+
+    return s;
+}
+
+/*
+ * find_free_slot — O(N) scan for first unused slot.
+ * Returns pointer to slot and its index.
+ */
+static pldm_session_t *find_free_slot(uint8_t *slot_idx_out)
+{
+    for (int i = 0; i < MAX_SESSIONS; i++) {
+        if (!sessions[i].in_use) {
+            *slot_idx_out = (uint8_t)i;
+            return &sessions[i];
+        }
+    }
+    return NULL;
+}
+
+/*
+ * alloc_fd — O(1) FD generation using slot index + generation counter.
+ *
+ * Increments the slot's generation counter and encodes
+ * (generation, slot_index) into a uint16_t FD.
+ * Generation wraps 511 → 1 (skips 0).
+ */
+static uint16_t alloc_fd(uint8_t slot_idx)
+{
+    pldm_session_t *s = &sessions[slot_idx];
+
+    s->generation++;
+    if (s->generation == 0 || s->generation > FD_GEN_MAX)
+        s->generation = 1;      /* wrap: skip 0, stay within 9 bits */
+
+    uint16_t fd = FD_ENCODE(slot_idx, s->generation);
+
+    LOG_DBG("alloc_fd: slot=%u gen=%u → FD=0x%04x", slot_idx, s->generation, fd);
+    return fd;
+}
+
+static int count_sessions_for_fi(uint16_t fi)
+{
+    int count = 0;
+    for (int i = 0; i < MAX_SESSIONS; i++)
+        if (sessions[i].in_use && sessions[i].fi == fi)
+            count++;
+    return count;
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * COMMAND HANDLERS
+ * ═══════════════════════════════════════════════════════════ */
+
+/*
+ * DfProperties (0x10)
+ * Query static capabilities of this File Host.
+ */
+int handle_df_properties(uint32_t attr_req, uint32_t *attr_val_out)
+{
+    if (__builtin_popcount(attr_req) != 1) {
+        LOG_WRN("DfProperties: multiple bits set attr_req=0x%08x", attr_req);
+        return PLDM_FILE_INVALID_DF_ATTRIBUTE;
+    }
+
+    if (attr_req & DFPROP_ATTR_MAX_CONCURRENT_MEDIUM) {
+        *attr_val_out = 1;              /* spec mandates 1 for this version */
+    } else if (attr_req & DFPROP_ATTR_MAX_FILE_DESCRIPTORS) {
+        *attr_val_out = MAX_SESSIONS;
+    } else {
+        return PLDM_FILE_INVALID_DF_ATTRIBUTE;
+    }
+
+    return PLDM_SUCCESS;
+}
+
+/*
+ * DfOpen (0x01)
+ * Establish a file session. Returns a FileDescriptor on success.
+ *
+ * Check order:
+ *   1.  File exists in registry
+ *   2.  Not a directory
+ *   3.  Write mode not supported
+ *   4.  Pushed mode not supported
+ *   5.  FIFO + exclusive always forbidden
+ *   6.  File does not allow exclusive
+ *   7.  Exclusive conflict with existing open session
+ *   8.  Per-file session limit
+ *   9.  Global pool limit
+ *   10. Allocate slot + generate FD via generation counter
+ */
+int handle_df_open(uint16_t fi, uint16_t open_attr, uint16_t *fd_out)
+{
+    int ret = PLDM_SUCCESS;
+
+    pldm_file_t *file = find_file(fi);
+    if (!file) {
+        LOG_WRN("DfOpen: unknown FI=%u", fi);
+        return PLDM_FILE_INVALID_FILE_IDENTIFIER;
+    }
+
+    if (file->flags & FILE_FLAG_IS_DIR)
+        return PLDM_FILE_DFOPEN_DIR_NOT_ALLOWED;
+
+    if (open_attr & DFOPEN_ATTR_READ_WRITE)
+        return PLDM_FILE_INVALID_DF_ATTRIBUTE;
+
+    if (open_attr & DFOPEN_ATTR_PUSHED)
+        return PLDM_FILE_INVALID_DF_ATTRIBUTE;
+
+    bool want_excl = open_attr & DFOPEN_ATTR_EXCLUSIVE;
+    bool want_fifo = open_attr & DFOPEN_ATTR_REG_FIFO;
+
+    if (want_fifo && want_excl)
+        return PLDM_FILE_INVALID_DF_ATTRIBUTE;
+
+    if (want_excl && !(file->flags & FILE_FLAG_EXCL_ALLOWED))
+        return PLDM_FILE_EXCLUSIVE_OWNERSHIP_NOT_ALLOWED;
+
+    k_mutex_lock(&sessions_lock, K_FOREVER);
+
+    if (want_excl) {
+        for (int i = 0; i < MAX_SESSIONS; i++) {
+            if (sessions[i].in_use && sessions[i].fi == fi) {
+                ret = PLDM_FILE_EXCLUSIVE_OWNERSHIP_NOT_AVAILABLE;
+                goto out_unlock;
+            }
+        }
+    }
+
+    int per_file_max = want_fifo ? 1 : (int)file->max_fd_count;
+    if (count_sessions_for_fi(fi) >= per_file_max) {
+        ret = PLDM_FILE_MAX_NUM_FDS_EXCEEDED;
+        goto out_unlock;
+    }
+
+    uint8_t slot_idx = 0;
+    pldm_session_t *slot = find_free_slot(&slot_idx);
+    if (!slot) {
+        ret = PLDM_FILE_MAX_NUM_FDS_EXCEEDED;
+        goto out_unlock;
+    }
+
+    slot->fd               = alloc_fd(slot_idx);  /* generation incremented here */
+    slot->fi               = fi;
+    slot->in_use           = true;
+    slot->ni_ms            = DEFAULT_NI_MS;
+    slot->last_activity_ms = k_uptime_get();
+    slot->flags            = 0;
+
+    if (want_excl) slot->flags |= SESSION_FLAG_EXCLUSIVE;
+    if (want_fifo) slot->flags |= SESSION_FLAG_FIFO;
+
+    *fd_out = slot->fd;
+
+    LOG_DBG("DfOpen: FI=%u → FD=0x%04x slot=%u gen=%u (excl=%d fifo=%d)",
+            fi, slot->fd, slot_idx, slot->generation, want_excl, want_fifo);
+
+out_unlock:
+    k_mutex_unlock(&sessions_lock);
+    return ret;
+}
+
+/*
+ * DfHeartbeat (0x03)
+ * Keep-alive + negotiate NegotiatedInterval.
+ * Resets the implicit-close timer for this FD only —
+ * has no effect on any other active session.
+ */
+int handle_df_heartbeat(uint16_t fd,
+                        uint32_t req_interval,
+                        uint32_t *ni_out)
+{
+    k_mutex_lock(&sessions_lock, K_FOREVER);
+
+    pldm_session_t *sess = find_session(fd);
+    if (!sess) {
+        k_mutex_unlock(&sessions_lock);
+        LOG_WRN("DfHeartbeat: invalid FD=0x%04x", fd);
+        return PLDM_FILE_INVALID_FILE_DESCRIPTOR;
+    }
+
+    sess->ni_ms            = MIN(req_interval, HOST_MAX_NI_MS);
+    sess->last_activity_ms = k_uptime_get();
+    *ni_out                = sess->ni_ms;
+
+    LOG_DBG("DfHeartbeat: FD=0x%04x NI=%ums", fd, sess->ni_ms);
+
+    k_mutex_unlock(&sessions_lock);
+    return PLDM_SUCCESS;
+}
+
+/*
+ * DfRead (0x09 — MultipartReceive, PLDMType=0x07)
+ *
+ * Always responds START_AND_END. Client tracks offset externally:
+ *   next_offset += DataLengthBytes
+ * DataLengthBytes=0 signals end of available data at given offset.
+ * Equivalent to DfHeartbeat for timer-reset purposes.
+ */
+int handle_df_read(uint16_t  fd,
+                   uint8_t   xfer_op,
+                   uint32_t  offset,
+                   uint32_t  req_len,
+                   uint8_t  *data_out,
+                   uint32_t *data_len_out,
+                   uint8_t  *xfer_flag_out)
+{
+    k_mutex_lock(&sessions_lock, K_FOREVER);
+
+    pldm_session_t *sess = find_session(fd);    /* O(1) — slot + generation check */
+    if (!sess) {
+        k_mutex_unlock(&sessions_lock);
+        LOG_WRN("DfRead: invalid FD=0x%04x", fd);
+        return PLDM_FILE_INVALID_FILE_DESCRIPTOR;
+    }
+
+    pldm_file_t *file = find_file(sess->fi);
+
+    /* DfRead = implicit heartbeat — reset this FD's timer only */
+    sess->last_activity_ms = k_uptime_get();
+
+    /* FIFO constraints (DSP0242 §9.8.1) */
+    if (sess->flags & SESSION_FLAG_FIFO) {
+        if (offset != 0) {
+            k_mutex_unlock(&sessions_lock);
+            LOG_WRN("DfRead: FIFO seek not allowed (FD=0x%04x)", fd);
+            return PLDM_ERROR_INVALID_DATA;
+        }
+        if (xfer_op == XFER_NEXT_PART) {
+            k_mutex_unlock(&sessions_lock);
+            LOG_WRN("DfRead: XFER_NEXT_PART not allowed on FIFO (FD=0x%04x)", fd);
+            return PLDM_ERROR_INVALID_DATA;
+        }
+    }
+
+    /* Clamp to available data */
+    uint32_t available = (offset >= file->cur_size) ? 0u
+                       : file->cur_size - offset;
+    uint32_t len = MIN(req_len, available);
+
+    k_mutex_unlock(&sessions_lock);
+
+    /* Copy outside lock to avoid holding mutex during memcpy */
+    if (len > 0)
+        memcpy(data_out, file->buf + offset, len);
+
+    *data_len_out  = len;
+    *xfer_flag_out = XFER_FLAG_START_AND_END;
+
+    LOG_DBG("DfRead: FD=0x%04x offset=0x%x req=%u got=%u",
+            fd, offset, req_len, len);
+
+    return PLDM_SUCCESS;
+}
+
+/*
+ * DfClose (0x02)
+ * Close an active session and free the slot.
+ *
+ * IMPORTANT: generation counter is preserved intentionally.
+ * On next DfOpen using this slot, alloc_fd() increments generation,
+ * making any previously issued FD permanently stale.
+ */
+int handle_df_close(uint16_t fd, bool zero_length)
+{
+    if (zero_length) {
+        LOG_WRN("DfClose: ZeroLength not supported (FD=0x%04x)", fd);
+        return PLDM_FILE_ZEROLENGTH_NOT_ALLOWED;
+    }
+
+    k_mutex_lock(&sessions_lock, K_FOREVER);
+
+    pldm_session_t *sess = find_session(fd);
+    if (!sess) {
+        k_mutex_unlock(&sessions_lock);
+        LOG_WRN("DfClose: invalid FD=0x%04x", fd);
+        return PLDM_FILE_INVALID_FILE_DESCRIPTOR;
+    }
+
+    LOG_DBG("DfClose: FD=0x%04x (FI=%u slot=%u gen=%u)",
+            fd, sess->fi, FD_SLOT(fd), sess->generation);
+
+    sess->in_use           = false;
+    sess->fd               = FD_INVALID;
+    sess->fi               = 0;
+    sess->flags            = 0;
+    sess->ni_ms            = 0;
+    sess->last_activity_ms = 0;
+    /* sess->generation intentionally NOT cleared */
+
+    k_mutex_unlock(&sessions_lock);
+    return PLDM_SUCCESS;
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * COMMAND DISPATCHER
+ * ═══════════════════════════════════════════════════════════ */
+
+int pldm_file_host_dispatch(uint8_t cmd, uint8_t *req, size_t req_len,
+                             uint8_t *resp, size_t *resp_len)
+{
+    switch (cmd) {
+    case 0x10: { /* DfProperties */
+        uint32_t attr_req = *(uint32_t *)req;
+        uint32_t attr_val = 0;
+        int rc = handle_df_properties(attr_req, &attr_val);
+        resp[0] = (uint8_t)rc;
+        if (rc == PLDM_SUCCESS) memcpy(&resp[1], &attr_val, 4);
+        *resp_len = rc == PLDM_SUCCESS ? 5u : 1u;
+        return rc;
+    }
+    case 0x01: { /* DfOpen */
+        uint16_t fi     = *(uint16_t *)&req[0];
+        uint16_t attr   = *(uint16_t *)&req[2];
+        uint16_t fd_out = 0;
+        int rc = handle_df_open(fi, attr, &fd_out);
+        resp[0] = (uint8_t)rc;
+        if (rc == PLDM_SUCCESS) memcpy(&resp[1], &fd_out, 2);
+        *resp_len = rc == PLDM_SUCCESS ? 3u : 1u;
+        return rc;
+    }
+    case 0x03: { /* DfHeartbeat */
+        uint16_t fd     = *(uint16_t *)&req[0];
+        uint32_t req_ni = *(uint32_t *)&req[2];
+        uint32_t ni_out = 0;
+        int rc = handle_df_heartbeat(fd, req_ni, &ni_out);
+        resp[0] = (uint8_t)rc;
+        if (rc == PLDM_SUCCESS) memcpy(&resp[1], &ni_out, 4);
+        *resp_len = rc == PLDM_SUCCESS ? 5u : 1u;
+        return rc;
+    }
+    case 0x02: { /* DfClose */
+        uint16_t fd      = *(uint16_t *)&req[0];
+        uint16_t opts    = *(uint16_t *)&req[2];
+        bool     zerolen = opts & BIT(0);
+        int rc = handle_df_close(fd, zerolen);
+        resp[0] = (uint8_t)rc;
+        *resp_len = 1u;
+        return rc;
+    }
+    case 0x09: { /* DfRead = MultipartReceive */
+        uint8_t  xfer_op  = req[0];
+        uint16_t fd       = *(uint16_t *)&req[1]; /* TransferContext lo-word */
+        uint32_t offset   = *(uint32_t *)&req[5]; /* RequestedSectionOffset  */
+        uint32_t rlen     = *(uint32_t *)&req[9]; /* RequestedSectionLength  */
+        uint32_t data_len = 0;
+        uint8_t  xfer_flag = 0;
+        int rc = handle_df_read(fd, xfer_op, offset, rlen,
+                                &resp[10], &data_len, &xfer_flag);
+        resp[0] = (uint8_t)rc;
+        resp[1] = xfer_flag;
+        memset(&resp[2], 0, 4);         /* NextDataTransferHandle = 0 */
+        memcpy(&resp[6], &data_len, 4); /* DataLengthBytes            */
+        *resp_len = rc == PLDM_SUCCESS ? 10u + data_len : 1u;
+        return rc;
+    }
+    default:
+        resp[0]   = PLDM_ERROR_UNSUPPORTED_PLDM_CMD;
+        *resp_len = 1u;
+        return PLDM_ERROR_UNSUPPORTED_PLDM_CMD;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * IMPLICIT CLOSE WATCHDOG THREAD
+ *
+ * Scans all active sessions every WATCHDOG_PERIOD_MS.
+ * Implicitly closes any session whose NegotiatedInterval
+ * has elapsed without a DfRead or DfHeartbeat.
+ *
+ * generation counter is preserved on implicit close —
+ * same rationale as handle_df_close().
+ * ═══════════════════════════════════════════════════════════ */
+
+#define WATCHDOG_STACK_SIZE 512
+#define WATCHDOG_PRIORITY   5
+
+static void fd_watchdog_thread(void *p1, void *p2, void *p3)
+{
+    ARG_UNUSED(p1); ARG_UNUSED(p2); ARG_UNUSED(p3);
+
+    while (1) {
+        k_sleep(K_MSEC(WATCHDOG_PERIOD_MS));
+
+        int64_t now = k_uptime_get();
+
+        k_mutex_lock(&sessions_lock, K_FOREVER);
+        for (int i = 0; i < MAX_SESSIONS; i++) {
+            pldm_session_t *s = &sessions[i];
+            if (!s->in_use) continue;
+
+            int64_t elapsed = now - s->last_activity_ms;
+            if (elapsed > (int64_t)s->ni_ms) {
+                LOG_WRN("Implicit close: FD=0x%04x FI=%u slot=%u "
+                        "(elapsed=%lldms NI=%ums)",
+                        s->fd, s->fi, i, elapsed, s->ni_ms);
+
+                s->in_use           = false;
+                s->fd               = FD_INVALID;
+                s->fi               = 0;
+                s->flags            = 0;
+                s->ni_ms            = 0;
+                s->last_activity_ms = 0;
+                /* s->generation intentionally preserved */
+            }
+        }
+        k_mutex_unlock(&sessions_lock);
+    }
+}
+
+K_THREAD_DEFINE(fd_watchdog, WATCHDOG_STACK_SIZE,
+                fd_watchdog_thread, NULL, NULL, NULL,
+                WATCHDOG_PRIORITY, 0, 0);
+
+/* ═══════════════════════════════════════════════════════════
+ * PUBLIC API — for firmware to update file sizes
+ * ═══════════════════════════════════════════════════════════ */
+
+/*
+ * pldm_file_host_update_size()
+ *
+ * Call this whenever firmware writes new data into a file buffer
+ * so DfRead returns the correct DataLengthBytes.
+ *
+ * Example:
+ *   memcpy(crash_dump_buf, new_crash_data, size);
+ *   pldm_file_host_update_size(FI_CRASH_DUMP, size);
+ */
+int pldm_file_host_update_size(uint16_t fi, uint32_t new_size)
+{
+    pldm_file_t *file = find_file(fi);
+    if (!file)                          return -EINVAL;
+    if (file->flags & FILE_FLAG_IS_DIR) return -EINVAL;
+    if (new_size > file->max_size)      return -EINVAL;
+
+    file->cur_size = new_size;
+    LOG_DBG("File FI=%u size updated → %u bytes", fi, new_size);
+    return 0;
+}
