@@ -304,6 +304,18 @@ def process_single_yaml(yaml_file, schema_dir, reserved_handles, next_handle_ref
     schema_props = schema.get('properties', {})
     cleaned_data = clean_for_validation(raw_data, schema_props)
     
+    # Validate x-bitfield-required (bit-gated conditional required fields)
+    bf_req = schema.get('x-bitfield-required')
+    if bf_req:
+        bf_field = bf_req['field']
+        bf_val = cleaned_data.get(bf_field, 0)
+        for bit_str, req_field in bf_req['bits'].items():
+            if bf_val & (1 << int(bit_str)):
+                if req_field not in cleaned_data:
+                    print(f"Validation error in {filename}: '{req_field}' is required "
+                          f"when {bf_field} bit {bit_str} is set (value={bf_val})")
+                    sys.exit(1)
+
     # Validate
     try:
         validate(instance=cleaned_data, schema=schema)
