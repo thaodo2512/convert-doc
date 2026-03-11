@@ -128,7 +128,7 @@
       "if": {
         "properties": {
           "rangeFieldFormat": {
-            "enum": [0,1,2,3,4,5,6,7]
+            "enum": [0,1,2,3,4,5,7,8]
           }
         }
       },
@@ -379,9 +379,9 @@
     },
     "rangeFieldFormat": {
       "type": "integer",
-      "enum": [0, 1, 2, 3, 4, 5, 6, 7],
+      "enum": [0, 1, 2, 3, 4, 5, 6, 7, 8],
       "binaryFormat": "B",
-      "description": "uint8; Format for range fields: 0=uint8,1=sint8,2=uint16,3=sint16,4=uint32,5=sint32,6=uint64,7=sint64"
+      "description": "uint8; Format for range fields: 0=uint8,1=sint8,2=uint16,3=sint16,4=uint32,5=sint32,6=real32,7=uint64,8=sint64"
     },
     "rangeFieldSupport": {
       "type": "integer",
@@ -392,30 +392,35 @@
     },
     "nominalValue": {
       "type": "number",
+      "default": 0,
       "binaryFormat": "variable",
       "x-binary-format-depends-on": "rangeFieldFormat",
       "description": "Value in rangeFieldFormat type; nominal value. Required if rangeFieldSupport bit 0 set. Binary formats: 1='B',2='b',3='h',4='I',5='i',6='f',7='Q',8='q'"
     },
     "normalMax": {
       "type": "number",
+      "default": 0,
       "binaryFormat": "variable",
       "x-binary-format-depends-on": "rangeFieldFormat",
       "description": "Value in rangeFieldFormat type; normal max. Required if rangeFieldSupport bit 1 set. Binary formats: 1='B',2='b',3='h',4='I',5='i',6='f',7='Q',8='q'"
     },
     "normalMin": {
       "type": "number",
+      "default": 0,
       "binaryFormat": "variable",
       "x-binary-format-depends-on": "rangeFieldFormat",
       "description": "Value in rangeFieldFormat type; normal min. Required if rangeFieldSupport bit 2 set. Binary formats: 1='B',2='b',3='h',4='I',5='i',6='f',7='Q',8='q'"
     },
     "ratedMax": {
       "type": "number",
+      "default": 0,
       "binaryFormat": "variable",
       "x-binary-format-depends-on": "rangeFieldFormat",
       "description": "Value in rangeFieldFormat type; rated max. Required if rangeFieldSupport bit 3 set. Binary formats: 1='B',2='b',3='h',4='I',5='i',6='f',7='Q',8='q'"
     },
     "ratedMin": {
       "type": "number",
+      "default": 0,
       "binaryFormat": "variable",
       "x-binary-format-depends-on": "rangeFieldFormat",
       "description": "Value in rangeFieldFormat type; rated min. Required if rangeFieldSupport bit 4 set. Binary formats: 1='B',2='b',3='h',4='I',5='i',6='f',7='Q',8='q'"
