@@ -12,7 +12,7 @@
 /* ----------------------------------------------------------------
  * Internal: find terminus slot index by EID
  * ---------------------------------------------------------------- */
-static int find_terminus_idx(const pdr_mgr_t *mgr, uint8_t eid)
+static int find_terminus_idx(const struct pdr_mgr_t *mgr, uint8_t eid)
 {
     for (int i = 0; i < PDR_MGR_MAX_TERMINI; i++) {
         if (mgr->termini[i].state != PDR_MGR_TERMINUS_UNUSED &&
@@ -26,7 +26,7 @@ static int find_terminus_idx(const pdr_mgr_t *mgr, uint8_t eid)
 /* ----------------------------------------------------------------
  * Internal: transport send/receive wrapper
  * ---------------------------------------------------------------- */
-static int mgr_send_recv(pdr_mgr_t *mgr, uint8_t eid, uint8_t command,
+static int mgr_send_recv(struct pdr_mgr_t *mgr, uint8_t eid, uint8_t command,
                           const uint8_t *req, uint16_t req_len,
                           uint8_t *resp, uint16_t *resp_len)
 {
@@ -41,7 +41,7 @@ static int mgr_send_recv(pdr_mgr_t *mgr, uint8_t eid, uint8_t command,
 /* ----------------------------------------------------------------
  * Initialization
  * ---------------------------------------------------------------- */
-void pdr_mgr_init(pdr_mgr_t *mgr, const pdr_mgr_transport_t *transport)
+void pdr_mgr_init(struct pdr_mgr_t *mgr, const struct pdr_mgr_transport_t *transport)
 {
     memset(mgr, 0, sizeof(*mgr));
     pdr_repo_init_ext(&mgr->repo, mgr->repo_blob, sizeof(mgr->repo_blob));
@@ -65,7 +65,7 @@ uint32_t pdr_mgr_remap_handle(uint8_t terminus_idx, uint16_t seq)
 /* ----------------------------------------------------------------
  * Terminus Management
  * ---------------------------------------------------------------- */
-int pdr_mgr_add_terminus(pdr_mgr_t *mgr, uint8_t eid,
+int pdr_mgr_add_terminus(struct pdr_mgr_t *mgr, uint8_t eid,
                           uint16_t terminus_handle, uint8_t tid,
                           uint8_t *index_out)
 {
@@ -77,7 +77,7 @@ int pdr_mgr_add_terminus(pdr_mgr_t *mgr, uint8_t eid,
     /* Find a free slot */
     for (int i = 0; i < PDR_MGR_MAX_TERMINI; i++) {
         if (mgr->termini[i].state == PDR_MGR_TERMINUS_UNUSED) {
-            memset(&mgr->termini[i], 0, sizeof(pdr_mgr_terminus_t));
+            memset(&mgr->termini[i], 0, sizeof(struct pdr_mgr_terminus_t));
             mgr->termini[i].state           = PDR_MGR_TERMINUS_DISCOVERED;
             mgr->termini[i].eid             = eid;
             mgr->termini[i].tid             = tid;
@@ -93,7 +93,7 @@ int pdr_mgr_add_terminus(pdr_mgr_t *mgr, uint8_t eid,
     return -1; /* No free slot */
 }
 
-int pdr_mgr_remove_terminus(pdr_mgr_t *mgr, uint8_t eid)
+int pdr_mgr_remove_terminus(struct pdr_mgr_t *mgr, uint8_t eid)
 {
     int idx = find_terminus_idx(mgr, eid);
     if (idx < 0) {
@@ -105,7 +105,7 @@ int pdr_mgr_remove_terminus(pdr_mgr_t *mgr, uint8_t eid)
     return 0;
 }
 
-pdr_mgr_terminus_t *pdr_mgr_find_terminus(pdr_mgr_t *mgr, uint8_t eid)
+struct pdr_mgr_terminus_t *pdr_mgr_find_terminus(struct pdr_mgr_t *mgr, uint8_t eid)
 {
     int idx = find_terminus_idx(mgr, eid);
     if (idx < 0) {
@@ -114,8 +114,8 @@ pdr_mgr_terminus_t *pdr_mgr_find_terminus(pdr_mgr_t *mgr, uint8_t eid)
     return &mgr->termini[idx];
 }
 
-int pdr_mgr_get_terminus_state(const pdr_mgr_t *mgr, uint8_t eid,
-                                pdr_mgr_terminus_state_t *state)
+int pdr_mgr_get_terminus_state(const struct pdr_mgr_t *mgr, uint8_t eid,
+                                enum pdr_mgr_terminus_state_t *state)
 {
     int idx = find_terminus_idx(mgr, eid);
     if (idx < 0) {
@@ -132,7 +132,7 @@ int pdr_mgr_get_terminus_state(const pdr_mgr_t *mgr, uint8_t eid,
  * then attempts GetPDRRepositorySignature. Falls back to a
  * pseudo-signature if the endpoint doesn't support 0x53.
  * ---------------------------------------------------------------- */
-int pdr_mgr_fetch_repo_info(pdr_mgr_t *mgr, pdr_mgr_terminus_t *term)
+int pdr_mgr_fetch_repo_info(struct pdr_mgr_t *mgr, struct pdr_mgr_terminus_t *term)
 {
     uint8_t resp_buf[64];
     uint16_t resp_len;
@@ -146,12 +146,12 @@ int pdr_mgr_fetch_repo_info(pdr_mgr_t *mgr, pdr_mgr_terminus_t *term)
         return -1;
     }
 
-    if (resp_len < sizeof(pdr_mgr_get_repo_info_resp_t)) {
+    if (resp_len < sizeof(struct pdr_mgr_get_repo_info_resp_t)) {
         return -1;
     }
 
-    const pdr_mgr_get_repo_info_resp_t *info =
-        (const pdr_mgr_get_repo_info_resp_t *)resp_buf;
+    const struct pdr_mgr_get_repo_info_resp_t *info =
+        (const struct pdr_mgr_get_repo_info_resp_t *)resp_buf;
 
     if (info->completion_code != PLDM_CC_SUCCESS) {
         return -1;
@@ -166,9 +166,9 @@ int pdr_mgr_fetch_repo_info(pdr_mgr_t *mgr, pdr_mgr_terminus_t *term)
                         PLDM_PLATFORM_CMD_GET_PDR_REPO_SIGNATURE,
                         NULL, 0, resp_buf, &resp_len);
 
-    if (rc == 0 && resp_len >= sizeof(pdr_mgr_get_pdr_sig_resp_t)) {
-        const pdr_mgr_get_pdr_sig_resp_t *sig =
-            (const pdr_mgr_get_pdr_sig_resp_t *)resp_buf;
+    if (rc == 0 && resp_len >= sizeof(struct pdr_mgr_get_pdr_sig_resp_t)) {
+        const struct pdr_mgr_get_pdr_sig_resp_t *sig =
+            (const struct pdr_mgr_get_pdr_sig_resp_t *)resp_buf;
         if (sig->completion_code == PLDM_CC_SUCCESS) {
             term->last_signature = sig->signature;
             return 0;
@@ -189,16 +189,16 @@ int pdr_mgr_fetch_repo_info(pdr_mgr_t *mgr, pdr_mgr_terminus_t *term)
  * Result lands in fetch_ctx.reassembly_buf[0..reassembly_len-1].
  * Updates fetch_ctx.next_record_handle for the next record.
  * ---------------------------------------------------------------- */
-int pdr_mgr_fetch_one_pdr(pdr_mgr_t *mgr, pdr_mgr_terminus_t *term)
+int pdr_mgr_fetch_one_pdr(struct pdr_mgr_t *mgr, struct pdr_mgr_terminus_t *term)
 {
-    pdr_mgr_fetch_ctx_t *ctx = &term->fetch_ctx;
-    uint8_t resp_buf[sizeof(pdr_mgr_get_pdr_resp_t) + PDR_TRANSFER_CHUNK_SIZE];
+    struct pdr_mgr_fetch_ctx_t *ctx = &term->fetch_ctx;
+    uint8_t resp_buf[sizeof(struct pdr_mgr_get_pdr_resp_t) + PDR_TRANSFER_CHUNK_SIZE];
     uint16_t resp_len;
     int rc;
 
     ctx->reassembly_len = 0;
 
-    pdr_mgr_get_pdr_req_t req = {
+    struct pdr_mgr_get_pdr_req_t req = {
         .record_handle        = ctx->next_record_handle,
         .data_transfer_handle = 0,
         .transfer_op_flag     = PLDM_TRANSFER_OP_GET_FIRST_PART,
@@ -215,12 +215,12 @@ int pdr_mgr_fetch_one_pdr(pdr_mgr_t *mgr, pdr_mgr_terminus_t *term)
             return -1;
         }
 
-        if (resp_len < sizeof(pdr_mgr_get_pdr_resp_t)) {
+        if (resp_len < sizeof(struct pdr_mgr_get_pdr_resp_t)) {
             return -1;
         }
 
-        const pdr_mgr_get_pdr_resp_t *resp =
-            (const pdr_mgr_get_pdr_resp_t *)resp_buf;
+        const struct pdr_mgr_get_pdr_resp_t *resp =
+            (const struct pdr_mgr_get_pdr_resp_t *)resp_buf;
 
         if (resp->completion_code != PLDM_CC_SUCCESS) {
             return -1;
@@ -229,7 +229,7 @@ int pdr_mgr_fetch_one_pdr(pdr_mgr_t *mgr, pdr_mgr_terminus_t *term)
         uint16_t chunk_len = resp->response_count;
 
         /* Validate response contains the advertised data */
-        if (resp_len < sizeof(pdr_mgr_get_pdr_resp_t) + chunk_len) {
+        if (resp_len < sizeof(struct pdr_mgr_get_pdr_resp_t) + chunk_len) {
             return -1;
         }
 
@@ -240,7 +240,7 @@ int pdr_mgr_fetch_one_pdr(pdr_mgr_t *mgr, pdr_mgr_terminus_t *term)
 
         /* Append chunk to reassembly buffer */
         const uint8_t *chunk_data =
-            resp_buf + sizeof(pdr_mgr_get_pdr_resp_t);
+            resp_buf + sizeof(struct pdr_mgr_get_pdr_resp_t);
         memcpy(&ctx->reassembly_buf[ctx->reassembly_len],
                chunk_data, chunk_len);
         ctx->reassembly_len += chunk_len;
@@ -265,7 +265,7 @@ int pdr_mgr_fetch_one_pdr(pdr_mgr_t *mgr, pdr_mgr_terminus_t *term)
  * Temporarily overrides the repo's handle allocator to force the
  * remapped handle, then restores it.
  * ---------------------------------------------------------------- */
-int pdr_mgr_add_remapped_pdr(pdr_mgr_t *mgr, uint32_t remapped_handle,
+int pdr_mgr_add_remapped_pdr(struct pdr_mgr_t *mgr, uint32_t remapped_handle,
                               uint8_t pdr_type, const void *data,
                               uint16_t data_len)
 {
@@ -286,7 +286,7 @@ int pdr_mgr_add_remapped_pdr(pdr_mgr_t *mgr, uint32_t remapped_handle,
  * Identifies records by their handle range and removes them.
  * Iterates backwards to avoid index shift issues during removal.
  * ---------------------------------------------------------------- */
-int pdr_mgr_purge_terminus_pdrs(pdr_mgr_t *mgr, uint8_t terminus_idx)
+int pdr_mgr_purge_terminus_pdrs(struct pdr_mgr_t *mgr, uint8_t terminus_idx)
 {
     uint32_t range_base = (uint32_t)(terminus_idx + 1)
                           << PDR_MGR_HANDLE_RANGE_SHIFT;
@@ -307,7 +307,7 @@ int pdr_mgr_purge_terminus_pdrs(pdr_mgr_t *mgr, uint8_t terminus_idx)
  *
  * Track remote → local handle mappings for incremental updates.
  * ---------------------------------------------------------------- */
-int pdr_mgr_find_handle_mapping(const pdr_mgr_terminus_t *term,
+int pdr_mgr_find_handle_mapping(const struct pdr_mgr_terminus_t *term,
                                  uint32_t remote_handle,
                                  uint32_t *local_handle)
 {
@@ -320,7 +320,7 @@ int pdr_mgr_find_handle_mapping(const pdr_mgr_terminus_t *term,
     return -1;
 }
 
-int pdr_mgr_add_handle_mapping(pdr_mgr_terminus_t *term,
+int pdr_mgr_add_handle_mapping(struct pdr_mgr_terminus_t *term,
                                 uint32_t remote_handle,
                                 uint32_t local_handle)
 {
@@ -333,7 +333,7 @@ int pdr_mgr_add_handle_mapping(pdr_mgr_terminus_t *term,
     return 0;
 }
 
-int pdr_mgr_remove_handle_mapping(pdr_mgr_terminus_t *term,
+int pdr_mgr_remove_handle_mapping(struct pdr_mgr_terminus_t *term,
                                    uint32_t remote_handle)
 {
     for (uint16_t i = 0; i < term->handle_map_count; i++) {
@@ -354,7 +354,7 @@ int pdr_mgr_remove_handle_mapping(pdr_mgr_terminus_t *term,
  * Sets up the fetch context for a targeted fetch and delegates
  * to fetch_one_pdr. Result is in fetch_ctx.reassembly_buf.
  * ---------------------------------------------------------------- */
-int pdr_mgr_fetch_pdr_by_handle(pdr_mgr_t *mgr, pdr_mgr_terminus_t *term,
+int pdr_mgr_fetch_pdr_by_handle(struct pdr_mgr_t *mgr, struct pdr_mgr_terminus_t *term,
                                  uint32_t remote_handle)
 {
     term->fetch_ctx.next_record_handle = remote_handle;
@@ -372,14 +372,14 @@ int pdr_mgr_fetch_pdr_by_handle(pdr_mgr_t *mgr, pdr_mgr_terminus_t *term,
  *   5. Remap handles and add to consolidated repo
  *   6. Update state to SYNCED
  * ---------------------------------------------------------------- */
-int pdr_mgr_sync_terminus(pdr_mgr_t *mgr, uint8_t eid)
+int pdr_mgr_sync_terminus(struct pdr_mgr_t *mgr, uint8_t eid)
 {
     int idx = find_terminus_idx(mgr, eid);
     if (idx < 0) {
         return -1;
     }
 
-    pdr_mgr_terminus_t *term = &mgr->termini[idx];
+    struct pdr_mgr_terminus_t *term = &mgr->termini[idx];
     uint32_t old_sig   = term->last_signature;
     bool     was_synced = (term->state == PDR_MGR_TERMINUS_SYNCED ||
                            term->state == PDR_MGR_TERMINUS_STALE);
@@ -418,20 +418,20 @@ int pdr_mgr_sync_terminus(pdr_mgr_t *mgr, uint8_t eid)
         }
 
         /* Validate reassembled PDR has at least a header */
-        if (term->fetch_ctx.reassembly_len < sizeof(pldm_pdr_hdr_t)) {
+        if (term->fetch_ctx.reassembly_len < sizeof(struct pldm_pdr_hdr_t)) {
             term->state = PDR_MGR_TERMINUS_ERROR;
             return -1;
         }
 
         /* Step 5: Parse header, remap handle, add to consolidated repo */
-        const pldm_pdr_hdr_t *pdr_hdr =
-            (const pldm_pdr_hdr_t *)term->fetch_ctx.reassembly_buf;
+        const struct pldm_pdr_hdr_t *pdr_hdr =
+            (const struct pldm_pdr_hdr_t *)term->fetch_ctx.reassembly_buf;
 
         uint32_t remapped = pdr_mgr_remap_handle((uint8_t)idx,
                                                   term->local_handle_seq++);
 
         const uint8_t *pdr_data =
-            term->fetch_ctx.reassembly_buf + sizeof(pldm_pdr_hdr_t);
+            term->fetch_ctx.reassembly_buf + sizeof(struct pldm_pdr_hdr_t);
         uint16_t pdr_data_len = pdr_hdr->data_length;
 
         rc = pdr_mgr_add_remapped_pdr(mgr, remapped, pdr_hdr->pdr_type,
@@ -460,7 +460,7 @@ int pdr_mgr_sync_terminus(pdr_mgr_t *mgr, uint8_t eid)
 /* ----------------------------------------------------------------
  * Sync All
  * ---------------------------------------------------------------- */
-int pdr_mgr_sync_all(pdr_mgr_t *mgr)
+int pdr_mgr_sync_all(struct pdr_mgr_t *mgr)
 {
     int errors = 0;
 
@@ -479,14 +479,14 @@ int pdr_mgr_sync_all(pdr_mgr_t *mgr)
 /* ----------------------------------------------------------------
  * Check For Changes (lightweight signature comparison)
  * ---------------------------------------------------------------- */
-int pdr_mgr_check_for_changes(pdr_mgr_t *mgr, uint8_t eid, bool *changed)
+int pdr_mgr_check_for_changes(struct pdr_mgr_t *mgr, uint8_t eid, bool *changed)
 {
     int idx = find_terminus_idx(mgr, eid);
     if (idx < 0) {
         return -1;
     }
 
-    pdr_mgr_terminus_t *term = &mgr->termini[idx];
+    struct pdr_mgr_terminus_t *term = &mgr->termini[idx];
     uint32_t old_sig = term->last_signature;
 
     int rc = pdr_mgr_fetch_repo_info(mgr, term);
@@ -506,12 +506,12 @@ int pdr_mgr_check_for_changes(pdr_mgr_t *mgr, uint8_t eid, bool *changed)
 /* ----------------------------------------------------------------
  * Consolidated Repo Access — thin wrappers
  * ---------------------------------------------------------------- */
-const pdr_repo_info_t *pdr_mgr_get_repo_info(const pdr_mgr_t *mgr)
+const struct pdr_repo_info_t *pdr_mgr_get_repo_info(const struct pdr_mgr_t *mgr)
 {
     return pdr_repo_get_info(&mgr->repo);
 }
 
-int pdr_mgr_get_pdr(const pdr_mgr_t *mgr,
+int pdr_mgr_get_pdr(const struct pdr_mgr_t *mgr,
                      uint32_t  record_handle,
                      uint32_t  data_transfer_handle,
                      uint32_t *next_record_handle,
@@ -525,7 +525,7 @@ int pdr_mgr_get_pdr(const pdr_mgr_t *mgr,
                              transfer_flag, data, data_len);
 }
 
-int pdr_mgr_find_pdr(const pdr_mgr_t *mgr,
+int pdr_mgr_find_pdr(const struct pdr_mgr_t *mgr,
                       uint8_t   pdr_type,
                       uint32_t  start_handle,
                       uint32_t *found_handle,
@@ -537,12 +537,12 @@ int pdr_mgr_find_pdr(const pdr_mgr_t *mgr,
                               found_handle, next_handle, data, data_len);
 }
 
-uint32_t pdr_mgr_get_repo_signature(pdr_mgr_t *mgr)
+uint32_t pdr_mgr_get_repo_signature(struct pdr_mgr_t *mgr)
 {
     return pdr_repo_get_signature(&mgr->repo);
 }
 
-int pdr_mgr_lookup_origin(const pdr_mgr_t *mgr, uint32_t handle,
+int pdr_mgr_lookup_origin(const struct pdr_mgr_t *mgr, uint32_t handle,
                            uint8_t *eid)
 {
     uint32_t term_idx = (handle >> PDR_MGR_HANDLE_RANGE_SHIFT) - 1;

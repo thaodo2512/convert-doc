@@ -36,7 +36,7 @@
  * @param event_data_len Length of event data
  * @return 0 on success, -1 on decode error or unrecoverable failure
  */
-int pdr_chg_event_handle(pdr_mgr_t *mgr, uint8_t eid,
+int pdr_chg_event_handle(struct pdr_mgr_t *mgr, uint8_t eid,
                           const uint8_t *event_data, uint16_t event_data_len);
 
 #endif /* PLDM_PDR_CHG_EVENT_HANDLER_H */

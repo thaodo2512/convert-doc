@@ -68,7 +68,7 @@
  * ---------------------------------------------------------------- */
 
 /** GetPDRRepositoryInfo (0x50) response */
-typedef struct __attribute__((packed)) {
+struct pdr_mgr_get_repo_info_resp_t {
     uint8_t  completion_code;
     uint8_t  repository_state;
     uint8_t  update_time[13];           /* PLDM timestamp104 */
@@ -77,44 +77,44 @@ typedef struct __attribute__((packed)) {
     uint32_t repository_size;
     uint32_t largest_record_size;
     uint8_t  data_transfer_handle_timeout;
-} pdr_mgr_get_repo_info_resp_t;
+} __attribute__((packed));
 
 /** GetPDR (0x51) request */
-typedef struct __attribute__((packed)) {
+struct pdr_mgr_get_pdr_req_t {
     uint32_t record_handle;
     uint32_t data_transfer_handle;
     uint8_t  transfer_op_flag;
     uint16_t request_count;
     uint16_t record_change_num;
-} pdr_mgr_get_pdr_req_t;
+} __attribute__((packed));
 
 /** GetPDR (0x51) response header (followed by response_count bytes) */
-typedef struct __attribute__((packed)) {
+struct pdr_mgr_get_pdr_resp_t {
     uint8_t  completion_code;
     uint32_t next_record_handle;
     uint32_t next_data_transfer_handle;
     uint8_t  transfer_flag;
     uint16_t response_count;
     /* record_data[response_count] follows */
-} pdr_mgr_get_pdr_resp_t;
+} __attribute__((packed));
 
 /** GetPDRRepositorySignature (0x53) response */
-typedef struct __attribute__((packed)) {
+struct pdr_mgr_get_pdr_sig_resp_t {
     uint8_t  completion_code;
     uint32_t signature;
-} pdr_mgr_get_pdr_sig_resp_t;
+} __attribute__((packed));
 
 /* ----------------------------------------------------------------
  * Terminus State Machine
  * ---------------------------------------------------------------- */
-typedef enum {
+enum pdr_mgr_terminus_state_t {
     PDR_MGR_TERMINUS_UNUSED     = 0,
     PDR_MGR_TERMINUS_DISCOVERED = 1,
     PDR_MGR_TERMINUS_SYNCING    = 2,
     PDR_MGR_TERMINUS_SYNCED     = 3,
     PDR_MGR_TERMINUS_STALE      = 4,
     PDR_MGR_TERMINUS_ERROR      = 5,
-} pdr_mgr_terminus_state_t;
+};
 
 /* ----------------------------------------------------------------
  * Per-Terminus Fetch Context
@@ -122,13 +122,13 @@ typedef enum {
  * Tracks multi-part reassembly and iteration progress while
  * fetching PDRs from a remote endpoint.
  * ---------------------------------------------------------------- */
-typedef struct {
+struct pdr_mgr_fetch_ctx_t {
     uint8_t  reassembly_buf[PDR_MGR_REASSEMBLY_BUF_SIZE];
     uint16_t reassembly_len;         /* Bytes accumulated so far           */
     uint32_t next_record_handle;     /* Next record to fetch (0 = first)   */
     uint16_t records_fetched;        /* Records successfully fetched       */
     uint8_t  retries;                /* Retry counter for current op       */
-} pdr_mgr_fetch_ctx_t;
+};
 
 /* ----------------------------------------------------------------
  * Handle Map Entry (remote → local handle tracking)
@@ -137,16 +137,16 @@ typedef struct {
  * Maps the original record_handle from the remote terminus to
  * the remapped handle in the consolidated repository.
  * ---------------------------------------------------------------- */
-typedef struct {
+struct pdr_mgr_handle_map_entry_t {
     uint32_t remote_handle;          /* Original handle on the terminus    */
     uint32_t local_handle;           /* Remapped handle in consolidated    */
-} pdr_mgr_handle_map_entry_t;
+};
 
 /* ----------------------------------------------------------------
  * Per-Terminus Tracking
  * ---------------------------------------------------------------- */
-typedef struct {
-    pdr_mgr_terminus_state_t state;
+struct pdr_mgr_terminus_t {
+    enum pdr_mgr_terminus_state_t state;
     uint8_t  eid;                    /* MCTP endpoint ID                   */
     uint8_t  tid;                    /* PLDM terminus ID                   */
     uint16_t terminus_handle;        /* PLDM terminus handle               */
@@ -155,11 +155,11 @@ typedef struct {
     uint32_t last_signature;         /* Last known repo signature          */
     uint16_t local_handle_seq;       /* Next sub-handle within our range   */
     uint16_t local_record_count;     /* Records in consolidated repo       */
-    pdr_mgr_fetch_ctx_t fetch_ctx;
+    struct pdr_mgr_fetch_ctx_t fetch_ctx;
     /* Handle map for incremental updates (change events) */
-    pdr_mgr_handle_map_entry_t handle_map[PDR_MAX_RECORD_COUNT];
+    struct pdr_mgr_handle_map_entry_t handle_map[PDR_MAX_RECORD_COUNT];
     uint16_t handle_map_count;
-} pdr_mgr_terminus_t;
+};
 
 /* ----------------------------------------------------------------
  * Transport Abstraction
@@ -178,7 +178,7 @@ typedef struct {
  * @param req_len    Request payload length
  * @param resp_data  Response buffer (filled by transport)
  * @param resp_len   In: buffer size, Out: actual response length
- * @param ctx        Opaque context from pdr_mgr_transport_t
+ * @param ctx        Opaque context from struct pdr_mgr_transport_t
  * @return 0 on success, -1 on transport error
  */
 typedef int (*pdr_mgr_send_recv_fn)(
@@ -192,20 +192,20 @@ typedef int (*pdr_mgr_send_recv_fn)(
     void          *ctx
 );
 
-typedef struct {
+struct pdr_mgr_transport_t {
     pdr_mgr_send_recv_fn send_recv;
     void                *ctx;        /* Passed to send_recv on every call  */
-} pdr_mgr_transport_t;
+};
 
 /* ----------------------------------------------------------------
  * Top-Level Manager
  * ---------------------------------------------------------------- */
-typedef struct {
-    pdr_repo_t           repo;       /* Consolidated PDR repository        */
+struct pdr_mgr_t {
+    struct pdr_repo_t    repo;       /* Consolidated PDR repository        */
     uint8_t              repo_blob[PDR_REPO_MAX_SIZE]; /* Manager's own blob */
-    pdr_mgr_terminus_t   termini[PDR_MGR_MAX_TERMINI];
-    pdr_mgr_transport_t  transport;
-} pdr_mgr_t;
+    struct pdr_mgr_terminus_t   termini[PDR_MGR_MAX_TERMINI];
+    struct pdr_mgr_transport_t  transport;
+};
 
 /* ----------------------------------------------------------------
  * API: Initialization
@@ -217,7 +217,7 @@ typedef struct {
  * Zeros all state, initializes the consolidated repo, and stores
  * the transport callbacks.
  */
-void pdr_mgr_init(pdr_mgr_t *mgr, const pdr_mgr_transport_t *transport);
+void pdr_mgr_init(struct pdr_mgr_t *mgr, const struct pdr_mgr_transport_t *transport);
 
 /* ----------------------------------------------------------------
  * API: Terminus Management
@@ -233,25 +233,25 @@ void pdr_mgr_init(pdr_mgr_t *mgr, const pdr_mgr_transport_t *transport);
  * @param[out] index_out   Assigned slot index (optional, can be NULL)
  * @return 0 on success, -1 if full or duplicate
  */
-int pdr_mgr_add_terminus(pdr_mgr_t *mgr, uint8_t eid,
+int pdr_mgr_add_terminus(struct pdr_mgr_t *mgr, uint8_t eid,
                           uint16_t terminus_handle, uint8_t tid,
                           uint8_t *index_out);
 
 /**
  * @brief Remove a terminus and purge all its PDRs from the consolidated repo.
  */
-int pdr_mgr_remove_terminus(pdr_mgr_t *mgr, uint8_t eid);
+int pdr_mgr_remove_terminus(struct pdr_mgr_t *mgr, uint8_t eid);
 
 /**
  * @brief Find a terminus by EID. Returns NULL if not found.
  */
-pdr_mgr_terminus_t *pdr_mgr_find_terminus(pdr_mgr_t *mgr, uint8_t eid);
+struct pdr_mgr_terminus_t *pdr_mgr_find_terminus(struct pdr_mgr_t *mgr, uint8_t eid);
 
 /**
  * @brief Query the current state of a terminus.
  */
-int pdr_mgr_get_terminus_state(const pdr_mgr_t *mgr, uint8_t eid,
-                                pdr_mgr_terminus_state_t *state);
+int pdr_mgr_get_terminus_state(const struct pdr_mgr_t *mgr, uint8_t eid,
+                                enum pdr_mgr_terminus_state_t *state);
 
 /* ----------------------------------------------------------------
  * API: PDR Synchronization
@@ -267,27 +267,27 @@ int pdr_mgr_get_terminus_state(const pdr_mgr_t *mgr, uint8_t eid,
  * 5. Remap handles and add to consolidated repo
  * 6. Mark as SYNCED
  */
-int pdr_mgr_sync_terminus(pdr_mgr_t *mgr, uint8_t eid);
+int pdr_mgr_sync_terminus(struct pdr_mgr_t *mgr, uint8_t eid);
 
 /**
  * @brief Sync all termini in DISCOVERED or STALE state.
  * @return 0 if all succeeded, -1 if any failed
  */
-int pdr_mgr_sync_all(pdr_mgr_t *mgr);
+int pdr_mgr_sync_all(struct pdr_mgr_t *mgr);
 
 /**
  * @brief Lightweight check — fetch signature and compare.
  * @param[out] changed  true if the remote repo has changed
  */
-int pdr_mgr_check_for_changes(pdr_mgr_t *mgr, uint8_t eid, bool *changed);
+int pdr_mgr_check_for_changes(struct pdr_mgr_t *mgr, uint8_t eid, bool *changed);
 
 /* ----------------------------------------------------------------
  * API: Consolidated Repo Access (thin wrappers)
  * ---------------------------------------------------------------- */
 
-const pdr_repo_info_t *pdr_mgr_get_repo_info(const pdr_mgr_t *mgr);
+const struct pdr_repo_info_t *pdr_mgr_get_repo_info(const struct pdr_mgr_t *mgr);
 
-int pdr_mgr_get_pdr(const pdr_mgr_t *mgr,
+int pdr_mgr_get_pdr(const struct pdr_mgr_t *mgr,
                      uint32_t  record_handle,
                      uint32_t  data_transfer_handle,
                      uint32_t *next_record_handle,
@@ -296,7 +296,7 @@ int pdr_mgr_get_pdr(const pdr_mgr_t *mgr,
                      const uint8_t **data,
                      uint16_t *data_len);
 
-int pdr_mgr_find_pdr(const pdr_mgr_t *mgr,
+int pdr_mgr_find_pdr(const struct pdr_mgr_t *mgr,
                       uint8_t   pdr_type,
                       uint32_t  start_handle,
                       uint32_t *found_handle,
@@ -304,7 +304,7 @@ int pdr_mgr_find_pdr(const pdr_mgr_t *mgr,
                       const uint8_t **data,
                       uint16_t *data_len);
 
-uint32_t pdr_mgr_get_repo_signature(pdr_mgr_t *mgr);
+uint32_t pdr_mgr_get_repo_signature(struct pdr_mgr_t *mgr);
 
 /**
  * @brief Determine which terminus owns a given handle.
@@ -314,7 +314,7 @@ uint32_t pdr_mgr_get_repo_signature(pdr_mgr_t *mgr);
  * @param[out] eid  EID of the originating terminus
  * @return 0 on success, -1 if handle doesn't map to a known terminus
  */
-int pdr_mgr_lookup_origin(const pdr_mgr_t *mgr, uint32_t handle,
+int pdr_mgr_lookup_origin(const struct pdr_mgr_t *mgr, uint32_t handle,
                            uint8_t *eid);
 
 /* ----------------------------------------------------------------
@@ -322,38 +322,38 @@ int pdr_mgr_lookup_origin(const pdr_mgr_t *mgr, uint32_t handle,
  * ---------------------------------------------------------------- */
 
 /** Fetch GetPDRRepositoryInfo (0x50) + GetPDRRepositorySignature (0x53) */
-int pdr_mgr_fetch_repo_info(pdr_mgr_t *mgr, pdr_mgr_terminus_t *term);
+int pdr_mgr_fetch_repo_info(struct pdr_mgr_t *mgr, struct pdr_mgr_terminus_t *term);
 
 /** Fetch a single PDR with multi-part reassembly */
-int pdr_mgr_fetch_one_pdr(pdr_mgr_t *mgr, pdr_mgr_terminus_t *term);
+int pdr_mgr_fetch_one_pdr(struct pdr_mgr_t *mgr, struct pdr_mgr_terminus_t *term);
 
 /** Compute a remapped handle from terminus index and sequence number */
 uint32_t pdr_mgr_remap_handle(uint8_t terminus_idx, uint16_t seq);
 
 /** Add a PDR to the consolidated repo with a forced handle */
-int pdr_mgr_add_remapped_pdr(pdr_mgr_t *mgr, uint32_t remapped_handle,
+int pdr_mgr_add_remapped_pdr(struct pdr_mgr_t *mgr, uint32_t remapped_handle,
                               uint8_t pdr_type, const void *data,
                               uint16_t data_len);
 
 /** Remove all PDRs belonging to a terminus from the consolidated repo */
-int pdr_mgr_purge_terminus_pdrs(pdr_mgr_t *mgr, uint8_t terminus_idx);
+int pdr_mgr_purge_terminus_pdrs(struct pdr_mgr_t *mgr, uint8_t terminus_idx);
 
 /** Fetch a specific PDR by remote handle (result in fetch_ctx.reassembly_buf) */
-int pdr_mgr_fetch_pdr_by_handle(pdr_mgr_t *mgr, pdr_mgr_terminus_t *term,
+int pdr_mgr_fetch_pdr_by_handle(struct pdr_mgr_t *mgr, struct pdr_mgr_terminus_t *term,
                                  uint32_t remote_handle);
 
 /** Look up local (remapped) handle from a remote handle */
-int pdr_mgr_find_handle_mapping(const pdr_mgr_terminus_t *term,
+int pdr_mgr_find_handle_mapping(const struct pdr_mgr_terminus_t *term,
                                  uint32_t remote_handle,
                                  uint32_t *local_handle);
 
 /** Record a remote → local handle mapping */
-int pdr_mgr_add_handle_mapping(pdr_mgr_terminus_t *term,
+int pdr_mgr_add_handle_mapping(struct pdr_mgr_terminus_t *term,
                                 uint32_t remote_handle,
                                 uint32_t local_handle);
 
 /** Remove a handle mapping by remote handle */
-int pdr_mgr_remove_handle_mapping(pdr_mgr_terminus_t *term,
+int pdr_mgr_remove_handle_mapping(struct pdr_mgr_terminus_t *term,
                                    uint32_t remote_handle);
 
 #endif /* PLDM_PDR_MGR_H */

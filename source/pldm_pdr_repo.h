@@ -32,13 +32,13 @@
  * PLDM PDR Common Header (per DSP0248)
  * Every PDR record starts with this 5-byte header.
  * ---------------------------------------------------------------- */
-typedef struct __attribute__((packed)) {
+struct pldm_pdr_hdr_t {
     uint32_t record_handle;       /* Unique handle for this record             */
     uint8_t  pdr_header_version;  /* PDR header format version (typically 0x01)*/
     uint8_t  pdr_type;            /* PDR type (e.g., numeric sensor, FRU, etc) */
     uint16_t record_change_num;   /* Incremented on record modification        */
     uint16_t data_length;         /* Length of record data following header     */
-} pldm_pdr_hdr_t;
+} __attribute__((packed));
 
 /* ----------------------------------------------------------------
  * Per-Record Index Entry (metadata kept outside the blob)
@@ -48,15 +48,15 @@ typedef struct __attribute__((packed)) {
  * ---------------------------------------------------------------- */
 #define PDR_INDEX_FLAG_TOMBSTONE  0x01
 
-typedef struct {
+struct pdr_index_entry_t {
     uint32_t record_handle;       /* Duplicated from PDR header for fast lookup*/
     uint32_t offset;              /* Byte offset into pdr_blob[]               */
     uint16_t size;                /* Total size INCLUDING the PDR header       */
     uint8_t  pdr_type;            /* Duplicated for FindPDR filtering          */
     uint8_t  flags;               /* Bit 0: tombstone (deleted record)         */
-} pdr_index_entry_t;
+};
 
-static inline bool pdr_index_is_tombstone(const pdr_index_entry_t *e) {
+static inline bool pdr_index_is_tombstone(const struct pdr_index_entry_t *e) {
     return (e->flags & PDR_INDEX_FLAG_TOMBSTONE) != 0;
 }
 
@@ -66,7 +66,7 @@ static inline bool pdr_index_is_tombstone(const pdr_index_entry_t *e) {
  * Pre-computed metadata returned directly by GetPDRRepositoryInfo.
  * Updated on every add/remove/rebuild so the command handler is trivial.
  * ---------------------------------------------------------------- */
-typedef struct {
+struct pdr_repo_info_t {
     uint8_t  repository_state;    /* 0=available, 1=update_in_progress, 2=failed */
     uint32_t record_count;        /* Total number of PDR records               */
     uint32_t repository_size;     /* Total bytes used in pdr_blob[]            */
@@ -74,23 +74,23 @@ typedef struct {
     uint32_t update_timestamp;    /* Seconds since epoch (or system uptime)    */
     uint32_t oem_update_timestamp;
     uint8_t  data_transfer_handle_timeout; /* In seconds                       */
-} pdr_repo_info_t;
+};
 
 /* ----------------------------------------------------------------
  * The PDR Repository (top-level structure)
  * ---------------------------------------------------------------- */
-typedef struct {
+struct pdr_repo_t {
     /* --- The blob: contiguous storage for all PDR record bytes --- */
     uint8_t  *blob;
     uint32_t blob_capacity;        /* Total capacity of blob buffer            */
     uint32_t blob_used;            /* Bytes currently used in blob[]           */
 
     /* --- The index: fast lookup table for each record --- */
-    pdr_index_entry_t index[PDR_MAX_RECORD_COUNT];
+    struct pdr_index_entry_t index[PDR_MAX_RECORD_COUNT];
     uint16_t count;                /* Number of records currently stored       */
 
     /* --- Repo-level metadata (serves GetPDRRepositoryInfo) --- */
-    pdr_repo_info_t info;
+    struct pdr_repo_info_t info;
 
     /* --- Signature cache (serves GetPDRRepositorySignature) --- */
     uint32_t signature;            /* CRC32 over blob[0..blob_used-1]          */
@@ -99,7 +99,7 @@ typedef struct {
     /* --- Handle allocator --- */
     uint32_t next_record_handle;   /* Monotonically increasing handle counter  */
 
-} pdr_repo_t;
+};
 
 /* ----------------------------------------------------------------
  * API
@@ -109,7 +109,7 @@ typedef struct {
  * @brief Initialize an empty PDR repository.
  *        Call once at startup, or call again to wipe & rebuild (RunInitAgent).
  */
-void pdr_repo_init(pdr_repo_t *repo);
+void pdr_repo_init(struct pdr_repo_t *repo);
 
 /**
  * @brief Initialize a PDR repository with an external blob buffer.
@@ -118,7 +118,7 @@ void pdr_repo_init(pdr_repo_t *repo);
  * @param blob           Pointer to an external mutable buffer for PDR storage
  * @param blob_capacity  Size of the external buffer in bytes
  */
-void pdr_repo_init_ext(pdr_repo_t *repo, uint8_t *blob, uint32_t blob_capacity);
+void pdr_repo_init_ext(struct pdr_repo_t *repo, uint8_t *blob, uint32_t blob_capacity);
 
 /**
  * @brief Index an existing record already present in the blob at the given offset.
@@ -130,7 +130,7 @@ void pdr_repo_init_ext(pdr_repo_t *repo, uint8_t *blob, uint32_t blob_capacity);
  * @param offset  Byte offset into the blob where the record starts
  * @return 0 on success, -1 on error
  */
-int pdr_repo_index_record(pdr_repo_t *repo, uint32_t offset);
+int pdr_repo_index_record(struct pdr_repo_t *repo, uint32_t offset);
 
 /**
  * @brief Add a PDR record to the repository.
@@ -145,7 +145,7 @@ int pdr_repo_index_record(pdr_repo_t *repo, uint32_t offset);
  * Internally: writes the PDR common header + data into the blob,
  *             appends an index entry, and updates repo info.
  */
-int pdr_repo_add_record(pdr_repo_t *repo,
+int pdr_repo_add_record(struct pdr_repo_t *repo,
                          uint8_t     pdr_type,
                          const void *data,
                          uint16_t    data_len,
@@ -158,7 +158,7 @@ int pdr_repo_add_record(pdr_repo_t *repo,
  * reclaimed until the next RunInitAgent rebuild. This is O(1) and avoids
  * expensive memmove on embedded targets.
  */
-int pdr_repo_remove_record(pdr_repo_t *repo, uint32_t record_handle);
+int pdr_repo_remove_record(struct pdr_repo_t *repo, uint32_t record_handle);
 
 /* ----------------------------------------------------------------
  * Command Handlers
@@ -169,7 +169,7 @@ int pdr_repo_remove_record(pdr_repo_t *repo, uint32_t record_handle);
  * @brief [0x50] GetPDRRepositoryInfo
  *        Just returns a pointer to the pre-computed info struct.
  */
-const pdr_repo_info_t *pdr_repo_get_info(const pdr_repo_t *repo);
+const struct pdr_repo_info_t *pdr_repo_get_info(const struct pdr_repo_t *repo);
 
 /**
  * @brief [0x51] GetPDR
@@ -184,7 +184,7 @@ const pdr_repo_info_t *pdr_repo_get_info(const pdr_repo_t *repo);
  * @param[out] data_len     Bytes returned in this chunk
  * @return 0 on success, -1 if handle not found
  */
-int pdr_repo_get_pdr(const pdr_repo_t *repo,
+int pdr_repo_get_pdr(const struct pdr_repo_t *repo,
                       uint32_t  record_handle,
                       uint32_t  data_transfer_handle,
                       uint32_t *next_record_handle,
@@ -209,7 +209,7 @@ int pdr_repo_get_pdr(const pdr_repo_t *repo,
  * NOTE: For more complex FindPDR filters (e.g., by entity type, container ID),
  *       extend this function with additional filter parameters.
  */
-int pdr_repo_find_pdr(const pdr_repo_t *repo,
+int pdr_repo_find_pdr(const struct pdr_repo_t *repo,
                        uint8_t   pdr_type,
                        uint32_t  start_handle,
                        uint32_t *found_handle,
@@ -221,7 +221,7 @@ int pdr_repo_find_pdr(const pdr_repo_t *repo,
  * @brief [0x53] GetPDRRepositorySignature
  *        Returns CRC32 over the entire blob. Lazy-computed and cached.
  */
-uint32_t pdr_repo_get_signature(pdr_repo_t *repo);
+uint32_t pdr_repo_get_signature(struct pdr_repo_t *repo);
 
 /**
  * @brief [0x58] RunInitAgent
@@ -232,9 +232,9 @@ uint32_t pdr_repo_get_signature(pdr_repo_t *repo);
  *                       by calling pdr_repo_add_record() for each PDR.
  * @param ctx            Opaque context passed to the callback
  */
-typedef void (*pdr_init_callback_t)(pdr_repo_t *repo, void *ctx);
+typedef void (*pdr_init_callback_t)(struct pdr_repo_t *repo, void *ctx);
 
-int pdr_repo_run_init_agent(pdr_repo_t *repo,
+int pdr_repo_run_init_agent(struct pdr_repo_t *repo,
                              pdr_init_callback_t init_callback,
                              void *ctx);
 
@@ -243,13 +243,13 @@ int pdr_repo_run_init_agent(pdr_repo_t *repo,
  * ---------------------------------------------------------------- */
 
 /** Find the index position for a given record handle. Returns -1 if not found. */
-int pdr_repo_find_index(const pdr_repo_t *repo, uint32_t record_handle);
+int pdr_repo_find_index(const struct pdr_repo_t *repo, uint32_t record_handle);
 
 /** Recompute repo info fields (record_count, largest_record_size, etc.) */
-void pdr_repo_update_info(pdr_repo_t *repo);
+void pdr_repo_update_info(struct pdr_repo_t *repo);
 
 /** Invalidate the cached signature (called on any mutation) */
-static inline void pdr_repo_invalidate_signature(pdr_repo_t *repo) {
+static inline void pdr_repo_invalidate_signature(struct pdr_repo_t *repo) {
     repo->signature_valid = false;
 }
 

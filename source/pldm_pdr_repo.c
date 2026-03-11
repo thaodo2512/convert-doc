@@ -30,7 +30,7 @@ static uint32_t crc32_buf(const uint8_t *buf, uint32_t len)
 /* ----------------------------------------------------------------
  * Init
  * ---------------------------------------------------------------- */
-void pdr_repo_init(pdr_repo_t *repo)
+void pdr_repo_init(struct pdr_repo_t *repo)
 {
     memset(repo, 0, sizeof(*repo));
     repo->info.repository_state = 0; /* available */
@@ -40,7 +40,7 @@ void pdr_repo_init(pdr_repo_t *repo)
 /* ----------------------------------------------------------------
  * Init with external blob
  * ---------------------------------------------------------------- */
-void pdr_repo_init_ext(pdr_repo_t *repo, uint8_t *blob, uint32_t blob_capacity)
+void pdr_repo_init_ext(struct pdr_repo_t *repo, uint8_t *blob, uint32_t blob_capacity)
 {
     pdr_repo_init(repo);
     repo->blob = blob;
@@ -50,20 +50,20 @@ void pdr_repo_init_ext(pdr_repo_t *repo, uint8_t *blob, uint32_t blob_capacity)
 /* ----------------------------------------------------------------
  * Index an existing record in the blob (zero-copy)
  * ---------------------------------------------------------------- */
-int pdr_repo_index_record(pdr_repo_t *repo, uint32_t offset)
+int pdr_repo_index_record(struct pdr_repo_t *repo, uint32_t offset)
 {
     if (repo->count >= PDR_MAX_RECORD_COUNT) {
         return -1;
     }
 
-    const pldm_pdr_hdr_t *hdr = (const pldm_pdr_hdr_t *)&repo->blob[offset];
-    uint16_t total_size = sizeof(pldm_pdr_hdr_t) + hdr->data_length;
+    const struct pldm_pdr_hdr_t *hdr = (const struct pldm_pdr_hdr_t *)&repo->blob[offset];
+    uint16_t total_size = sizeof(struct pldm_pdr_hdr_t) + hdr->data_length;
 
     if ((offset + total_size) > repo->blob_capacity) {
         return -1;
     }
 
-    pdr_index_entry_t *entry = &repo->index[repo->count];
+    struct pdr_index_entry_t *entry = &repo->index[repo->count];
     entry->record_handle = hdr->record_handle;
     entry->offset        = offset;
     entry->size          = total_size;
@@ -82,7 +82,7 @@ int pdr_repo_index_record(pdr_repo_t *repo, uint32_t offset)
 /* ----------------------------------------------------------------
  * Internal: find index by handle
  * ---------------------------------------------------------------- */
-int pdr_repo_find_index(const pdr_repo_t *repo, uint32_t record_handle)
+int pdr_repo_find_index(const struct pdr_repo_t *repo, uint32_t record_handle)
 {
     /* Handle 0 means "get the first non-tombstone record" */
     if (record_handle == 0) {
@@ -106,7 +106,7 @@ int pdr_repo_find_index(const pdr_repo_t *repo, uint32_t record_handle)
 /* ----------------------------------------------------------------
  * Internal: recompute repo-level info after mutation
  * ---------------------------------------------------------------- */
-void pdr_repo_update_info(pdr_repo_t *repo)
+void pdr_repo_update_info(struct pdr_repo_t *repo)
 {
     uint32_t live_count = 0;
     uint32_t live_size  = 0;
@@ -136,13 +136,13 @@ void pdr_repo_update_info(pdr_repo_t *repo)
 /* ----------------------------------------------------------------
  * Add Record
  * ---------------------------------------------------------------- */
-int pdr_repo_add_record(pdr_repo_t *repo,
+int pdr_repo_add_record(struct pdr_repo_t *repo,
                          uint8_t     pdr_type,
                          const void *data,
                          uint16_t    data_len,
                          uint32_t   *handle_out)
 {
-    uint16_t total_size = sizeof(pldm_pdr_hdr_t) + data_len;
+    uint16_t total_size = sizeof(struct pldm_pdr_hdr_t) + data_len;
 
     /* Check capacity */
     if (repo->count >= PDR_MAX_RECORD_COUNT) {
@@ -156,7 +156,7 @@ int pdr_repo_add_record(pdr_repo_t *repo,
     uint32_t handle = repo->next_record_handle++;
 
     /* Write PDR common header into blob */
-    pldm_pdr_hdr_t hdr = {
+    struct pldm_pdr_hdr_t hdr = {
         .record_handle      = handle,
         .pdr_header_version = 0x01,
         .pdr_type           = pdr_type,
@@ -169,7 +169,7 @@ int pdr_repo_add_record(pdr_repo_t *repo,
     memcpy(&repo->blob[offset + sizeof(hdr)], data, data_len);
 
     /* Append index entry */
-    pdr_index_entry_t *entry = &repo->index[repo->count];
+    struct pdr_index_entry_t *entry = &repo->index[repo->count];
     entry->record_handle = handle;
     entry->offset        = offset;
     entry->size          = total_size;
@@ -191,7 +191,7 @@ int pdr_repo_add_record(pdr_repo_t *repo,
 /* ----------------------------------------------------------------
  * Remove Record (tombstone — no compaction, O(1))
  * ---------------------------------------------------------------- */
-int pdr_repo_remove_record(pdr_repo_t *repo, uint32_t record_handle)
+int pdr_repo_remove_record(struct pdr_repo_t *repo, uint32_t record_handle)
 {
     int idx = pdr_repo_find_index(repo, record_handle);
     if (idx < 0) {
@@ -209,7 +209,7 @@ int pdr_repo_remove_record(pdr_repo_t *repo, uint32_t record_handle)
 /* ----------------------------------------------------------------
  * [0x50] GetPDRRepositoryInfo
  * ---------------------------------------------------------------- */
-const pdr_repo_info_t *pdr_repo_get_info(const pdr_repo_t *repo)
+const struct pdr_repo_info_t *pdr_repo_get_info(const struct pdr_repo_t *repo)
 {
     return &repo->info;
 }
@@ -217,7 +217,7 @@ const pdr_repo_info_t *pdr_repo_get_info(const pdr_repo_t *repo)
 /* ----------------------------------------------------------------
  * [0x51] GetPDR — with multi-part transfer support
  * ---------------------------------------------------------------- */
-int pdr_repo_get_pdr(const pdr_repo_t *repo,
+int pdr_repo_get_pdr(const struct pdr_repo_t *repo,
                       uint32_t  record_handle,
                       uint32_t  data_transfer_handle,
                       uint32_t *next_record_handle,
@@ -231,7 +231,7 @@ int pdr_repo_get_pdr(const pdr_repo_t *repo,
         return -1;
     }
 
-    const pdr_index_entry_t *entry = &repo->index[idx];
+    const struct pdr_index_entry_t *entry = &repo->index[idx];
 
     /* Validate data_transfer_handle (offset within this record) */
     if (data_transfer_handle >= entry->size) {
@@ -283,7 +283,7 @@ int pdr_repo_get_pdr(const pdr_repo_t *repo,
 /* ----------------------------------------------------------------
  * [0x52] FindPDR — search by PDR type
  * ---------------------------------------------------------------- */
-int pdr_repo_find_pdr(const pdr_repo_t *repo,
+int pdr_repo_find_pdr(const struct pdr_repo_t *repo,
                        uint8_t   pdr_type,
                        uint32_t  start_handle,
                        uint32_t *found_handle,
@@ -332,7 +332,7 @@ int pdr_repo_find_pdr(const pdr_repo_t *repo,
 /* ----------------------------------------------------------------
  * [0x53] GetPDRRepositorySignature — lazy CRC32
  * ---------------------------------------------------------------- */
-uint32_t pdr_repo_get_signature(pdr_repo_t *repo)
+uint32_t pdr_repo_get_signature(struct pdr_repo_t *repo)
 {
     if (!repo->signature_valid) {
         repo->signature = crc32_buf(repo->blob, repo->blob_used);
@@ -344,7 +344,7 @@ uint32_t pdr_repo_get_signature(pdr_repo_t *repo)
 /* ----------------------------------------------------------------
  * [0x58] RunInitAgent — wipe and rebuild
  * ---------------------------------------------------------------- */
-int pdr_repo_run_init_agent(pdr_repo_t *repo,
+int pdr_repo_run_init_agent(struct pdr_repo_t *repo,
                              pdr_init_callback_t init_callback,
                              void *ctx)
 {

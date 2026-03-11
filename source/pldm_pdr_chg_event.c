@@ -11,7 +11,7 @@
 /* ----------------------------------------------------------------
  * Validation (V1–V5 per DSP0248)
  * ---------------------------------------------------------------- */
-int pdr_chg_event_validate(const pdr_chg_event_t *event)
+int pdr_chg_event_validate(const struct pdr_chg_event_t *event)
 {
     /* V1: refreshEntireRepository must have 0 change records */
     if (event->event_data_format == PDR_CHG_FORMAT_REFRESH_ENTIRE) {
@@ -32,7 +32,7 @@ int pdr_chg_event_validate(const pdr_chg_event_t *event)
     uint8_t last_op = 0;
 
     for (uint8_t i = 0; i < event->num_change_records; i++) {
-        const pdr_chg_record_t *rec = &event->change_records[i];
+        const struct pdr_chg_record_t *rec = &event->change_records[i];
 
         /* V2: formatIsPDRHandles cannot use refreshAllRecords */
         if (event->event_data_format == PDR_CHG_FORMAT_PDR_HANDLES &&
@@ -72,7 +72,7 @@ int pdr_chg_event_validate(const pdr_chg_event_t *event)
  *     for each changeEntry:
  *       [uint32 LE: 4]
  * ---------------------------------------------------------------- */
-int pdr_chg_event_encode(const pdr_chg_event_t *event,
+int pdr_chg_event_encode(const struct pdr_chg_event_t *event,
                           uint8_t *buf, uint16_t buf_size,
                           uint16_t *encoded_len)
 {
@@ -91,7 +91,7 @@ int pdr_chg_event_encode(const pdr_chg_event_t *event,
 
     /* Change records */
     for (uint8_t i = 0; i < event->num_change_records; i++) {
-        const pdr_chg_record_t *rec = &event->change_records[i];
+        const struct pdr_chg_record_t *rec = &event->change_records[i];
 
         if (offset + 2 > buf_size) {
             return -1;
@@ -119,7 +119,7 @@ int pdr_chg_event_encode(const pdr_chg_event_t *event,
  * Decoding
  * ---------------------------------------------------------------- */
 int pdr_chg_event_decode(const uint8_t *buf, uint16_t buf_len,
-                          pdr_chg_event_t *event)
+                          struct pdr_chg_event_t *event)
 {
     memset(event, 0, sizeof(*event));
 
@@ -146,7 +146,7 @@ int pdr_chg_event_decode(const uint8_t *buf, uint16_t buf_len,
             return -1;
         }
 
-        pdr_chg_record_t *rec = &event->change_records[i];
+        struct pdr_chg_record_t *rec = &event->change_records[i];
         rec->event_data_operation = buf[offset++];
         rec->num_change_entries   = buf[offset++];
 
@@ -175,7 +175,7 @@ int pdr_chg_event_decode(const uint8_t *buf, uint16_t buf_len,
 /* ----------------------------------------------------------------
  * Change Tracker — terminus side
  * ---------------------------------------------------------------- */
-void pdr_chg_tracker_init(pdr_chg_tracker_t *tracker)
+void pdr_chg_tracker_init(struct pdr_chg_tracker_t *tracker)
 {
     memset(tracker, 0, sizeof(*tracker));
     tracker->deletes.event_data_operation  = PDR_CHG_OP_RECORDS_DELETED;
@@ -183,7 +183,7 @@ void pdr_chg_tracker_init(pdr_chg_tracker_t *tracker)
     tracker->modifies.event_data_operation = PDR_CHG_OP_RECORDS_MODIFIED;
 }
 
-int pdr_chg_tracker_record_add(pdr_chg_tracker_t *tracker, uint32_t entry)
+int pdr_chg_tracker_record_add(struct pdr_chg_tracker_t *tracker, uint32_t entry)
 {
     if (tracker->adds.num_change_entries >= PDR_CHG_EVENT_MAX_ENTRIES) {
         return -1;
@@ -193,7 +193,7 @@ int pdr_chg_tracker_record_add(pdr_chg_tracker_t *tracker, uint32_t entry)
     return 0;
 }
 
-int pdr_chg_tracker_record_delete(pdr_chg_tracker_t *tracker, uint32_t entry)
+int pdr_chg_tracker_record_delete(struct pdr_chg_tracker_t *tracker, uint32_t entry)
 {
     if (tracker->deletes.num_change_entries >= PDR_CHG_EVENT_MAX_ENTRIES) {
         return -1;
@@ -203,7 +203,7 @@ int pdr_chg_tracker_record_delete(pdr_chg_tracker_t *tracker, uint32_t entry)
     return 0;
 }
 
-int pdr_chg_tracker_record_modify(pdr_chg_tracker_t *tracker, uint32_t entry)
+int pdr_chg_tracker_record_modify(struct pdr_chg_tracker_t *tracker, uint32_t entry)
 {
     if (tracker->modifies.num_change_entries >= PDR_CHG_EVENT_MAX_ENTRIES) {
         return -1;
@@ -214,7 +214,7 @@ int pdr_chg_tracker_record_modify(pdr_chg_tracker_t *tracker, uint32_t entry)
 }
 
 /** Calculate the wire-encoded size of a change event. */
-static uint16_t calc_encoded_size(const pdr_chg_event_t *event)
+static uint16_t calc_encoded_size(const struct pdr_chg_event_t *event)
 {
     uint16_t size = 2; /* format + num_records */
     for (uint8_t i = 0; i < event->num_change_records; i++) {
@@ -224,8 +224,8 @@ static uint16_t calc_encoded_size(const pdr_chg_event_t *event)
     return size;
 }
 
-int pdr_chg_tracker_build_event(const pdr_chg_tracker_t *tracker,
-                                 pdr_chg_event_t *event,
+int pdr_chg_tracker_build_event(const struct pdr_chg_tracker_t *tracker,
+                                 struct pdr_chg_event_t *event,
                                  uint8_t format,
                                  uint16_t max_msg_size)
 {
@@ -275,7 +275,7 @@ fallback:
     return 0;
 }
 
-void pdr_chg_tracker_clear(pdr_chg_tracker_t *tracker)
+void pdr_chg_tracker_clear(struct pdr_chg_tracker_t *tracker)
 {
     pdr_chg_tracker_init(tracker);
 }

@@ -625,8 +625,8 @@ def generate_all(yaml_dir, schema_dir, output_file, macro_yaml=None,
             hdr.write(f"    PDR_TYPE_ENTRY({pdr_type}, {count}){trailing}")
         hdr.write("\n")
 
-        hdr.write("void pdr_repo_populate_ext(pdr_repo_t *repo, void *ctx);\n")
-        hdr.write("void pdr_repo_populate(pdr_repo_t *repo, void *ctx);\n\n")
+        hdr.write("void pdr_repo_populate_ext(struct pdr_repo_t *repo, void *ctx);\n")
+        hdr.write("void pdr_repo_populate(struct pdr_repo_t *repo, void *ctx);\n\n")
 
         hdr.write(f"#endif // {guard}\n")
 
@@ -663,7 +663,7 @@ def generate_all(yaml_dir, schema_dir, output_file, macro_yaml=None,
 
         # --- pdr_repo_populate_ext(): zero-copy fast init ---
         out.write("// Fast zero-copy init: indexes pre-filled records in pdr_blob_data\n")
-        out.write("void pdr_repo_populate_ext(pdr_repo_t *repo, void *ctx)\n{\n")
+        out.write("void pdr_repo_populate_ext(struct pdr_repo_t *repo, void *ctx)\n{\n")
         out.write("    (void)ctx;\n")
         out.write(f"    pdr_repo_init_ext(repo, pdr_blob_data, PDR_BLOB_CAPACITY);\n")
         out.write(f"    repo->blob_used = PDR_BLOB_DATA_SIZE;\n")
@@ -674,7 +674,7 @@ def generate_all(yaml_dir, schema_dir, output_file, macro_yaml=None,
 
         # --- pdr_repo_populate(): rebuild callback for RunInitAgent ---
         out.write("// Rebuild callback for pdr_repo_run_init_agent()\n")
-        out.write("void pdr_repo_populate(pdr_repo_t *repo, void *ctx)\n{\n")
+        out.write("void pdr_repo_populate(struct pdr_repo_t *repo, void *ctx)\n{\n")
         out.write("    (void)ctx;\n")
         for offset, size, pdr_type, var_name in backup_entries:
             out.write(f"    pdr_repo_add_record(repo, {pdr_type}, "

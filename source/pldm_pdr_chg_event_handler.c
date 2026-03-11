@@ -16,8 +16,8 @@
  * corresponding local (remapped) handle and remove it from
  * the consolidated repo.
  * ---------------------------------------------------------------- */
-static int handle_deletes(pdr_mgr_t *mgr, pdr_mgr_terminus_t *term,
-                           const pdr_chg_record_t *rec)
+static int handle_deletes(struct pdr_mgr_t *mgr, struct pdr_mgr_terminus_t *term,
+                           const struct pdr_chg_record_t *rec)
 {
     for (uint8_t i = 0; i < rec->num_change_entries; i++) {
         uint32_t remote_handle = rec->change_entries[i];
@@ -45,9 +45,9 @@ static int handle_deletes(pdr_mgr_t *mgr, pdr_mgr_terminus_t *term,
  * For each remote handle, fetch the PDR from the terminus,
  * assign a new remapped handle, and add to the consolidated repo.
  * ---------------------------------------------------------------- */
-static int handle_adds(pdr_mgr_t *mgr, pdr_mgr_terminus_t *term,
+static int handle_adds(struct pdr_mgr_t *mgr, struct pdr_mgr_terminus_t *term,
                         uint8_t terminus_idx,
-                        const pdr_chg_record_t *rec)
+                        const struct pdr_chg_record_t *rec)
 {
     for (uint8_t i = 0; i < rec->num_change_entries; i++) {
         uint32_t remote_handle = rec->change_entries[i];
@@ -57,12 +57,12 @@ static int handle_adds(pdr_mgr_t *mgr, pdr_mgr_terminus_t *term,
             return -1;
         }
 
-        if (term->fetch_ctx.reassembly_len < sizeof(pldm_pdr_hdr_t)) {
+        if (term->fetch_ctx.reassembly_len < sizeof(struct pldm_pdr_hdr_t)) {
             return -1;
         }
 
-        const pldm_pdr_hdr_t *pdr_hdr =
-            (const pldm_pdr_hdr_t *)term->fetch_ctx.reassembly_buf;
+        const struct pldm_pdr_hdr_t *pdr_hdr =
+            (const struct pldm_pdr_hdr_t *)term->fetch_ctx.reassembly_buf;
 
         /* Allocate a new remapped handle */
         uint32_t remapped = pdr_mgr_remap_handle(terminus_idx,
@@ -70,7 +70,7 @@ static int handle_adds(pdr_mgr_t *mgr, pdr_mgr_terminus_t *term,
 
         int rc = pdr_mgr_add_remapped_pdr(
             mgr, remapped, pdr_hdr->pdr_type,
-            term->fetch_ctx.reassembly_buf + sizeof(pldm_pdr_hdr_t),
+            term->fetch_ctx.reassembly_buf + sizeof(struct pldm_pdr_hdr_t),
             pdr_hdr->data_length);
         if (rc != 0) {
             return -1;
@@ -89,8 +89,8 @@ static int handle_adds(pdr_mgr_t *mgr, pdr_mgr_terminus_t *term,
  * Remove old record -> fetch updated PDR -> re-add with the
  * same local handle so the mapping stays consistent.
  * ---------------------------------------------------------------- */
-static int handle_modifies(pdr_mgr_t *mgr, pdr_mgr_terminus_t *term,
-                            const pdr_chg_record_t *rec)
+static int handle_modifies(struct pdr_mgr_t *mgr, struct pdr_mgr_terminus_t *term,
+                            const struct pdr_chg_record_t *rec)
 {
     for (uint8_t i = 0; i < rec->num_change_entries; i++) {
         uint32_t remote_handle = rec->change_entries[i];
@@ -113,7 +113,7 @@ static int handle_modifies(pdr_mgr_t *mgr, pdr_mgr_terminus_t *term,
             return -1;
         }
 
-        if (term->fetch_ctx.reassembly_len < sizeof(pldm_pdr_hdr_t)) {
+        if (term->fetch_ctx.reassembly_len < sizeof(struct pldm_pdr_hdr_t)) {
             pdr_mgr_remove_handle_mapping(term, remote_handle);
             if (term->local_record_count > 0) {
                 term->local_record_count--;
@@ -121,13 +121,13 @@ static int handle_modifies(pdr_mgr_t *mgr, pdr_mgr_terminus_t *term,
             return -1;
         }
 
-        const pldm_pdr_hdr_t *pdr_hdr =
-            (const pldm_pdr_hdr_t *)term->fetch_ctx.reassembly_buf;
+        const struct pldm_pdr_hdr_t *pdr_hdr =
+            (const struct pldm_pdr_hdr_t *)term->fetch_ctx.reassembly_buf;
 
         /* Re-add with the SAME local handle to preserve the mapping */
         int rc = pdr_mgr_add_remapped_pdr(
             mgr, local_handle, pdr_hdr->pdr_type,
-            term->fetch_ctx.reassembly_buf + sizeof(pldm_pdr_hdr_t),
+            term->fetch_ctx.reassembly_buf + sizeof(struct pldm_pdr_hdr_t),
             pdr_hdr->data_length);
         if (rc != 0) {
             pdr_mgr_remove_handle_mapping(term, remote_handle);
@@ -146,10 +146,10 @@ static int handle_modifies(pdr_mgr_t *mgr, pdr_mgr_terminus_t *term,
 /* ----------------------------------------------------------------
  * Main Event Handler
  * ---------------------------------------------------------------- */
-int pdr_chg_event_handle(pdr_mgr_t *mgr, uint8_t eid,
+int pdr_chg_event_handle(struct pdr_mgr_t *mgr, uint8_t eid,
                           const uint8_t *event_data, uint16_t event_data_len)
 {
-    pdr_chg_event_t event;
+    struct pdr_chg_event_t event;
     int rc;
 
     rc = pdr_chg_event_decode(event_data, event_data_len, &event);
@@ -164,7 +164,7 @@ int pdr_chg_event_handle(pdr_mgr_t *mgr, uint8_t eid,
     }
 
     /* Handle-based incremental update */
-    pdr_mgr_terminus_t *term = pdr_mgr_find_terminus(mgr, eid);
+    struct pdr_mgr_terminus_t *term = pdr_mgr_find_terminus(mgr, eid);
     if (!term) {
         return -1;
     }
@@ -173,7 +173,7 @@ int pdr_chg_event_handle(pdr_mgr_t *mgr, uint8_t eid,
     uint8_t terminus_idx = (uint8_t)(term - mgr->termini);
 
     for (uint8_t i = 0; i < event.num_change_records; i++) {
-        const pdr_chg_record_t *rec = &event.change_records[i];
+        const struct pdr_chg_record_t *rec = &event.change_records[i];
 
         switch (rec->event_data_operation) {
         case PDR_CHG_OP_RECORDS_DELETED:

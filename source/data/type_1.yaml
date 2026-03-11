@@ -1,7 +1,7 @@
 # Terminus Locator PDR (Type 1)
 pdrHeader:
   recordHandle:
-    value: 1
+    value: auto
     comment: "Opaque record handle."
   PDRHeaderVersion:
     value: 1
