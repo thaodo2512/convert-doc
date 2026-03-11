@@ -332,9 +332,16 @@ def process_single_yaml(yaml_file, schema_dir, reserved_handles, next_handle_ref
         if field == 'pdrHeader':
             continue
         if field not in cleaned_data:
-            # Field is in binaryOrder but absent from data — conditionally
-            # excluded by schema (if/then).  Validation already passed, so
-            # it is legitimately absent; skip it in the binary output.
+            # Field is in binaryOrder but absent from data.  If the schema
+            # defines a "default" value, pack that default (e.g. range fields
+            # gated by rangeFieldSupport are always present in binary as 0).
+            # Otherwise the field is truly absent from binary output (e.g.
+            # type 30 OEM fields when OemFileClassification == 0).
+            field_schema = schema_props.get(field, {})
+            field_schema = resolve_subschema(condition_data, root_schema, field_schema, field)
+            if 'default' in field_schema:
+                body_buffer += pack_field(field_schema, field_schema['default'], field,
+                                          full_data=condition_data, type_override=None)
             continue
         value = cleaned_data[field]
         field_schema = schema_props.get(field, {})

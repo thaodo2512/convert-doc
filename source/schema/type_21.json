@@ -147,45 +147,51 @@
     },
     "warningHigh": {
       "type": "integer",
+      "default": 0,
       "minimum": -2147483648,
       "maximum": 2147483647,
       "binaryFormat": "i",
-      "description": "sint32; Warning High threshold (provide only if rangeFieldSupport bit0=1)"
+      "description": "sint32; Warning High threshold (0 if rangeFieldSupport bit0 not set)"
     },
     "warningLow": {
       "type": "integer",
+      "default": 0,
       "minimum": -2147483648,
       "maximum": 2147483647,
       "binaryFormat": "i",
-      "description": "sint32; Warning Low threshold (provide only if rangeFieldSupport bit1=1)"
+      "description": "sint32; Warning Low threshold (0 if rangeFieldSupport bit1 not set)"
     },
     "criticalHigh": {
       "type": "integer",
+      "default": 0,
       "minimum": -2147483648,
       "maximum": 2147483647,
       "binaryFormat": "i",
-      "description": "sint32; Critical High threshold (provide only if rangeFieldSupport bit2=1)"
+      "description": "sint32; Critical High threshold (0 if rangeFieldSupport bit2 not set)"
     },
     "criticalLow": {
       "type": "integer",
+      "default": 0,
       "minimum": -2147483648,
       "maximum": 2147483647,
       "binaryFormat": "i",
-      "description": "sint32; Critical Low threshold (provide only if rangeFieldSupport bit3=1)"
+      "description": "sint32; Critical Low threshold (0 if rangeFieldSupport bit3 not set)"
     },
     "fatalHigh": {
       "type": "integer",
+      "default": 0,
       "minimum": -2147483648,
       "maximum": 2147483647,
       "binaryFormat": "i",
-      "description": "sint32; Fatal High threshold (provide only if rangeFieldSupport bit4=1)"
+      "description": "sint32; Fatal High threshold (0 if rangeFieldSupport bit4 not set)"
     },
     "fatalLow": {
       "type": "integer",
+      "default": 0,
       "minimum": -2147483648,
       "maximum": 2147483647,
       "binaryFormat": "i",
-      "description": "sint32; Fatal Low threshold (provide only if rangeFieldSupport bit5=1)"
+      "description": "sint32; Fatal Low threshold (0 if rangeFieldSupport bit5 not set)"
     },
     "sensorNameString": {
       "type": "string",
