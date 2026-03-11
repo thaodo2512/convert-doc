@@ -4,6 +4,7 @@
  * Zephyr RTOS
  *
  * Supported commands:
+ *   NegotiateTransferParameters (0x07 — DSP0240 base, Type 0x07)
  *   DfProperties     (0x10)
  *   DfOpen           (0x01)
  *   DfHeartbeat      (0x03)
@@ -41,6 +42,29 @@ LOG_MODULE_REGISTER(pldm_file_host, LOG_LEVEL_DBG);
 #define DEFAULT_NI_MS       5000    /* default NegotiatedInterval = 5s   */
 #define HOST_MAX_NI_MS      30000   /* host upper bound = 30s             */
 #define WATCHDOG_PERIOD_MS  200     /* how often watchdog scans           */
+
+/*
+ * NegotiateTransferParameters (DSP0240 §9.6.2)
+ *
+ * HOST_PART_SIZE  — the max Transfer Part Size this host can serve.
+ *   Must be ≥ 256 and a power of 2 (DSP0240 requirement).
+ *   Negotiated size = MIN(RequesterPartSize, HOST_PART_SIZE).
+ *   This value caps DataLengthBytes in every DfRead response.
+ */
+#define HOST_PART_SIZE      4096u   /* configurable via Kconfig, must be pow-2 ≥ 256 */
+#define PLDM_TYPE_FILE      0x07u   /* PLDM Type for File Transfer (DSP0245)         */
+
+/*
+ * Type 0x07 occupies bit [7] of RequesterProtocolSupport byte [0].
+ * Formula: Type N → bitfield8[N/8] bit [N%8].
+ * Type 7 → bitfield8[0] bit [7].
+ */
+#define PROTO_SUPPORT_TYPE7_BYTE    0u
+#define PROTO_SUPPORT_TYPE7_BIT     BIT(7)
+
+BUILD_ASSERT((HOST_PART_SIZE >= 256u) &&
+             ((HOST_PART_SIZE & (HOST_PART_SIZE - 1u)) == 0u),
+             "HOST_PART_SIZE must be >= 256 and a power of 2");
 
 /* ═══════════════════════════════════════════════════════════
  * FD ENCODING  (Method B — generation counter)
@@ -87,6 +111,7 @@ BUILD_ASSERT(MAX_SESSIONS <= (1 << FD_SLOT_BITS),
 #define PLDM_FILE_INVALID_FILE_IDENTIFIER           0x86
 #define PLDM_FILE_DFOPEN_DIR_NOT_ALLOWED            0x87
 #define PLDM_FILE_MAX_NUM_FDS_EXCEEDED              0x88
+#define PLDM_FILE_NEGOTIATION_INCOMPLETE            0x83  /* DSP0240 Table 5 */
 
 /* ═══════════════════════════════════════════════════════════
  * DfOpen ATTRIBUTE BITS  (DSP0242 Table 9)
@@ -206,6 +231,21 @@ static pldm_file_t files[] = {
 static pldm_session_t sessions[MAX_SESSIONS];
 
 static K_MUTEX_DEFINE(sessions_lock);
+
+/* ═══════════════════════════════════════════════════════════
+ * NEGOTIATION STATE
+ *
+ * negotiated_part_size == 0  →  NegotiateTransferParameters
+ *                                not yet called; DfRead is rejected.
+ * negotiated_part_size >  0  →  valid; DfRead clamps req_len to this.
+ *
+ * Protected by negotiate_lock (separate from sessions_lock to avoid
+ * lock ordering issues — always acquire negotiate_lock first if both
+ * are needed, but currently no path needs both simultaneously).
+ * ═══════════════════════════════════════════════════════════ */
+
+static uint16_t          negotiated_part_size = 0u;
+static K_MUTEX_DEFINE(negotiate_lock);
 
 /* ═══════════════════════════════════════════════════════════
  * INTERNAL HELPERS
@@ -451,6 +491,9 @@ int handle_df_heartbeat(uint16_t fd,
  *   next_offset += DataLengthBytes
  * DataLengthBytes=0 signals end of available data at given offset.
  * Equivalent to DfHeartbeat for timer-reset purposes.
+ *
+ * Requires NegotiateTransferParameters to have been called first.
+ * req_len is clamped to negotiated_part_size before data is returned.
  */
 int handle_df_read(uint16_t  fd,
                    uint8_t   xfer_op,
@@ -460,6 +503,24 @@ int handle_df_read(uint16_t  fd,
                    uint32_t *data_len_out,
                    uint8_t  *xfer_flag_out)
 {
+    /* Check negotiation completed (DSP0240 §9.6.2).
+     * Read outside sessions_lock — see lock ordering note above. */
+    k_mutex_lock(&negotiate_lock, K_FOREVER);
+    uint16_t part_sz = negotiated_part_size;
+    k_mutex_unlock(&negotiate_lock);
+
+    if (part_sz == 0u) {
+        LOG_WRN("DfRead: NegotiateTransferParameters not yet done");
+        return PLDM_FILE_NEGOTIATION_INCOMPLETE;
+    }
+
+    /* Clamp req_len to the negotiated Transfer Part Size */
+    if (req_len > (uint32_t)part_sz) {
+        LOG_DBG("DfRead: clamping req_len %u → %u (negotiated part size)",
+                req_len, part_sz);
+        req_len = (uint32_t)part_sz;
+    }
+
     k_mutex_lock(&sessions_lock, K_FOREVER);
 
     pldm_session_t *sess = find_session(fd);    /* O(1) — slot + generation check */
@@ -502,8 +563,8 @@ int handle_df_read(uint16_t  fd,
     *data_len_out  = len;
     *xfer_flag_out = XFER_FLAG_START_AND_END;
 
-    LOG_DBG("DfRead: FD=0x%04x offset=0x%x req=%u got=%u",
-            fd, offset, req_len, len);
+    LOG_DBG("DfRead: FD=0x%04x offset=0x%x req=%u got=%u (part_sz=%u)",
+            fd, offset, req_len, len, part_sz);
 
     return PLDM_SUCCESS;
 }
@@ -548,6 +609,65 @@ int handle_df_close(uint16_t fd, bool zero_length)
 }
 
 /* ═══════════════════════════════════════════════════════════
+ * NegotiateTransferParameters (DSP0240 §9.6.2)
+ * ═══════════════════════════════════════════════════════════ */
+
+/*
+ * handle_negotiate_transfer_params
+ *
+ * Establishes the Transfer Part Size for PLDM Type 0x07 (File Transfer).
+ * MUST be called before any DfRead (MultipartReceive) is accepted.
+ *
+ * Request layout (10 bytes):
+ *   [0:1]  RequesterPartSize         uint16
+ *   [2:9]  RequesterProtocolSupport  bitfield8[8]
+ *
+ * Response (written into out-params, CompletionCode returned):
+ *   resp_part_size_out   = HOST_PART_SIZE
+ *   resp_proto_support[] = Type 0x07 bit mirrored if requester set it
+ *
+ * Negotiated = MIN(RequesterPartSize, HOST_PART_SIZE).
+ * Re-negotiation overwrites previous value (e.g. after requester reset).
+ */
+int handle_negotiate_transfer_params(const uint8_t *req,
+                                     uint16_t      *resp_part_size_out,
+                                     uint8_t        resp_proto_support[8])
+{
+    uint16_t req_part_size;
+    memcpy(&req_part_size, &req[0], sizeof(req_part_size));
+
+    /* DSP0240 Table 15: must be ≥ 256 and a power of 2 */
+    if (req_part_size < 256u || (req_part_size & (req_part_size - 1u)) != 0u) {
+        LOG_WRN("NegotiateTP: invalid RequesterPartSize=%u "
+                "(must be >=256 and power-of-2)", req_part_size);
+        return PLDM_ERROR_INVALID_DATA;
+    }
+
+    /* req[2..9] = RequesterProtocolSupport bitfield8[8]
+     * Type 7 → bitfield8[0] bit [7] */
+    bool req_type7 = (req[2u + PROTO_SUPPORT_TYPE7_BYTE] &
+                      PROTO_SUPPORT_TYPE7_BIT) != 0u;
+
+    uint16_t negotiated = (uint16_t)MIN((uint32_t)req_part_size,
+                                        (uint32_t)HOST_PART_SIZE);
+
+    k_mutex_lock(&negotiate_lock, K_FOREVER);
+    negotiated_part_size = negotiated;
+    k_mutex_unlock(&negotiate_lock);
+
+    *resp_part_size_out = HOST_PART_SIZE;
+
+    memset(resp_proto_support, 0u, 8u);
+    if (req_type7)
+        resp_proto_support[PROTO_SUPPORT_TYPE7_BYTE] |= PROTO_SUPPORT_TYPE7_BIT;
+
+    LOG_INF("NegotiateTP: req_part=%u host_part=%u negotiated=%u type7=%d",
+            req_part_size, HOST_PART_SIZE, negotiated, (int)req_type7);
+
+    return PLDM_SUCCESS;
+}
+
+/* ═══════════════════════════════════════════════════════════
  * COMMAND DISPATCHER
  * ═══════════════════════════════════════════════════════════ */
 
@@ -555,6 +675,26 @@ int pldm_file_host_dispatch(uint8_t cmd, uint8_t *req, size_t req_len,
                              uint8_t *resp, size_t *resp_len)
 {
     switch (cmd) {
+    case 0x07: { /* NegotiateTransferParameters (DSP0240 §9.6.2) */
+        /* Request: 2 bytes RequesterPartSize + 8 bytes ProtocolSupport = 10 */
+        if (req_len < 10u) {
+            resp[0]   = PLDM_ERROR_INVALID_DATA;
+            *resp_len = 1u;
+            return PLDM_ERROR_INVALID_DATA;
+        }
+        uint16_t resp_part   = 0u;
+        uint8_t  resp_proto[8] = {0};
+        int rc = handle_negotiate_transfer_params(req, &resp_part, resp_proto);
+        resp[0] = (uint8_t)rc;
+        if (rc == PLDM_SUCCESS) {
+            memcpy(&resp[1], &resp_part, 2u);   /* ResponderPartSize    */
+            memcpy(&resp[3], resp_proto,  8u);   /* ResponderProtoSupport */
+            *resp_len = 11u;
+        } else {
+            *resp_len = 1u;
+        }
+        return rc;
+    }
     case 0x10: { /* DfProperties */
         uint32_t attr_req = *(uint32_t *)req;
         uint32_t attr_val = 0;
