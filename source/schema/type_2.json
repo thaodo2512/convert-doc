@@ -205,7 +205,7 @@
     "accuracy": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 999999,
+      "maximum": 65535,
       "binaryFormat": "H",
       "description": "uint16; Accuracy (x 1e-6)"
     },

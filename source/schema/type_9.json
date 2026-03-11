@@ -368,14 +368,34 @@
     "maxSettable": {
       "type": "number",
       "binaryFormat": "variable",
-      "x-binary-format-depends-on": "effecterDataSize",
-      "description": "Value in effecterDataSize type; max settable value. Binary formats: 1='B',2='b',3='h',4='I',5='i',6='f',7='Q',8='q'"
+      "x-binary-type-field": "effecterDataSize",
+      "x-binary-type-mapping": {
+        "0": "B",
+        "1": "b",
+        "2": "H",
+        "3": "h",
+        "4": "I",
+        "5": "i",
+        "6": "Q",
+        "7": "q"
+      },
+      "description": "Value in effecterDataSize type; max settable value"
     },
     "minSettable": {
       "type": "number",
       "binaryFormat": "variable",
-      "x-binary-format-depends-on": "effecterDataSize",
-      "description": "Value in effecterDataSize type; min settable value. Binary formats: 1='B',2='b',3='h',4='I',5='i',6='f',7='Q',8='q'"
+      "x-binary-type-field": "effecterDataSize",
+      "x-binary-type-mapping": {
+        "0": "B",
+        "1": "b",
+        "2": "H",
+        "3": "h",
+        "4": "I",
+        "5": "i",
+        "6": "Q",
+        "7": "q"
+      },
+      "description": "Value in effecterDataSize type; min settable value"
     },
     "rangeFieldFormat": {
       "type": "integer",
@@ -394,36 +414,91 @@
       "type": "number",
       "default": 0,
       "binaryFormat": "variable",
-      "x-binary-format-depends-on": "rangeFieldFormat",
-      "description": "Value in rangeFieldFormat type; nominal value. Required if rangeFieldSupport bit 0 set. Binary formats: 1='B',2='b',3='h',4='I',5='i',6='f',7='Q',8='q'"
+      "x-binary-type-field": "rangeFieldFormat",
+      "x-binary-type-mapping": {
+        "0": "B",
+        "1": "b",
+        "2": "H",
+        "3": "h",
+        "4": "I",
+        "5": "i",
+        "6": "f",
+        "7": "Q",
+        "8": "q"
+      },
+      "description": "Nominal value, format per rangeFieldFormat. Required if rangeFieldSupport bit 0 set."
     },
     "normalMax": {
       "type": "number",
       "default": 0,
       "binaryFormat": "variable",
-      "x-binary-format-depends-on": "rangeFieldFormat",
-      "description": "Value in rangeFieldFormat type; normal max. Required if rangeFieldSupport bit 1 set. Binary formats: 1='B',2='b',3='h',4='I',5='i',6='f',7='Q',8='q'"
+      "x-binary-type-field": "rangeFieldFormat",
+      "x-binary-type-mapping": {
+        "0": "B",
+        "1": "b",
+        "2": "H",
+        "3": "h",
+        "4": "I",
+        "5": "i",
+        "6": "f",
+        "7": "Q",
+        "8": "q"
+      },
+      "description": "Normal max, format per rangeFieldFormat. Required if rangeFieldSupport bit 1 set."
     },
     "normalMin": {
       "type": "number",
       "default": 0,
       "binaryFormat": "variable",
-      "x-binary-format-depends-on": "rangeFieldFormat",
-      "description": "Value in rangeFieldFormat type; normal min. Required if rangeFieldSupport bit 2 set. Binary formats: 1='B',2='b',3='h',4='I',5='i',6='f',7='Q',8='q'"
+      "x-binary-type-field": "rangeFieldFormat",
+      "x-binary-type-mapping": {
+        "0": "B",
+        "1": "b",
+        "2": "H",
+        "3": "h",
+        "4": "I",
+        "5": "i",
+        "6": "f",
+        "7": "Q",
+        "8": "q"
+      },
+      "description": "Normal min, format per rangeFieldFormat. Required if rangeFieldSupport bit 2 set."
     },
     "ratedMax": {
       "type": "number",
       "default": 0,
       "binaryFormat": "variable",
-      "x-binary-format-depends-on": "rangeFieldFormat",
-      "description": "Value in rangeFieldFormat type; rated max. Required if rangeFieldSupport bit 3 set. Binary formats: 1='B',2='b',3='h',4='I',5='i',6='f',7='Q',8='q'"
+      "x-binary-type-field": "rangeFieldFormat",
+      "x-binary-type-mapping": {
+        "0": "B",
+        "1": "b",
+        "2": "H",
+        "3": "h",
+        "4": "I",
+        "5": "i",
+        "6": "f",
+        "7": "Q",
+        "8": "q"
+      },
+      "description": "Rated max, format per rangeFieldFormat. Required if rangeFieldSupport bit 3 set."
     },
     "ratedMin": {
       "type": "number",
       "default": 0,
       "binaryFormat": "variable",
-      "x-binary-format-depends-on": "rangeFieldFormat",
-      "description": "Value in rangeFieldFormat type; rated min. Required if rangeFieldSupport bit 4 set. Binary formats: 1='B',2='b',3='h',4='I',5='i',6='f',7='Q',8='q'"
+      "x-binary-type-field": "rangeFieldFormat",
+      "x-binary-type-mapping": {
+        "0": "B",
+        "1": "b",
+        "2": "H",
+        "3": "h",
+        "4": "I",
+        "5": "i",
+        "6": "f",
+        "7": "Q",
+        "8": "q"
+      },
+      "description": "Rated min, format per rangeFieldFormat. Required if rangeFieldSupport bit 4 set."
     }
   },
   "required": [
