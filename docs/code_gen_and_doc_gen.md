@@ -392,3 +392,243 @@ When adding a new PDR type, both pipelines are affected:
    ```
 
 6. **(Optional) Add macro bindings** — Edit `source/data/macro_defs.yaml` to expose field values as C `#define` constants.
+
+---
+
+## Zephyr RTOS Integration
+
+This section describes how to integrate the code generation pipeline into a Zephyr application so that PDR blobs are generated at build time and linked into the firmware image.
+
+### Prerequisites
+
+- Zephyr SDK with west and CMake
+- Python 3 with `pyyaml` and `jsonschema` (available in the build environment)
+
+### Project Layout
+
+Place the PDR source files alongside your Zephyr application:
+
+```
+my_zephyr_app/
+  CMakeLists.txt
+  prj.conf
+  src/
+    main.c                       # Application entry point
+    pldm_pdr_repo.c              # PDR repository implementation
+    pldm_pdr_repo.h              # PDR repository header
+  pdr/
+    code_gen.py                  # Code generator script
+    data/                        # YAML PDR definitions
+      terminus.yaml
+      type_2.yaml
+      macro_defs.yaml
+    schema/                      # JSON schemas
+      type_1.json
+      type_2.json
+```
+
+### CMakeLists.txt
+
+Add a custom command that runs `code_gen.py` at build time, before compilation:
+
+```cmake
+cmake_minimum_required(VERSION 3.20.0)
+find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
+project(my_pldm_app)
+
+# --- PDR Code Generation ---
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
+set(PDR_GEN     ${CMAKE_CURRENT_SOURCE_DIR}/pdr/code_gen.py)
+set(PDR_DIR     ${CMAKE_CURRENT_SOURCE_DIR}/pdr/data)
+set(PDR_SCHEMA  ${CMAKE_CURRENT_SOURCE_DIR}/pdr/schema)
+set(PDR_MACROS  ${CMAKE_CURRENT_SOURCE_DIR}/pdr/data/macro_defs.yaml)
+set(PDR_OUT_C   ${CMAKE_CURRENT_BINARY_DIR}/generated/pdr_generated.c)
+set(PDR_OUT_H   ${CMAKE_CURRENT_BINARY_DIR}/generated/pdr_generated.h)
+
+# Collect all YAML and JSON files as dependencies for rebuild tracking
+file(GLOB PDR_YAML_FILES ${PDR_DIR}/*.yaml ${PDR_DIR}/**/*.yaml)
+file(GLOB PDR_SCHEMA_FILES ${PDR_SCHEMA}/*.json)
+
+add_custom_command(
+  OUTPUT ${PDR_OUT_C} ${PDR_OUT_H}
+  COMMAND ${Python3_EXECUTABLE} ${PDR_GEN}
+          ${PDR_DIR} ${PDR_SCHEMA} ${PDR_OUT_C}
+          --macros ${PDR_MACROS}
+  DEPENDS ${PDR_GEN} ${PDR_YAML_FILES} ${PDR_SCHEMA_FILES} ${PDR_MACROS}
+  COMMENT "Generating PLDM PDR repository from YAML"
+)
+
+add_custom_target(gen_pdr DEPENDS ${PDR_OUT_C} ${PDR_OUT_H})
+
+# --- Application ---
+target_sources(app PRIVATE
+  src/main.c
+  src/pldm_pdr_repo.c
+  ${PDR_OUT_C}
+)
+
+target_include_directories(app PRIVATE
+  src/
+  ${CMAKE_CURRENT_BINARY_DIR}/generated   # For pdr_generated.h
+)
+
+add_dependencies(app gen_pdr)
+```
+
+**Key points:**
+- `add_custom_command` runs `code_gen.py` only when YAML/schema files change
+- Both `.c` and `.h` are generated into `build/generated/`
+- `DEPENDS` lists all input files so CMake rebuilds when any YAML or schema changes
+- `add_dependencies(app gen_pdr)` ensures generation runs before compilation
+
+### Kconfig (Optional)
+
+Add a Kconfig option to enable/disable PDR generation:
+
+```kconfig
+# Kconfig
+config PLDM_PDR_GENERATED
+    bool "Include generated PLDM PDR repository"
+    default y
+    help
+      Enable code-generated PDR repository from YAML definitions.
+      Requires Python 3 with pyyaml and jsonschema at build time.
+
+config PLDM_PDR_MAX_RECORDS
+    int "Maximum number of PDR records"
+    default 64
+    help
+      Maximum number of PDR records the repository can hold.
+      Must be >= the number of generated PDRs.
+```
+
+Then guard the CMake generation:
+
+```cmake
+if(CONFIG_PLDM_PDR_GENERATED)
+  # ... add_custom_command block above ...
+endif()
+```
+
+### Application Code (main.c)
+
+```c
+#include <zephyr/kernel.h>
+#include <zephyr/logging/log.h>
+#include "pldm_pdr_repo.h"
+#include "pdr_generated.h"
+
+LOG_MODULE_REGISTER(pldm_pdr, LOG_LEVEL_INF);
+
+static pdr_repo_t pdr_repo;
+
+void pdr_init(void)
+{
+    /* Zero-copy init: index pre-packed blob in-place.
+     * This is the fastest option — no memcpy, no parsing.
+     * The blob is already in the .data section from pdr_generated.c. */
+    pdr_repo_populate_ext(&pdr_repo, NULL);
+
+    const pdr_repo_info_t *info = pdr_repo_get_info(&pdr_repo);
+    LOG_INF("PDR repository initialized: %u records, %u bytes",
+            info->record_count, info->repository_size);
+}
+
+int pdr_handle_get_pdr(uint32_t record_handle, uint32_t data_transfer_handle,
+                       uint32_t *next_record, uint32_t *next_data,
+                       uint8_t *transfer_flag,
+                       const uint8_t **data, uint16_t *data_len)
+{
+    return pdr_repo_get_pdr(&pdr_repo, record_handle, data_transfer_handle,
+                            next_record, next_data, transfer_flag,
+                            data, data_len);
+}
+
+int pdr_handle_find_pdr(uint8_t pdr_type, uint32_t start_handle,
+                        uint32_t *found_handle, uint32_t *next_handle,
+                        const uint8_t **data, uint16_t *data_len)
+{
+    return pdr_repo_find_pdr(&pdr_repo, pdr_type, start_handle,
+                             found_handle, next_handle, data, data_len);
+}
+
+int main(void)
+{
+    pdr_init();
+
+    /* Access generated macros at compile time */
+    LOG_INF("Total PDRs: %d, Blob size: %d bytes",
+            PDR_COUNT, PDR_BLOB_DATA_SIZE);
+
+    /* Application main loop ... */
+    return 0;
+}
+```
+
+### Build and Flash
+
+```bash
+# Build
+west build -b <your_board> my_zephyr_app
+
+# Flash
+west flash
+```
+
+The build output will show:
+
+```
+[  1%] Generating PLDM PDR repository from YAML
+Generated pdr_generated.c and pdr_generated.h with 30 PDRs (blob=1184B)
+...
+```
+
+### Memory Considerations
+
+The generated PDR data resides in two sections:
+
+| Array | Section | Mutability | Typical Size |
+|-------|---------|-----------|-------------|
+| `pdr_blob_data[]` | `.data` (RAM) | Mutable | `PDR_BLOB_CAPACITY` (data + 25% headroom) |
+| `pdr_blob_backup[]` | `.rodata` (Flash) | `const` | `PDR_BLOB_DATA_SIZE` (body only, compact) |
+
+For memory-constrained targets:
+
+- **Reduce headroom** — The generator adds 25% headroom to `pdr_blob_data[]` for runtime record additions. If you don't add records at runtime, you can modify `code_gen.py` to reduce or eliminate headroom.
+- **Use `populate_ext()` only** — If you don't need `RunInitAgent` rebuild, the backup blob can be removed to save flash.
+- **Tune `PDR_MAX_RECORD_COUNT`** — Each index entry is 12 bytes. Setting this to your actual PDR count saves RAM.
+
+### Runtime Record Management
+
+The repository supports runtime modifications on Zephyr:
+
+```c
+/* Add a record at runtime (fits in headroom) */
+uint8_t sensor_body[] = { /* ... packed PDR body ... */ };
+uint32_t new_handle;
+int rc = pdr_repo_add_record(&pdr_repo, PDR_TYPE_NUMERIC_SENSOR,
+                              sensor_body, sizeof(sensor_body),
+                              &new_handle);
+
+/* Remove a record (tombstone, O(1)) */
+pdr_repo_remove_record(&pdr_repo, old_handle);
+
+/* Rebuild (compacts tombstones, restores from backup) */
+pdr_repo_run_init_agent(&pdr_repo, pdr_repo_populate, NULL);
+```
+
+### CI Integration
+
+Add a build check to your CI pipeline to catch YAML/schema errors early:
+
+```yaml
+# .github/workflows/build.yml (excerpt)
+- name: Validate PDR generation
+  run: |
+    pip install pyyaml jsonschema
+    python3 pdr/code_gen.py pdr/data pdr/schema /tmp/pdr_generated.c \
+        --macros pdr/data/macro_defs.yaml
+```
+
+This runs the generator without building the full Zephyr image, catching validation errors (schema mismatches, value out of range, type dependency conflicts) before the firmware build.
