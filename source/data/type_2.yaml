@@ -89,7 +89,8 @@ maxReadable:
   value: 125
 
 minReadable:
-  value: -40
+  value: 0
+  type: sint8
 
 rangeFieldFormat:
   value: 1

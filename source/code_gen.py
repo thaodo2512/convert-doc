@@ -15,6 +15,13 @@ FMT_MAP = {
     # Add more special formats if needed, e.g., 'time64': 'Q'
 }
 
+_TYPE_TO_FORMAT = {
+    'uint8': 'B', 'sint8': 'b',
+    'uint16': 'H', 'sint16': 'h',
+    'uint32': 'I', 'sint32': 'i',
+    'uint64': 'Q', 'sint64': 'q',
+}
+
 # Tokenizes a field path like "pdrHeader.recordHandle.value" or
 # "stateSensors[0].stateSetID.value" into a list of keys and int indices.
 _PATH_TOKEN = re.compile(r'([^.\[\]]+)|\[(\d+)\]')
@@ -152,23 +159,40 @@ def infer_format(field_schema, field_type):
         return 'B'
     raise ValueError(f"Cannot infer format for type {field_type}")
 
-def pack_field(field_schema, value, field_name, full_data=None):
+_FORMAT_TO_TYPE = {v: k for k, v in _TYPE_TO_FORMAT.items()}
+
+def pack_field(field_schema, value, field_name, full_data=None, type_override=None):
     field_type = field_schema.get('type')
     bf = field_schema.get('binaryFormat', '')
-    
+
+    # Resolve format from schema dependency rules
+    resolved_bf = bf
     if full_data is not None and 'x-binary-type-field' in field_schema:
         type_field = field_schema['x-binary-type-field']
         if type_field in full_data:
             key = str(full_data[type_field])
-            bf = field_schema.get('x-binary-type-mapping', {}).get(key, bf)
+            resolved_bf = field_schema.get('x-binary-type-mapping', {}).get(key, resolved_bf)
 
     if full_data is not None and 'formatResolver' in field_schema:
         resolver = field_schema['formatResolver']
         depends_on = resolver.get('dependsOn')
         if depends_on in full_data:
             key = str(full_data[depends_on])
-            bf = resolver['mapping'].get(key, bf)
-    
+            resolved_bf = resolver['mapping'].get(key, resolved_bf)
+
+    # Validate YAML type override against dependency-resolved format
+    if type_override and type_override in _TYPE_TO_FORMAT:
+        override_bf = _TYPE_TO_FORMAT[type_override]
+        if resolved_bf and resolved_bf != 'variable' and resolved_bf != bf and override_bf != resolved_bf:
+            expected_type = _FORMAT_TO_TYPE.get(resolved_bf, resolved_bf)
+            raise ValueError(
+                f"Type mismatch for {field_name}: YAML declares 'type: {type_override}' "
+                f"but schema dependency resolves to '{expected_type}'"
+            )
+        bf = override_bf
+    else:
+        bf = resolved_bf
+
     bf = FMT_MAP.get(bf, bf)
     
     if bf and bf != 'variable':
@@ -307,11 +331,19 @@ def process_single_yaml(yaml_file, schema_dir, reserved_handles, next_handle_ref
     for field in order:
         if field == 'pdrHeader':
             continue
-        value = cleaned_data.get(field)
+        if field not in cleaned_data:
+            # Field is in binaryOrder but absent from data — conditionally
+            # excluded by schema (if/then).  Validation already passed, so
+            # it is legitimately absent; skip it in the binary output.
+            continue
+        value = cleaned_data[field]
         field_schema = schema_props.get(field, {})
         field_schema = resolve_subschema(condition_data, root_schema, field_schema, field)
+        # Extract YAML type override from raw_data (before clean stripped it)
+        raw_field = raw_data.get(field)
+        yaml_type = raw_field.get('type') if isinstance(raw_field, dict) and 'value' in raw_field else None
         # Include even if hidden, since for binary
-        body_buffer += pack_field(field_schema, value, field, full_data=condition_data)
+        body_buffer += pack_field(field_schema, value, field, full_data=condition_data, type_override=yaml_type)
     
     # Update data_len in header (auto-calculate; warn if YAML stated a different value)
     data_len = len(body_buffer)

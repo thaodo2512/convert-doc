@@ -12,23 +12,67 @@ DOC_META_KEYS = {"docHidden", "_doc_hidden", "_docHide", "_doc"}
 
 _INT_FORMATS = set('BbHhIiQq')
 
-def validate_value_range(value, field_schema, field_name):
+_TYPE_TO_FORMAT = {
+    'uint8': 'B', 'sint8': 'b',
+    'uint16': 'H', 'sint16': 'h',
+    'uint32': 'I', 'sint32': 'i',
+    'uint64': 'Q', 'sint64': 'q',
+}
+
+_FORMAT_TO_TYPE = {v: k for k, v in _TYPE_TO_FORMAT.items()}
+
+def validate_value_range(value, field_schema, field_name, type_override=None,
+                         condition_data=None):
     """Check that a numeric value fits within the binaryFormat range.
+
+    If type_override is provided (from YAML 'type' field), it is validated
+    against the schema's dependency-resolved format. A mismatch is reported
+    as a warning.
 
     Returns a list of warning strings (empty if all OK).
     """
+    warnings = []
     if not isinstance(value, (int, float)) or isinstance(value, bool):
-        return []
-    bf = field_schema.get('binaryFormat', '')
+        return warnings
+
+    # Resolve format from schema dependency rules
+    resolved_bf = field_schema.get('binaryFormat', '')
+    if condition_data is not None and 'x-binary-type-field' in field_schema:
+        type_field = field_schema['x-binary-type-field']
+        if type_field in condition_data:
+            key = str(condition_data[type_field])
+            resolved_bf = field_schema.get('x-binary-type-mapping', {}).get(key, resolved_bf)
+    if condition_data is not None and 'formatResolver' in field_schema:
+        resolver = field_schema['formatResolver']
+        depends_on = resolver.get('dependsOn')
+        if depends_on in condition_data:
+            key = str(condition_data[depends_on])
+            resolved_bf = resolver['mapping'].get(key, resolved_bf)
+
+    if type_override and type_override in _TYPE_TO_FORMAT:
+        override_bf = _TYPE_TO_FORMAT[type_override]
+        # Check for mismatch with dependency-resolved format
+        if (resolved_bf and resolved_bf != 'variable'
+                and resolved_bf != field_schema.get('binaryFormat', '')
+                and override_bf != resolved_bf):
+            expected_type = _FORMAT_TO_TYPE.get(resolved_bf, resolved_bf)
+            warnings.append(
+                f"Type mismatch for '{field_name}': YAML declares 'type: {type_override}' "
+                f"but schema dependency resolves to '{expected_type}'"
+            )
+        bf = override_bf
+    else:
+        bf = resolved_bf
+
     if not bf or bf not in _INT_FORMATS:
-        return []
+        return warnings
     try:
         struct.pack(f'<{bf}', int(value))
     except struct.error:
         prefix = 'sint' if bf.islower() else 'uint'
         bits = struct.calcsize(bf) * 8
-        return [f"Value {value} for '{field_name}' is out of range for {prefix}{bits}"]
-    return []
+        warnings.append(f"Value {value} for '{field_name}' is out of range for {prefix}{bits}")
+    return warnings
 
 def is_hidden(node):
     if not isinstance(node, dict):
@@ -130,7 +174,10 @@ class PldmPdrTableDirective(SphinxDirective):
                     comment = data.get('comment', '')
 
                     # Validate value against binaryFormat range
-                    warnings = validate_value_range(val, schema, parent_key)
+                    yaml_type = data.get('type')
+                    warnings = validate_value_range(val, schema, parent_key,
+                                                    type_override=yaml_type,
+                                                    condition_data=condition_data)
                     range_warnings.extend(warnings)
 
                     if 'type' in data:
