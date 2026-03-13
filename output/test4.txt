@@ -4,35 +4,28 @@
 - PLDM for File Transfer (DSP0242 v1.0.0) — File Host implementation
 - Zephyr RTOS
 - 
-- Supported commands:
-- DfProperties                   (0x10)
-- DfOpen                         (0x01)
-- DfClose                        (0x02) — ZeroLength=0 only
-- DfHeartbeat                    (0x03)
-- DfRead / MultipartReceive      (0x09, PLDMType=0x07)
-- NegotiateTransferParameters    (0x07 — DSP0240)
-- 
-- NOT supported (read-only Host):
-- DfClose ZeroLength=1
-- DfFIFOSend / Pushed mode
-- DfGetFileAttribute / DfSetFileAttribute
-- 
 - Architecture:
-- File metadata is queried through pldm_file_pdr_intf.h.
-- This stack has NO hardcoded file definitions.
-- PDR stack provides pldm_pdr_file_lookup() — placeholder or real.
+- Wire format  → pldm_multipart.h   (DSP0240 parse/build)
+- File metadata → pldm_file_pdr_intf.h (DSP0248 PDR queries)
+- Timeout      → k_work_delayable    (no polling thread)
 - 
-- FD encoding: [ generation:9 | slot_index:7 ] in uint16_t.
-- DfRead: full multi-part state machine with 3-tier error recovery.
+- Supported commands:
+- NegotiateTransferParameters (0x07)
+- DfProperties                (0x10)
+- DfOpen                      (0x01)
+- DfClose                     (0x02)
+- DfHeartbeat                 (0x03)
+- DfRead / MultipartReceive   (0x09)
+- 
+- Read-only Host: no writes, no ZeroLength, no Pushed mode.
   */
 
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/crc.h>
 #include <string.h>
-#include <stdint.h>
-#include <stdbool.h>
 
+#include “pldm_multipart.h”
 #include “pldm_file_pdr_intf.h”
 
 LOG_MODULE_REGISTER(pldm_file_host, LOG_LEVEL_DBG);
@@ -45,53 +38,12 @@ LOG_MODULE_REGISTER(pldm_file_host, LOG_LEVEL_DBG);
 #define MAX_SESSIONS        128u
 #define DEFAULT_NI_MS       5000u
 #define HOST_MAX_NI_MS      30000u
-#define WATCHDOG_PERIOD_MS  200u
 #define HOST_PART_SIZE      4096u
-#define PLDM_TYPE_FILE      0x07u
-
-#define PROTO_SUPPORT_TYPE7_BYTE  0u
-#define PROTO_SUPPORT_TYPE7_BIT   BIT(7)
+#define PLDM_TYPE_FILE      7u
 
 BUILD_ASSERT((HOST_PART_SIZE >= 256u) &&
 ((HOST_PART_SIZE & (HOST_PART_SIZE - 1u)) == 0u),
 “HOST_PART_SIZE must be >= 256 and a power of 2”);
-
-/* ═══════════════════════════════════════════════════════════
-
-- FD ENCODING
-- ═══════════════════════════════════════════════════════════ */
-
-#define FD_SLOT_BITS    7u
-#define FD_SLOT_MASK    ((1u << FD_SLOT_BITS) - 1u)
-#define FD_GEN_SHIFT    FD_SLOT_BITS
-#define FD_GEN_MAX      ((1u << (16u - FD_SLOT_BITS)) - 1u)
-
-#define FD_ENCODE(slot, gen)   
-((uint16_t)(((uint16_t)(gen) << FD_GEN_SHIFT) |   
-((uint16_t)(slot) & FD_SLOT_MASK)))
-
-#define FD_SLOT(fd)     ((uint8_t)((fd) & FD_SLOT_MASK))
-#define FD_GEN(fd)      ((uint16_t)((uint16_t)(fd) >> FD_GEN_SHIFT))
-#define FD_INVALID      0u
-
-BUILD_ASSERT(MAX_SESSIONS <= (1u << FD_SLOT_BITS),
-“MAX_SESSIONS exceeds slot capacity”);
-
-/* ═══════════════════════════════════════════════════════════
-
-- PLDM BASE COMPLETION CODES  (DSP0240)
-- ═══════════════════════════════════════════════════════════ */
-
-#define PLDM_SUCCESS                    0x00u
-#define PLDM_ERROR_INVALID_DATA         0x02u
-#define PLDM_ERROR_INVALID_LENGTH       0x04u
-#define PLDM_ERROR_UNSUPPORTED_PLDM_CMD 0x05u
-
-/* MultipartReceive-specific */
-#define PLDM_ERROR_NEGOTIATION_INCOMPLETE       0x83u
-#define PLDM_ERROR_INVALID_TRANSFER_CONTEXT     0x84u
-#define PLDM_ERROR_INVALID_TRANSFER_HANDLE      0x85u
-#define PLDM_ERROR_INVALID_TRANSFER_OPERATION   0x86u
 
 /* ═══════════════════════════════════════════════════════════
 
@@ -109,28 +61,6 @@ BUILD_ASSERT(MAX_SESSIONS <= (1u << FD_SLOT_BITS),
 #define PLDM_FILE_MAX_NUM_FDS_EXCEEDED              0x88u
 #define PLDM_FILE_FILE_OPEN                         0x89u
 #define PLDM_FILE_UNABLE_TO_OPEN_FILE               0x8Au
-
-/* ═══════════════════════════════════════════════════════════
-
-- TransferOperation  (DSP0240 — MultipartReceive request)
-- ═══════════════════════════════════════════════════════════ */
-
-#define XFER_OP_FIRST_PART      0x00u
-#define XFER_OP_NEXT_PART       0x01u
-#define XFER_OP_ABORT           0x02u
-#define XFER_OP_COMPLETE        0x03u
-#define XFER_OP_CURRENT_PART    0x04u
-
-/* ═══════════════════════════════════════════════════════════
-
-- TransferFlag  (DSP0240 — MultipartReceive response)
-- ═══════════════════════════════════════════════════════════ */
-
-#define XFER_FLAG_START             0x01u
-#define XFER_FLAG_MIDDLE            0x02u
-#define XFER_FLAG_END               0x04u
-#define XFER_FLAG_START_AND_END     0x05u
-#define XFER_FLAG_ACK_COMPLETION    0x08u
 
 /* ═══════════════════════════════════════════════════════════
 
@@ -153,6 +83,27 @@ BUILD_ASSERT(MAX_SESSIONS <= (1u << FD_SLOT_BITS),
 
 /* ═══════════════════════════════════════════════════════════
 
+- FD ENCODING  [ generation:9 | slot_index:7 ]
+- ═══════════════════════════════════════════════════════════ */
+
+#define FD_SLOT_BITS    7u
+#define FD_SLOT_MASK    ((1u << FD_SLOT_BITS) - 1u)
+#define FD_GEN_SHIFT    FD_SLOT_BITS
+#define FD_GEN_MAX      ((1u << (16u - FD_SLOT_BITS)) - 1u)
+
+#define FD_ENCODE(slot, gen)   
+((uint16_t)(((uint16_t)(gen) << FD_GEN_SHIFT) |   
+((uint16_t)(slot) & FD_SLOT_MASK)))
+
+#define FD_SLOT(fd)     ((uint8_t)((fd) & FD_SLOT_MASK))
+#define FD_GEN(fd)      ((uint16_t)((uint16_t)(fd) >> FD_GEN_SHIFT))
+#define FD_INVALID      0u
+
+BUILD_ASSERT(MAX_SESSIONS <= (1u << FD_SLOT_BITS),
+“MAX_SESSIONS exceeds slot capacity”);
+
+/* ═══════════════════════════════════════════════════════════
+
 - SESSION FLAGS + STATE MACHINE
 - ═══════════════════════════════════════════════════════════ */
 
@@ -166,7 +117,7 @@ SECT_ACTIVE,
 
 /* ═══════════════════════════════════════════════════════════
 
-- CRC-32  (IEEE 802.3, per DSP0240)
+- CRC-32  (IEEE 802.3)
 - ═══════════════════════════════════════════════════════════ */
 
 #define CRC32_INIT  0x00000000u
@@ -180,40 +131,38 @@ return crc32_ieee_update(crc, data, len);
 /* ═══════════════════════════════════════════════════════════
 
 - SESSION DATA STRUCTURE
-- 
-- No file metadata — queried via pldm_pdr_file_lookup(fi).
 - ═══════════════════════════════════════════════════════════ */
 
 typedef struct {
-/* ─── Identity & lifecycle ─── */
-bool            in_use;
-uint16_t        fd;
-uint16_t        fi;             /* PDR lookup key               */
-uint16_t        generation;
-uint8_t         flags;
+/* ─── Identity ─── */
+bool                    in_use;
+uint16_t                fd;
+uint16_t                fi;         /* PDR lookup key */
+uint16_t                generation;
+uint8_t                 flags;
 
 ```
-/* ─── Heartbeat / implicit close ─── */
-uint32_t        ni_ms;
-int64_t         last_activity_ms;
+/* ─── Timeout via k_work_delayable ─── */
+uint32_t                ni_ms;
+struct k_work_delayable close_dwork;
 
 /* ─── DfRead state machine ─── */
-section_state_t xfer_state;
-uint32_t        snapshot_size;
-uint32_t        section_offset;
-uint32_t        section_length;
-uint32_t        bytes_sent;
-uint32_t        next_handle;
-uint32_t        crc_state;
+section_state_t         xfer_state;
+uint32_t                snapshot_size;
+uint32_t                section_offset;
+uint32_t                section_length;
+uint32_t                bytes_sent;
+uint32_t                next_handle;
+uint32_t                crc_state;
 
 /* ─── Retransmit ─── */
-uint32_t        last_part_buf_offset;
-uint32_t        last_part_len;
-uint32_t        prev_crc;
-uint8_t         last_flag;
+uint32_t                last_part_buf_offset;
+uint32_t                last_part_len;
+uint32_t                prev_crc;
+uint8_t                 last_flag;
 
 /* ─── FIFO ─── */
-uint32_t        fifo_read_ptr;
+uint32_t                fifo_read_ptr;
 ```
 
 } pldm_session_t;
@@ -236,19 +185,19 @@ static K_MUTEX_DEFINE(negotiate_lock);
 
 static pldm_session_t *find_session(uint16_t fd)
 {
-if (fd == FD_INVALID) {
-return NULL;
-}
+if (fd == FD_INVALID) { return NULL; }
+
+```
 uint8_t  slot = FD_SLOT(fd);
 uint16_t gen  = FD_GEN(fd);
-if (slot >= MAX_SESSIONS) {
-return NULL;
-}
+
+if (slot >= MAX_SESSIONS) { return NULL; }
+
 pldm_session_t *s = &sessions[slot];
-if (!s->in_use || s->generation != gen) {
-return NULL;
-}
+if (!s->in_use || s->generation != gen) { return NULL; }
 return s;
+```
+
 }
 
 static pldm_session_t *find_free_slot(uint8_t *out)
@@ -310,33 +259,118 @@ s->last_flag            = 0u;
 static void session_close(pldm_session_t *s)
 {
 section_reset(s);
-s->in_use           = false;
-s->fd               = FD_INVALID;
-s->fi               = 0u;
-s->flags            = 0u;
-s->ni_ms            = 0u;
-s->last_activity_ms = 0;
-s->fifo_read_ptr    = 0u;
+s->in_use        = false;
+s->fd            = FD_INVALID;
+s->fi            = 0u;
+s->flags         = 0u;
+s->ni_ms         = 0u;
+s->fifo_read_ptr = 0u;
+/* generation intentionally preserved */
 }
 
 /* ═══════════════════════════════════════════════════════════
 
-- DfRead RESPONSE (filled by handler, consumed by dispatcher)
+- IMPLICIT CLOSE — k_work_delayable handler
+- 
+- Runs in system workqueue thread context.
+- Safe to lock mutex here.
+- ═══════════════════════════════════════════════════════════ */
+
+static void close_work_handler(struct k_work *work)
+{
+struct k_work_delayable *dwork = k_work_delayable_from_work(work);
+pldm_session_t *sess = CONTAINER_OF(dwork, pldm_session_t, close_dwork);
+
+```
+k_mutex_lock(&sessions_lock, K_FOREVER);
+if (sess->in_use) {
+    LOG_WRN("Implicit close: FD=0x%04x FI=%u", sess->fd, sess->fi);
+    session_close(sess);
+}
+k_mutex_unlock(&sessions_lock);
+```
+
+}
+
+/* ═══════════════════════════════════════════════════════════
+
+- DfRead INTERNAL RESPONSE
+- 
+- Filled by state machine, translated to multipart_recv_resp_t
+- by the dispatcher.
 - ═══════════════════════════════════════════════════════════ */
 
 typedef struct {
 uint8_t  flag;
 uint32_t next_handle;
 uint32_t data_len;
-uint32_t buf_offset;
-uint32_t crc;
+uint32_t buf_offset;    /* offset into file info->buf */
 bool     has_data;
-} df_read_resp_t;
+} df_read_result_t;
 
 /* ═══════════════════════════════════════════════════════════
 
 - COMMAND HANDLERS
 - ═══════════════════════════════════════════════════════════ */
+
+/* ─── NegotiateTransferParameters (0x07) ─── */
+
+static int handle_negotiate_tp(const uint8_t *req, size_t req_len,
+uint8_t *resp, size_t *resp_len)
+{
+negotiate_tp_req_t parsed;
+if (negotiate_tp_parse(req, req_len, &parsed) != 0) {
+resp[0]   = PLDM_ERROR_INVALID_LENGTH;
+*resp_len = 1u;
+return (int)PLDM_ERROR_INVALID_LENGTH;
+}
+
+```
+/* Validate part size */
+bool not_pow2 = (parsed.part_size >= 256u) &&
+                ((parsed.part_size & (parsed.part_size - 1u)) != 0u);
+if (not_pow2) {
+    resp[0]   = PLDM_ERROR_INVALID_DATA;
+    *resp_len = 1u;
+    return (int)PLDM_ERROR_INVALID_DATA;
+}
+
+bool requester_supports_multipart = (parsed.part_size >= 256u);
+bool req_type7 = PLDM_TYPE_SUPPORTED(parsed.protocol_support,
+                                      PLDM_TYPE_FILE);
+bool type7_negotiated = requester_supports_multipart && req_type7;
+
+/* Update negotiated part size only if Type 7 agreed */
+if (type7_negotiated) {
+    uint16_t neg = (uint16_t)MIN((uint32_t)parsed.part_size,
+                                 (uint32_t)HOST_PART_SIZE);
+    k_mutex_lock(&negotiate_lock, K_FOREVER);
+    negotiated_part_size = neg;
+    k_mutex_unlock(&negotiate_lock);
+
+    LOG_INF("NegotiateTP: req=%u host=%u → %u",
+            parsed.part_size, HOST_PART_SIZE, neg);
+} else {
+    LOG_INF("NegotiateTP: Type 7 not negotiated (req_ps=%u type7=%d)",
+            parsed.part_size, req_type7);
+}
+
+/* Build response — intersection of protocol support */
+negotiate_tp_resp_t tp_resp = {
+    .completion_code = PLDM_SUCCESS,
+    .part_size       = HOST_PART_SIZE,
+    .protocol_support = {0},
+};
+
+if (type7_negotiated) {
+    PLDM_TYPE_SET(tp_resp.protocol_support, PLDM_TYPE_FILE);
+}
+
+*resp_len = negotiate_tp_build(&tp_resp, resp, 11u);
+return (int)PLDM_SUCCESS;
+```
+
+}
 
 /* ─── DfProperties (0x10) ─── */
 
@@ -344,9 +378,9 @@ static int handle_df_properties(const uint8_t *req, size_t req_len,
 uint8_t *resp, size_t *resp_len)
 {
 if (req_len < 4u) {
-resp[0] = PLDM_ERROR_INVALID_LENGTH;
+resp[0]   = PLDM_ERROR_INVALID_LENGTH;
 *resp_len = 1u;
-return (int)resp[0];
+return (int)PLDM_ERROR_INVALID_LENGTH;
 }
 
 ```
@@ -354,9 +388,9 @@ uint32_t attr;
 memcpy(&attr, req, sizeof(attr));
 
 if (__builtin_popcount(attr) != 1) {
-    resp[0] = PLDM_FILE_INVALID_DF_ATTRIBUTE;
+    resp[0]   = PLDM_FILE_INVALID_DF_ATTRIBUTE;
     *resp_len = 1u;
-    return (int)resp[0];
+    return (int)PLDM_FILE_INVALID_DF_ATTRIBUTE;
 }
 
 uint32_t val;
@@ -365,9 +399,9 @@ if (attr == DFPROP_ATTR_MAX_CONCURRENT_MEDIUM) {
 } else if (attr == DFPROP_ATTR_MAX_FILE_DESCRIPTORS) {
     val = MAX_SESSIONS;
 } else {
-    resp[0] = PLDM_FILE_INVALID_DF_ATTRIBUTE;
+    resp[0]   = PLDM_FILE_INVALID_DF_ATTRIBUTE;
     *resp_len = 1u;
-    return (int)resp[0];
+    return (int)PLDM_FILE_INVALID_DF_ATTRIBUTE;
 }
 
 resp[0] = PLDM_SUCCESS;
@@ -384,9 +418,9 @@ static int handle_df_open(const uint8_t *req, size_t req_len,
 uint8_t *resp, size_t *resp_len)
 {
 if (req_len < 4u) {
-resp[0] = PLDM_ERROR_INVALID_LENGTH;
+resp[0]   = PLDM_ERROR_INVALID_LENGTH;
 *resp_len = 1u;
-return (int)resp[0];
+return (int)PLDM_ERROR_INVALID_LENGTH;
 }
 
 ```
@@ -394,72 +428,59 @@ uint16_t fi, open_attr;
 memcpy(&fi,        &req[0], sizeof(fi));
 memcpy(&open_attr, &req[2], sizeof(open_attr));
 
-/* ── PDR lookup ── */
+/* PDR lookup */
 const pldm_file_info_t *info = pldm_pdr_file_lookup(fi);
 if (info == NULL) {
-    resp[0] = PLDM_FILE_INVALID_FILE_IDENTIFIER;
+    resp[0]   = PLDM_FILE_INVALID_FILE_IDENTIFIER;
     *resp_len = 1u;
-    return (int)resp[0];
+    return (int)PLDM_FILE_INVALID_FILE_IDENTIFIER;
 }
 
-/* ── Validate against PDR capabilities ── */
-
+/* Validate against PDR */
 if (pldm_file_is_directory(info)) {
-    resp[0] = PLDM_FILE_DFOPEN_DIR_NOT_ALLOWED;
+    resp[0]   = PLDM_FILE_DFOPEN_DIR_NOT_ALLOWED;
     *resp_len = 1u;
-    return (int)resp[0];
+    return (int)PLDM_FILE_DFOPEN_DIR_NOT_ALLOWED;
 }
-
 if (open_attr & DFOPEN_ATTR_RESERVED) {
-    resp[0] = PLDM_FILE_INVALID_DF_ATTRIBUTE;
+    resp[0]   = PLDM_FILE_INVALID_DF_ATTRIBUTE;
     *resp_len = 1u;
-    return (int)resp[0];
+    return (int)PLDM_FILE_INVALID_DF_ATTRIBUTE;
 }
-
-/* Read-only host */
 if (open_attr & DFOPEN_ATTR_READ_WRITE) {
-    resp[0] = PLDM_FILE_INVALID_DF_ATTRIBUTE;
+    resp[0]   = PLDM_FILE_INVALID_DF_ATTRIBUTE;
     *resp_len = 1u;
-    return (int)resp[0];
+    return (int)PLDM_FILE_INVALID_DF_ATTRIBUTE;
 }
-
-/* Pushed not supported */
 if (open_attr & DFOPEN_ATTR_PUSHED) {
-    resp[0] = PLDM_FILE_INVALID_DF_ATTRIBUTE;
+    resp[0]   = PLDM_FILE_INVALID_DF_ATTRIBUTE;
     *resp_len = 1u;
-    return (int)resp[0];
+    return (int)PLDM_FILE_INVALID_DF_ATTRIBUTE;
 }
 
 bool want_excl = (open_attr & DFOPEN_ATTR_EXCLUSIVE) != 0u;
 bool want_fifo = (open_attr & DFOPEN_ATTR_REG_FIFO)  != 0u;
 
-/* FIFO + Exclusive forbidden (§9.2.3) */
 if (want_fifo && want_excl) {
-    resp[0] = PLDM_FILE_INVALID_DF_ATTRIBUTE;
+    resp[0]   = PLDM_FILE_INVALID_DF_ATTRIBUTE;
     *resp_len = 1u;
-    return (int)resp[0];
+    return (int)PLDM_FILE_INVALID_DF_ATTRIBUTE;
 }
-
-/* FIFO attribute must match PDR data_type_fifo */
 if (want_fifo != pldm_file_is_fifo(info)) {
-    resp[0] = PLDM_FILE_INVALID_DF_ATTRIBUTE;
+    resp[0]   = PLDM_FILE_INVALID_DF_ATTRIBUTE;
     *resp_len = 1u;
-    return (int)resp[0];
+    return (int)PLDM_FILE_INVALID_DF_ATTRIBUTE;
 }
-
-/* Exclusive allowed by PDR? */
 if (want_excl && !pldm_file_excl_allowed(info)) {
-    resp[0] = PLDM_FILE_EXCLUSIVE_OWNERSHIP_NOT_ALLOWED;
+    resp[0]   = PLDM_FILE_EXCLUSIVE_OWNERSHIP_NOT_ALLOWED;
     *resp_len = 1u;
-    return (int)resp[0];
+    return (int)PLDM_FILE_EXCLUSIVE_OWNERSHIP_NOT_ALLOWED;
 }
 
-/* ── Session allocation under lock ── */
-
+/* Session allocation */
 k_mutex_lock(&sessions_lock, K_FOREVER);
 int rc = (int)PLDM_SUCCESS;
 
-/* Bidirectional exclusive check */
 if (fi_has_exclusive_session(fi)) {
     rc = (int)PLDM_FILE_EXCLUSIVE_OWNERSHIP_NOT_AVAILABLE;
     goto out;
@@ -468,14 +489,11 @@ if (want_excl && count_sessions_for_fi(fi) > 0) {
     rc = (int)PLDM_FILE_EXCLUSIVE_OWNERSHIP_NOT_AVAILABLE;
     goto out;
 }
-
-/* Per-file limit from PDR */
 if (count_sessions_for_fi(fi) >= (int)info->max_fd_count) {
     rc = (int)PLDM_FILE_MAX_NUM_FDS_EXCEEDED;
     goto out;
 }
 
-/* Global pool */
 uint8_t slot_idx = 0u;
 pldm_session_t *slot = find_free_slot(&slot_idx);
 if (slot == NULL) {
@@ -483,17 +501,19 @@ if (slot == NULL) {
     goto out;
 }
 
-/* Init session */
-slot->fd               = alloc_fd(slot_idx);
-slot->fi               = fi;
-slot->in_use           = true;
-slot->ni_ms            = DEFAULT_NI_MS;
-slot->last_activity_ms = k_uptime_get();
-slot->flags            = 0u;
-slot->fifo_read_ptr    = 0u;
+/* Initialize session */
+slot->fd            = alloc_fd(slot_idx);
+slot->fi            = fi;
+slot->in_use        = true;
+slot->ni_ms         = DEFAULT_NI_MS;
+slot->flags         = 0u;
+slot->fifo_read_ptr = 0u;
 if (want_excl) { slot->flags |= SESSION_FLAG_EXCLUSIVE; }
 if (want_fifo) { slot->flags |= SESSION_FLAG_FIFO;      }
 section_reset(slot);
+
+/* Start inactivity timer */
+k_work_schedule(&slot->close_dwork, K_MSEC(DEFAULT_NI_MS));
 
 resp[0] = PLDM_SUCCESS;
 memcpy(&resp[1], &slot->fd, sizeof(slot->fd));
@@ -518,9 +538,9 @@ static int handle_df_close(const uint8_t *req, size_t req_len,
 uint8_t *resp, size_t *resp_len)
 {
 if (req_len < 4u) {
-resp[0] = PLDM_ERROR_INVALID_LENGTH;
+resp[0]   = PLDM_ERROR_INVALID_LENGTH;
 *resp_len = 1u;
-return (int)resp[0];
+return (int)PLDM_ERROR_INVALID_LENGTH;
 }
 
 ```
@@ -529,22 +549,26 @@ memcpy(&fd,   &req[0], sizeof(fd));
 memcpy(&opts, &req[2], sizeof(opts));
 
 if (opts & BIT(0)) {
-    resp[0] = PLDM_FILE_ZEROLENGTH_NOT_ALLOWED;
+    resp[0]   = PLDM_FILE_ZEROLENGTH_NOT_ALLOWED;
     *resp_len = 1u;
-    return (int)resp[0];
+    return (int)PLDM_FILE_ZEROLENGTH_NOT_ALLOWED;
 }
 
 k_mutex_lock(&sessions_lock, K_FOREVER);
 pldm_session_t *sess = find_session(fd);
 if (sess == NULL) {
     k_mutex_unlock(&sessions_lock);
-    resp[0] = PLDM_FILE_INVALID_FILE_DESCRIPTOR;
+    resp[0]   = PLDM_FILE_INVALID_FILE_DESCRIPTOR;
     *resp_len = 1u;
-    return (int)resp[0];
+    return (int)PLDM_FILE_INVALID_FILE_DESCRIPTOR;
 }
 
 LOG_DBG("DfClose: FD=0x%04x FI=%u", fd, sess->fi);
+
+/* Cancel timer before closing */
+k_work_cancel_delayable(&sess->close_dwork);
 session_close(sess);
+
 k_mutex_unlock(&sessions_lock);
 
 resp[0]   = PLDM_SUCCESS;
@@ -560,9 +584,9 @@ static int handle_df_heartbeat(const uint8_t *req, size_t req_len,
 uint8_t *resp, size_t *resp_len)
 {
 if (req_len < 6u) {
-resp[0] = PLDM_ERROR_INVALID_LENGTH;
+resp[0]   = PLDM_ERROR_INVALID_LENGTH;
 *resp_len = 1u;
-return (int)resp[0];
+return (int)PLDM_ERROR_INVALID_LENGTH;
 }
 
 ```
@@ -575,18 +599,23 @@ k_mutex_lock(&sessions_lock, K_FOREVER);
 pldm_session_t *sess = find_session(fd);
 if (sess == NULL) {
     k_mutex_unlock(&sessions_lock);
-    resp[0] = PLDM_FILE_INVALID_FILE_DESCRIPTOR;
+    resp[0]   = PLDM_FILE_INVALID_FILE_DESCRIPTOR;
     *resp_len = 1u;
-    return (int)resp[0];
+    return (int)PLDM_FILE_INVALID_FILE_DESCRIPTOR;
 }
 
-sess->ni_ms            = MIN(req_interval, (uint32_t)HOST_MAX_NI_MS);
-sess->last_activity_ms = k_uptime_get();
+/* NI = MIN(requester, host) — store for our watchdog */
+sess->ni_ms = MIN(req_interval, (uint32_t)HOST_MAX_NI_MS);
+
+/* Reset inactivity timer with new interval */
+k_work_reschedule(&sess->close_dwork, K_MSEC(sess->ni_ms));
+
 k_mutex_unlock(&sessions_lock);
 
-uint32_t host_interval = HOST_MAX_NI_MS;
+/* Response: our preference, Client computes MIN on its side */
+uint32_t host_ni = HOST_MAX_NI_MS;
 resp[0] = PLDM_SUCCESS;
-memcpy(&resp[1], &host_interval, sizeof(host_interval));
+memcpy(&resp[1], &host_ni, sizeof(host_ni));
 *resp_len = 5u;
 return (int)PLDM_SUCCESS;
 ```
@@ -598,7 +627,7 @@ return (int)PLDM_SUCCESS;
 static int df_read_send_part(pldm_session_t         *sess,
 const pldm_file_info_t *info,
 uint16_t                part_size,
-df_read_resp_t         *out)
+df_read_result_t       *out)
 {
 uint32_t remaining = sess->section_length - sess->bytes_sent;
 uint32_t len       = MIN(remaining, (uint32_t)part_size);
@@ -624,34 +653,25 @@ sess->last_flag            = out->flag;
 
 sess->bytes_sent += len;
 
-if (is_last) {
-    out->next_handle = 0u;
-} else {
-    sess->next_handle++;
-    out->next_handle = sess->next_handle;
-}
+out->next_handle = is_last ? 0u : ++(sess->next_handle);
+out->data_len    = len;
+out->buf_offset  = buf_off;
+out->has_data    = true;
 
-out->data_len   = len;
-out->buf_offset = buf_off;
-out->has_data   = true;
-out->crc        = 0u;  /* computed after memcpy */
 return (int)PLDM_SUCCESS;
 ```
 
 }
 
-/* ─── DfRead: main state machine ─── */
+/* ─── DfRead: state machine ─── */
 
-static int handle_df_read(uint8_t         xfer_op,
-uint32_t        transfer_ctx,
-uint32_t        handle_in,
-uint32_t        req_offset,
-uint32_t        req_len,
-df_read_resp_t *out)
+static int handle_df_read(const multipart_recv_req_t *mpr,
+df_read_result_t           *out)
 {
 memset(out, 0, sizeof(*out));
 
 ```
+/* Check negotiation */
 k_mutex_lock(&negotiate_lock, K_FOREVER);
 uint16_t part_sz = negotiated_part_size;
 k_mutex_unlock(&negotiate_lock);
@@ -660,7 +680,7 @@ if (part_sz == 0u) {
     return (int)PLDM_ERROR_NEGOTIATION_INCOMPLETE;
 }
 
-uint16_t fd = (uint16_t)(transfer_ctx & 0xFFFFu);
+uint16_t fd = (uint16_t)(mpr->transfer_ctx & 0xFFFFu);
 
 k_mutex_lock(&sessions_lock, K_FOREVER);
 
@@ -676,14 +696,16 @@ if (info == NULL || info->buf == NULL) {
     return (int)PLDM_ERROR_INVALID_DATA;
 }
 
-sess->last_activity_ms = k_uptime_get();
+/* DfRead = implicit heartbeat → reset timer */
+k_work_reschedule(&sess->close_dwork, K_MSEC(sess->ni_ms));
+
 int rc = (int)PLDM_SUCCESS;
 
-switch (xfer_op) {
+switch (mpr->xfer_op) {
 
-/* ── Start / restart section ── */
 case XFER_OP_FIRST_PART: {
-    if ((sess->flags & SESSION_FLAG_FIFO) && req_offset != 0u) {
+    if ((sess->flags & SESSION_FLAG_FIFO) &&
+        mpr->section_offset != 0u) {
         rc = (int)PLDM_ERROR_INVALID_DATA;
         break;
     }
@@ -694,12 +716,13 @@ case XFER_OP_FIRST_PART: {
                      ? (cur - sess->fifo_read_ptr) : 0u)
                   : cur;
 
-    uint32_t avail    = (req_offset >= snap) ? 0u : (snap - req_offset);
-    uint32_t sect_len = MIN(req_len, avail);
+    uint32_t avail    = (mpr->section_offset >= snap)
+                      ? 0u : (snap - mpr->section_offset);
+    uint32_t sect_len = MIN(mpr->section_length, avail);
 
     sess->xfer_state     = SECT_ACTIVE;
     sess->snapshot_size  = snap;
-    sess->section_offset = req_offset;
+    sess->section_offset = mpr->section_offset;
     sess->section_length = sect_len;
     sess->bytes_sent     = 0u;
     sess->next_handle    = 1u;
@@ -710,7 +733,6 @@ case XFER_OP_FIRST_PART: {
     break;
 }
 
-/* ── Continue section ── */
 case XFER_OP_NEXT_PART: {
     if (sess->xfer_state != SECT_ACTIVE) {
         rc = (int)PLDM_ERROR_INVALID_TRANSFER_OPERATION;
@@ -720,7 +742,7 @@ case XFER_OP_NEXT_PART: {
         rc = (int)PLDM_ERROR_INVALID_DATA;
         break;
     }
-    if (handle_in != sess->next_handle) {
+    if (mpr->data_handle != sess->next_handle) {
         rc = (int)PLDM_ERROR_INVALID_TRANSFER_HANDLE;
         break;
     }
@@ -732,9 +754,9 @@ case XFER_OP_NEXT_PART: {
     break;
 }
 
-/* ── Retransmit last part ── */
 case XFER_OP_CURRENT_PART: {
-    if (sess->xfer_state != SECT_ACTIVE || sess->last_part_len == 0u) {
+    if (sess->xfer_state != SECT_ACTIVE ||
+        sess->last_part_len == 0u) {
         rc = (int)PLDM_ERROR_INVALID_TRANSFER_OPERATION;
         break;
     }
@@ -744,7 +766,6 @@ case XFER_OP_CURRENT_PART: {
     break;
 }
 
-/* ── Section complete ── */
 case XFER_OP_COMPLETE: {
     if ((sess->flags & SESSION_FLAG_FIFO) &&
         sess->xfer_state == SECT_ACTIVE) {
@@ -757,7 +778,6 @@ case XFER_OP_COMPLETE: {
     break;
 }
 
-/* ── Abort ── */
 case XFER_OP_ABORT: {
     section_reset(sess);
     out->flag     = XFER_FLAG_ACK_COMPLETION;
@@ -776,70 +796,9 @@ return rc;
 
 }
 
-/* ─── NegotiateTransferParameters (0x07) ─── */
-
-static int handle_negotiate_xfer_params(const uint8_t *req, size_t req_len,
-uint8_t *resp, size_t *resp_len)
-{
-if (req_len < 10u) {
-resp[0] = PLDM_ERROR_INVALID_LENGTH;
-*resp_len = 1u;
-return (int)resp[0];
-}
-
-```
-uint16_t req_ps;
-memcpy(&req_ps, &req[0], sizeof(req_ps));
-
-if (req_ps < 256u || (req_ps & (req_ps - 1u)) != 0u) {
-    resp[0] = PLDM_ERROR_INVALID_DATA;
-    *resp_len = 1u;
-    return (int)resp[0];
-}
-
-bool req_t7 = (req[2u + PROTO_SUPPORT_TYPE7_BYTE] &
-               PROTO_SUPPORT_TYPE7_BIT) != 0u;
-
-uint16_t neg = (uint16_t)MIN((uint32_t)req_ps, (uint32_t)HOST_PART_SIZE);
-
-k_mutex_lock(&negotiate_lock, K_FOREVER);
-negotiated_part_size = neg;
-k_mutex_unlock(&negotiate_lock);
-
-uint16_t host_ps = HOST_PART_SIZE;
-resp[0] = PLDM_SUCCESS;
-memcpy(&resp[1], &host_ps, sizeof(host_ps));
-memset(&resp[3], 0u, 8u);
-if (req_t7) {
-    resp[3u + PROTO_SUPPORT_TYPE7_BYTE] |= PROTO_SUPPORT_TYPE7_BIT;
-}
-*resp_len = 11u;
-
-LOG_INF("NegotiateTP: req=%u host=%u → %u", req_ps, HOST_PART_SIZE, neg);
-return (int)PLDM_SUCCESS;
-```
-
-}
-
 /* ═══════════════════════════════════════════════════════════
 
 - COMMAND DISPATCHER
-- 
-- MultipartReceive (0x09) wire layout (DSP0240):
-- [0]     PLDMType (0x07)
-- [1]     TransferOperation
-- [2:5]   TransferContext = FileDescriptor
-- [6:9]   DataTransferHandle
-- [10:13] RequestedSectionOffset = FileOffset
-- [14:17] RequestedSectionLengthBytes
-- 
-- MultipartReceive response:
-- [0]          CompletionCode
-- [1]          TransferFlag
-- [2:5]        NextDataTransferHandle
-- [6:9]        DataLengthBytes
-- [10:N+9]     Data          (omitted for ACK)
-- [N+10:N+13]  CRC-32        (omitted for ACK)
 - ═══════════════════════════════════════════════════════════ */
 
 int pldm_file_host_dispatch(uint8_t cmd, const uint8_t *req, size_t req_len,
@@ -849,7 +808,7 @@ switch (cmd) {
 
 ```
 case 0x07u:
-    return handle_negotiate_xfer_params(req, req_len, resp, resp_len);
+    return handle_negotiate_tp(req, req_len, resp, resp_len);
 
 case 0x10u:
     return handle_df_properties(req, req_len, resp, resp_len);
@@ -864,21 +823,24 @@ case 0x03u:
     return handle_df_heartbeat(req, req_len, resp, resp_len);
 
 case 0x09u: {
-    if (req_len < 18u) {
-        resp[0] = PLDM_ERROR_INVALID_LENGTH;
+    /* Parse wire format → struct */
+    multipart_recv_req_t mpr;
+    if (multipart_recv_parse(req, req_len, &mpr) != 0) {
+        resp[0]   = PLDM_ERROR_INVALID_LENGTH;
         *resp_len = 1u;
-        return (int)resp[0];
+        return (int)PLDM_ERROR_INVALID_LENGTH;
     }
 
-    uint8_t  xfer_op = req[1];
-    uint32_t ctx, hdl, off, rlen;
-    memcpy(&ctx, &req[2],  sizeof(ctx));
-    memcpy(&hdl, &req[6],  sizeof(hdl));
-    memcpy(&off, &req[10], sizeof(off));
-    memcpy(&rlen,&req[14], sizeof(rlen));
+    /* Route by PLDM Type */
+    if (mpr.pldm_type != PLDM_TYPE_FILE) {
+        resp[0]   = PLDM_ERROR_UNSUPPORTED_PLDM_CMD;
+        *resp_len = 1u;
+        return (int)PLDM_ERROR_UNSUPPORTED_PLDM_CMD;
+    }
 
-    df_read_resp_t dr;
-    int rc = handle_df_read(xfer_op, ctx, hdl, off, rlen, &dr);
+    /* Run DfRead state machine */
+    df_read_result_t dr;
+    int rc = handle_df_read(&mpr, &dr);
 
     if (rc != (int)PLDM_SUCCESS) {
         resp[0]   = (uint8_t)rc;
@@ -886,40 +848,50 @@ case 0x09u: {
         return rc;
     }
 
-    /* Build response header */
-    resp[0] = PLDM_SUCCESS;
-    resp[1] = dr.flag;
-    memcpy(&resp[2], &dr.next_handle, 4u);
-    memcpy(&resp[6], &dr.data_len,    4u);
+    /* Build response via multipart builder */
+    multipart_recv_resp_t mr = {
+        .completion_code = PLDM_SUCCESS,
+        .transfer_flag   = dr.flag,
+        .next_handle     = dr.next_handle,
+        .data_length     = dr.data_len,
+        .has_data        = dr.has_data,
+        .crc             = 0u,
+    };
+
+    size_t hdr_len = multipart_recv_build_header(&mr, resp, req_len + 64u);
 
     if (dr.has_data && dr.data_len > 0u) {
-        uint16_t fd = (uint16_t)(ctx & 0xFFFFu);
+        /* Copy file data + compute CRC */
+        uint16_t fd = (uint16_t)(mpr.transfer_ctx & 0xFFFFu);
 
         k_mutex_lock(&sessions_lock, K_FOREVER);
         pldm_session_t *sess = find_session(fd);
         if (sess != NULL) {
             const pldm_file_info_t *info = pldm_pdr_file_lookup(sess->fi);
             if (info != NULL && info->buf != NULL) {
-                memcpy(&resp[10], info->buf + dr.buf_offset, dr.data_len);
+                memcpy(&resp[hdr_len], info->buf + dr.buf_offset,
+                       dr.data_len);
                 sess->crc_state = crc32_update(sess->crc_state,
-                                               &resp[10], dr.data_len);
-                dr.crc = sess->crc_state;
+                                               &resp[hdr_len],
+                                               dr.data_len);
+                mr.crc = sess->crc_state;
             }
         }
         k_mutex_unlock(&sessions_lock);
 
-        memcpy(&resp[10u + dr.data_len], &dr.crc, 4u);
-        *resp_len = 10u + dr.data_len + 4u;
+        multipart_recv_append_crc(resp, hdr_len, dr.data_len, mr.crc);
+        *resp_len = hdr_len + dr.data_len + MULTIPART_RECV_CRC_SIZE;
     } else {
-        *resp_len = 10u;
+        *resp_len = hdr_len;
     }
+
     return rc;
 }
 
 default:
     resp[0]   = PLDM_ERROR_UNSUPPORTED_PLDM_CMD;
     *resp_len = 1u;
-    return (int)resp[0];
+    return (int)PLDM_ERROR_UNSUPPORTED_PLDM_CMD;
 }
 ```
 
@@ -927,36 +899,23 @@ default:
 
 /* ═══════════════════════════════════════════════════════════
 
-- IMPLICIT CLOSE WATCHDOG
+- INIT — call once at boot before any PLDM commands
 - ═══════════════════════════════════════════════════════════ */
 
-#define WATCHDOG_STACK_SIZE 512u
-#define WATCHDOG_PRIORITY   5
-
-static void fd_watchdog_thread(void *p1, void *p2, void *p3)
+void pldm_file_host_init(void)
 {
-ARG_UNUSED(p1); ARG_UNUSED(p2); ARG_UNUSED(p3);
+for (size_t i = 0u; i < MAX_SESSIONS; i++) {
+sessions[i].in_use     = false;
+sessions[i].generation = 0u;
+k_work_init_delayable(&sessions[i].close_dwork,
+close_work_handler);
+}
 
 ```
-while (1) {
-    k_sleep(K_MSEC(WATCHDOG_PERIOD_MS));
-    int64_t now = k_uptime_get();
+negotiated_part_size = 0u;
 
-    k_mutex_lock(&sessions_lock, K_FOREVER);
-    for (size_t i = 0u; i < MAX_SESSIONS; i++) {
-        pldm_session_t *s = &sessions[i];
-        if (!s->in_use) { continue; }
-        if ((now - s->last_activity_ms) > (int64_t)s->ni_ms) {
-            LOG_WRN("Implicit close: FD=0x%04x FI=%u", s->fd, s->fi);
-            session_close(s);
-        }
-    }
-    k_mutex_unlock(&sessions_lock);
-}
+LOG_INF("PLDM File Host init: %u sessions, part_size=%u",
+        MAX_SESSIONS, HOST_PART_SIZE);
 ```
 
 }
-
-K_THREAD_DEFINE(fd_watchdog, WATCHDOG_STACK_SIZE,
-fd_watchdog_thread, NULL, NULL, NULL,
-WATCHDOG_PRIORITY, 0, 0);
