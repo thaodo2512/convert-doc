@@ -1,0 +1,313 @@
+/*
+
+- pldm_multipart.h
+- 
+- DSP0240 Multipart Transfer wire format parsing and building.
+- 
+- This layer handles ONLY the byte-level serialization/deserialization
+- of MultipartReceive (0x09) and NegotiateTransferParameters (0x07).
+- 
+- Business logic (state machine, CRC tracking, file access) belongs
+- in the PLDM Type-specific handler (e.g., DfRead for Type 0x07).
+- 
+- Usage:
+- 1. Dispatcher receives raw PLDM message
+- 1. Call multipart_recv_parse() to get structured request
+- 1. Route to Type-specific handler by pldm_type field
+- 1. Handler fills multipart_recv_resp_t
+- 1. Call multipart_recv_build() to serialize response
+- 
+- Future: MultipartSend parse/build can be added here when
+- DfFIFOSend (Pushed mode) is implemented.
+  */
+
+#ifndef PLDM_MULTIPART_H
+#define PLDM_MULTIPART_H
+
+#include <stdint.h>
+#include <stddef.h>
+#include <stdbool.h>
+#include <string.h>
+#include <errno.h>
+
+#ifdef __cplusplus
+extern “C” {
+#endif
+
+/* ═══════════════════════════════════════════════════════════
+
+- TransferOperation  (DSP0240 §9.6.4 — request)
+- ═══════════════════════════════════════════════════════════ */
+
+#define XFER_OP_FIRST_PART      0x00u
+#define XFER_OP_NEXT_PART       0x01u
+#define XFER_OP_ABORT           0x02u
+#define XFER_OP_COMPLETE        0x03u
+#define XFER_OP_CURRENT_PART    0x04u
+
+/* ═══════════════════════════════════════════════════════════
+
+- TransferFlag  (DSP0240 §9.6.4 — response)
+- ═══════════════════════════════════════════════════════════ */
+
+#define XFER_FLAG_START             0x01u
+#define XFER_FLAG_MIDDLE            0x02u
+#define XFER_FLAG_END               0x04u
+#define XFER_FLAG_START_AND_END     0x05u
+#define XFER_FLAG_ACK_COMPLETION    0x08u
+
+/* ═══════════════════════════════════════════════════════════
+
+- PLDM Base Completion Codes  (DSP0240)
+- ═══════════════════════════════════════════════════════════ */
+
+#define PLDM_SUCCESS                            0x00u
+#define PLDM_ERROR_INVALID_DATA                 0x02u
+#define PLDM_ERROR_INVALID_LENGTH               0x04u
+#define PLDM_ERROR_UNSUPPORTED_PLDM_CMD         0x05u
+#define PLDM_ERROR_NEGOTIATION_INCOMPLETE       0x83u
+#define PLDM_ERROR_INVALID_TRANSFER_CONTEXT     0x84u
+#define PLDM_ERROR_INVALID_TRANSFER_HANDLE      0x85u
+#define PLDM_ERROR_INVALID_TRANSFER_OPERATION   0x86u
+
+/* ═══════════════════════════════════════════════════════════
+
+- MultipartReceive REQUEST  (parsed)
+- 
+- Wire layout (18 bytes):
+- [0]     uint8   PLDMType
+- [1]     enum8   TransferOperation
+- [2:5]   uint32  TransferContext
+- [6:9]   uint32  DataTransferHandle
+- [10:13] uint32  RequestedSectionOffset
+- [14:17] uint32  RequestedSectionLengthBytes
+- ═══════════════════════════════════════════════════════════ */
+
+#define MULTIPART_RECV_REQ_SIZE  18u
+
+typedef struct {
+uint8_t  pldm_type;
+uint8_t  xfer_op;
+uint32_t transfer_ctx;
+uint32_t data_handle;
+uint32_t section_offset;
+uint32_t section_length;
+} multipart_recv_req_t;
+
+static inline int multipart_recv_parse(const uint8_t *raw, size_t len,
+multipart_recv_req_t *out)
+{
+if (raw == NULL || out == NULL || len < MULTIPART_RECV_REQ_SIZE) {
+return -EINVAL;
+}
+
+```
+out->pldm_type = raw[0];
+out->xfer_op   = raw[1];
+memcpy(&out->transfer_ctx,  &raw[2],  sizeof(out->transfer_ctx));
+memcpy(&out->data_handle,   &raw[6],  sizeof(out->data_handle));
+memcpy(&out->section_offset, &raw[10], sizeof(out->section_offset));
+memcpy(&out->section_length, &raw[14], sizeof(out->section_length));
+
+return 0;
+```
+
+}
+
+/* ═══════════════════════════════════════════════════════════
+
+- MultipartReceive RESPONSE  (to build)
+- 
+- Wire layout:
+- [0]          enum8   CompletionCode
+- [1]          enum8   TransferFlag
+- [2:5]        uint32  NextDataTransferHandle
+- [6:9]        uint32  DataLengthBytes
+- [10:N+9]     uint8[] Data          (omitted for ACK)
+- [N+10:N+13]  uint32  CRC-32        (omitted for ACK)
+- 
+- Header = 10 bytes, then data + CRC if present.
+- ═══════════════════════════════════════════════════════════ */
+
+#define MULTIPART_RECV_RESP_HDR_SIZE  10u
+#define MULTIPART_RECV_CRC_SIZE        4u
+
+typedef struct {
+uint8_t  completion_code;
+uint8_t  transfer_flag;
+uint32_t next_handle;
+uint32_t data_length;       /* 0 for ACK_COMPLETION       */
+uint32_t crc;               /* cumulative CRC-32           */
+bool     has_data;          /* false → no data/CRC fields  */
+} multipart_recv_resp_t;
+
+/*
+
+- Build response header into buf.
+- Returns total header size written (always 10 for success, 1 for error).
+- 
+- Caller is responsible for:
+- 1. Copying data bytes into buf + 10
+- 1. Copying CRC into buf + 10 + data_length
+- 1. Setting total resp_len accordingly
+- 
+- This separation allows the caller to memcpy file data directly
+- into the response buffer without an intermediate copy.
+  */
+  static inline size_t multipart_recv_build_header(
+  const multipart_recv_resp_t *resp,
+  uint8_t *buf, size_t buf_size)
+  {
+  if (resp == NULL || buf == NULL) {
+  return 0u;
+  }
+  
+  if (resp->completion_code != PLDM_SUCCESS) {
+  buf[0] = resp->completion_code;
+  return 1u;
+  }
+  
+  if (buf_size < MULTIPART_RECV_RESP_HDR_SIZE) {
+  return 0u;
+  }
+  
+  buf[0] = resp->completion_code;
+  buf[1] = resp->transfer_flag;
+  memcpy(&buf[2], &resp->next_handle, sizeof(resp->next_handle));
+  memcpy(&buf[6], &resp->data_length, sizeof(resp->data_length));
+  
+  return MULTIPART_RECV_RESP_HDR_SIZE;
+  }
+
+/*
+
+- Append CRC-32 after data in response buffer.
+- Call after copying data into buf + header_size.
+  */
+  static inline void multipart_recv_append_crc(
+  uint8_t *buf, size_t data_offset, uint32_t data_length, uint32_t crc)
+  {
+  memcpy(&buf[data_offset + data_length], &crc, sizeof(crc));
+  }
+
+/*
+
+- Compute total response size including header, data, and CRC.
+  */
+  static inline size_t multipart_recv_resp_size(
+  const multipart_recv_resp_t *resp)
+  {
+  if (resp->completion_code != PLDM_SUCCESS) {
+  return 1u;
+  }
+  
+  size_t size = MULTIPART_RECV_RESP_HDR_SIZE;
+  if (resp->has_data && resp->data_length > 0u) {
+  size += resp->data_length + MULTIPART_RECV_CRC_SIZE;
+  }
+  return size;
+  }
+
+/* ═══════════════════════════════════════════════════════════
+
+- NegotiateTransferParameters  (DSP0240 §9.6.2)
+- 
+- Request (10 bytes):
+- [0:1]  uint16      RequesterPartSize
+- [2:9]  bitfield8[8] RequesterProtocolSupport
+- 
+- Response (11 bytes):
+- [0]    enum8       CompletionCode
+- [1:2]  uint16      ResponderPartSize
+- [3:10] bitfield8[8] ResponderProtocolSupport
+- ═══════════════════════════════════════════════════════════ */
+
+#define NEGOTIATE_TP_REQ_SIZE   10u
+#define NEGOTIATE_TP_RESP_SIZE  11u
+
+typedef struct {
+uint16_t part_size;
+uint8_t  protocol_support[8];
+} negotiate_tp_req_t;
+
+typedef struct {
+uint8_t  completion_code;
+uint16_t part_size;
+uint8_t  protocol_support[8];
+} negotiate_tp_resp_t;
+
+static inline int negotiate_tp_parse(const uint8_t *raw, size_t len,
+negotiate_tp_req_t *out)
+{
+if (raw == NULL || out == NULL || len < NEGOTIATE_TP_REQ_SIZE) {
+return -EINVAL;
+}
+
+```
+memcpy(&out->part_size, &raw[0], sizeof(out->part_size));
+memcpy(out->protocol_support, &raw[2], 8u);
+
+return 0;
+```
+
+}
+
+static inline size_t negotiate_tp_build(const negotiate_tp_resp_t *resp,
+uint8_t *buf, size_t buf_size)
+{
+if (resp == NULL || buf == NULL) {
+return 0u;
+}
+
+```
+if (resp->completion_code != PLDM_SUCCESS) {
+    buf[0] = resp->completion_code;
+    return 1u;
+}
+
+if (buf_size < NEGOTIATE_TP_RESP_SIZE) {
+    return 0u;
+}
+
+buf[0] = resp->completion_code;
+memcpy(&buf[1], &resp->part_size, sizeof(resp->part_size));
+memcpy(&buf[3], resp->protocol_support, 8u);
+
+return NEGOTIATE_TP_RESP_SIZE;
+```
+
+}
+
+/* ═══════════════════════════════════════════════════════════
+
+- PLDM TYPE BITFIELD HELPERS
+- 
+- Layout: 64 bits total, one bit per PLDM Type.
+- Type N → byte[N/8] bit[N%8]
+- ═══════════════════════════════════════════════════════════ */
+
+#define PLDM_TYPE_MAX   63u
+
+#define PLDM_TYPE_SUPPORTED(bf, type)   
+(((type) <= PLDM_TYPE_MAX) &&   
+(((bf)[(type) >> 3u] & (1u << ((type) & 7u))) != 0u))
+
+#define PLDM_TYPE_SET(bf, type)   
+do {   
+if ((type) <= PLDM_TYPE_MAX) {   
+(bf)[(type) >> 3u] |= (uint8_t)(1u << ((type) & 7u));   
+}   
+} while (0)
+
+#define PLDM_TYPE_CLEAR(bf, type)   
+do {   
+if ((type) <= PLDM_TYPE_MAX) {   
+(bf)[(type) >> 3u] &= (uint8_t)~(1u << ((type) & 7u));   
+}   
+} while (0)
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* PLDM_MULTIPART_H */
